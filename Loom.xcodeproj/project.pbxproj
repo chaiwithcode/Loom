@@ -24,6 +24,7 @@
 		A00000000000000000000081 /* MenuBarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* MenuBarRootView.swift */; };
 		A00000000000000000000082 /* ProviderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ProviderSectionView.swift */; };
 		A00000000000000000000083 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* SessionRowView.swift */; };
+		A00000000000000000000084 /* LoomIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002F /* LoomIcon.swift */; };
 		A00000000000000000000088 /* SessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002B /* SessionStoreTests.swift */; };
 		A00000000000000000000090 /* LoomCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; };
 		A00000000000000000000091 /* LoomCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -66,6 +67,7 @@
 		A00000000000000000000021 /* MenuBarRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarRootView.swift; sourceTree = "<group>"; };
 		A00000000000000000000022 /* ProviderSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSectionView.swift; sourceTree = "<group>"; };
 		A00000000000000000000023 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
+		A0000000000000000000002F /* LoomIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomIcon.swift; sourceTree = "<group>"; };
 		A00000000000000000000024 /* AgentState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentState.swift; sourceTree = "<group>"; };
 		A00000000000000000000025 /* AgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSession.swift; sourceTree = "<group>"; };
 		A00000000000000000000026 /* ProviderID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderID.swift; sourceTree = "<group>"; };
@@ -165,6 +167,7 @@
 				A00000000000000000000021 /* MenuBarRootView.swift */,
 				A00000000000000000000022 /* ProviderSectionView.swift */,
 				A00000000000000000000023 /* SessionRowView.swift */,
+				A0000000000000000000002F /* LoomIcon.swift */,
 			);
 			path = MenuBar;
 			sourceTree = "<group>";
@@ -387,6 +390,7 @@
 				A00000000000000000000081 /* MenuBarRootView.swift in Sources */,
 				A00000000000000000000082 /* ProviderSectionView.swift in Sources */,
 				A00000000000000000000083 /* SessionRowView.swift in Sources */,
+				A00000000000000000000084 /* LoomIcon.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

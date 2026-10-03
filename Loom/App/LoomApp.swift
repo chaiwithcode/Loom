@@ -12,8 +12,10 @@ struct LoomApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("Loom", systemImage: "circle.grid.2x2.fill") {
+        MenuBarExtra {
             MenuBarRootView(store: store)
+        } label: {
+            Image(nsImage: LoomIcon.menuBarImage)
         }
         .menuBarExtraStyle(.window)
     }

@@ -58,9 +58,7 @@ private struct MenuBarHeaderView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            Image(systemName: "circle.grid.2x2.fill")
-                .font(.headline)
-                .foregroundStyle(.tint)
+            LoomIconView(size: 20)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {
