@@ -14,6 +14,12 @@
 		A00000000000000000000074 /* AgentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000028 /* AgentProvider.swift */; };
 		A00000000000000000000075 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000029 /* SessionStore.swift */; };
 		A00000000000000000000076 /* MockAgentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002A /* MockAgentProvider.swift */; };
+		A000000000000000000000A1 /* CodexProcessInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C1 /* CodexProcessInspector.swift */; };
+		A000000000000000000000A2 /* CodexParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C2 /* CodexParser.swift */; };
+		A000000000000000000000A3 /* GitRepositoryResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C3 /* GitRepositoryResolver.swift */; };
+		A000000000000000000000A4 /* DefaultCodexProcessDiscoverer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */; };
+		A000000000000000000000A5 /* CodexProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C5 /* CodexProvider.swift */; };
+		A000000000000000000000A6 /* CodexProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C6 /* CodexProviderTests.swift */; };
 		A00000000000000000000080 /* LoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* LoomApp.swift */; };
 		A00000000000000000000081 /* MenuBarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* MenuBarRootView.swift */; };
 		A00000000000000000000082 /* ProviderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ProviderSectionView.swift */; };
@@ -67,6 +73,12 @@
 		A00000000000000000000028 /* AgentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProvider.swift; sourceTree = "<group>"; };
 		A00000000000000000000029 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		A0000000000000000000002A /* MockAgentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAgentProvider.swift; sourceTree = "<group>"; };
+		A000000000000000000000C1 /* CodexProcessInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProcessInspector.swift; sourceTree = "<group>"; };
+		A000000000000000000000C2 /* CodexParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexParser.swift; sourceTree = "<group>"; };
+		A000000000000000000000C3 /* GitRepositoryResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitRepositoryResolver.swift; sourceTree = "<group>"; };
+		A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultCodexProcessDiscoverer.swift; sourceTree = "<group>"; };
+		A000000000000000000000C5 /* CodexProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProvider.swift; sourceTree = "<group>"; };
+		A000000000000000000000C6 /* CodexProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProviderTests.swift; sourceTree = "<group>"; };
 		A0000000000000000000002B /* SessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStoreTests.swift; sourceTree = "<group>"; };
 		A00000000000000000000030 /* LoomCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LoomCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000031 /* Loom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Loom.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -197,9 +209,22 @@
 		A00000000000000000000018 /* Providers */ = {
 			isa = PBXGroup;
 			children = (
+				A000000000000000000000D0 /* Codex */,
 				A00000000000000000000019 /* Mock */,
 			);
 			path = Providers;
+			sourceTree = "<group>";
+		};
+		A000000000000000000000D0 /* Codex */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000C1 /* CodexProcessInspector.swift */,
+				A000000000000000000000C2 /* CodexParser.swift */,
+				A000000000000000000000C3 /* GitRepositoryResolver.swift */,
+				A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */,
+				A000000000000000000000C5 /* CodexProvider.swift */,
+			);
+			path = Codex;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000019 /* Mock */ = {
@@ -222,6 +247,7 @@
 			isa = PBXGroup;
 			children = (
 				A0000000000000000000002B /* SessionStoreTests.swift */,
+				A000000000000000000000C6 /* CodexProviderTests.swift */,
 			);
 			path = LoomCoreTests;
 			sourceTree = "<group>";
@@ -345,6 +371,11 @@
 				A00000000000000000000074 /* AgentProvider.swift in Sources */,
 				A00000000000000000000075 /* SessionStore.swift in Sources */,
 				A00000000000000000000076 /* MockAgentProvider.swift in Sources */,
+				A000000000000000000000A1 /* CodexProcessInspector.swift in Sources */,
+				A000000000000000000000A2 /* CodexParser.swift in Sources */,
+				A000000000000000000000A3 /* GitRepositoryResolver.swift in Sources */,
+				A000000000000000000000A4 /* DefaultCodexProcessDiscoverer.swift in Sources */,
+				A000000000000000000000A5 /* CodexProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -364,6 +395,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000088 /* SessionStoreTests.swift in Sources */,
+				A000000000000000000000A6 /* CodexProviderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

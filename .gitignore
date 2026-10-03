@@ -10,3 +10,5 @@ backups/
 *.bak
 __pycache__/
 *.pyc
+.vscode/
+

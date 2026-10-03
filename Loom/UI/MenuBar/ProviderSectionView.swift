@@ -74,11 +74,17 @@ public struct ProviderSectionView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
             } else if snapshot.sessions.isEmpty {
-                Text("No active sessions")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 4)
-                    .padding(.horizontal, 8)
+                HStack(spacing: 6) {
+                    Circle()
+                        .strokeBorder(Color.secondary, lineWidth: 1.5)
+                        .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
+                    Text("Idle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
             } else {
                 VStack(spacing: 6) {
                     ForEach(snapshot.sessions) { session in

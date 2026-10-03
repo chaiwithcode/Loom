@@ -233,6 +233,7 @@ extension MockAgentProvider {
 
 public enum DemoFixture: Sendable, Equatable {
     case standard
+    case mock
     case empty
     case failure
 
@@ -243,12 +244,19 @@ public enum DemoFixture: Sendable, Equatable {
         if arguments.contains("--demo-failure") {
             return .failure
         }
+        if arguments.contains("--demo-mock") {
+            return .mock
+        }
         return .standard
     }
 
     public func makeProviders() -> [any AgentProvider] {
         switch self {
         case .standard:
+            let codex = CodexProvider()
+            let mocks = MockAgentProvider.createDefaultProviders().filter { $0.id != .codex }
+            return [codex] + mocks
+        case .mock:
             return MockAgentProvider.createDefaultProviders()
         case .empty:
             return MockAgentProvider.createEmptyProviders()
@@ -257,3 +265,4 @@ public enum DemoFixture: Sendable, Equatable {
         }
     }
 }
+
