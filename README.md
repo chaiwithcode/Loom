@@ -35,16 +35,40 @@ Loom is read-only in V0. It does not approve commands, inject prompts, or modify
 - macOS 14.0 or newer
 - Swift 5.9+ / Xcode 15+ toolchain
 
-### Build & Test
+### Xcode Project
+Open the native Xcode project:
+```bash
+open Loom.xcodeproj
+```
+1. Select the **Loom** scheme and destination **My Mac**.
+2. **Build / Run** (`⌘R`): compiles `LoomCore.framework`, embeds it into `Loom.app`, and runs the menu bar app.
+3. **Test** (`⌘U`): executes the `LoomCoreTests` unit test suite.
+
+#### Command-line Verification (xcodebuild)
+```bash
+# Build Debug
+xcodebuild build -project Loom.xcodeproj -scheme Loom -destination 'platform=macOS'
+
+# Run unit tests
+xcodebuild test -project Loom.xcodeproj -scheme Loom -destination 'platform=macOS'
+
+# Build Release
+xcodebuild build -project Loom.xcodeproj -scheme Loom -configuration Release -destination 'platform=macOS'
+```
+
+### Swift Package Manager (CLI)
 ```bash
 # Build the LoomCore library and Loom executable
 swift build
 
 # Run unit tests
 swift test
+
+# Run with strict concurrency check
+swift test -Xswiftc -strict-concurrency=complete
 ```
 
-### Running Loom
+### Running Loom (SPM)
 ```bash
 # Run with default mock provider data (covers all 6 normalized states)
 swift run Loom
@@ -87,4 +111,4 @@ open .build/Loom.app
 
 ## Development
 
-Open the project in Xcode (`open Package.swift`) or develop using `swift build`. See `AGENTS.md` and `docs/PRODUCT.md` before changing scope.
+Open the project in Xcode (`open Loom.xcodeproj` or `open Package.swift`) or develop using `swift build`. See `AGENTS.md` and `docs/PRODUCT.md` before changing scope.
