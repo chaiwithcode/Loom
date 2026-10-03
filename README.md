@@ -111,4 +111,4 @@ open .build/Loom.app
 
 ## Development
 
-Open the project in Xcode (`open Loom.xcodeproj` or `open Package.swift`) or develop using `swift build`. See `AGENTS.md` and `docs/PRODUCT.md` before changing scope.
+Open the project in Xcode (`open Loom.xcodeproj` or `open Package.swift`) or develop using `swift build`. See `AGENTS.md` and `docs/PRODUCT.md` before changing scope. For offloading heavy tasks, inspection, and visual checks with concise reporting, see [Antigravity Workflow](docs/ANTIGRAVITY_WORKFLOW.md).

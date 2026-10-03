@@ -8,3 +8,5 @@ xcuserdata/
 .env*
 backups/
 *.bak
+__pycache__/
+*.pyc
