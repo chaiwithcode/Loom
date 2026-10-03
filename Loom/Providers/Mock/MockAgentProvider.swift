@@ -254,8 +254,12 @@ public enum DemoFixture: Sendable, Equatable {
         switch self {
         case .standard:
             let codex = CodexProvider()
-            let mocks = MockAgentProvider.createDefaultProviders().filter { $0.id != .codex }
-            return [codex] + mocks
+            let antigravity = AntigravityProvider()
+            if let claudeMock = MockAgentProvider.createDefaultProviders().first(where: { $0.id == .claude }) {
+                return [codex, claudeMock, antigravity]
+            } else {
+                return [codex, antigravity]
+            }
         case .mock:
             return MockAgentProvider.createDefaultProviders()
         case .empty:

@@ -20,6 +20,12 @@
 		A000000000000000000000A4 /* DefaultCodexProcessDiscoverer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */; };
 		A000000000000000000000A5 /* CodexProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C5 /* CodexProvider.swift */; };
 		A000000000000000000000A6 /* CodexProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C6 /* CodexProviderTests.swift */; };
+		A000000000000000000000B1 /* AntigravityProcessInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E1 /* AntigravityProcessInspector.swift */; };
+		A000000000000000000000B2 /* AntigravityParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E2 /* AntigravityParser.swift */; };
+		A000000000000000000000B3 /* DefaultAntigravityProcessDiscoverer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */; };
+		A000000000000000000000B4 /* DefaultAntigravityStoreInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E4 /* DefaultAntigravityStoreInspector.swift */; };
+		A000000000000000000000B5 /* AntigravityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E5 /* AntigravityProvider.swift */; };
+		A000000000000000000000B6 /* AntigravityProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E6 /* AntigravityProviderTests.swift */; };
 		A00000000000000000000080 /* LoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* LoomApp.swift */; };
 		A00000000000000000000081 /* MenuBarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* MenuBarRootView.swift */; };
 		A00000000000000000000082 /* ProviderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ProviderSectionView.swift */; };
@@ -81,6 +87,12 @@
 		A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultCodexProcessDiscoverer.swift; sourceTree = "<group>"; };
 		A000000000000000000000C5 /* CodexProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProvider.swift; sourceTree = "<group>"; };
 		A000000000000000000000C6 /* CodexProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProviderTests.swift; sourceTree = "<group>"; };
+		A000000000000000000000E1 /* AntigravityProcessInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityProcessInspector.swift; sourceTree = "<group>"; };
+		A000000000000000000000E2 /* AntigravityParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityParser.swift; sourceTree = "<group>"; };
+		A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultAntigravityProcessDiscoverer.swift; sourceTree = "<group>"; };
+		A000000000000000000000E4 /* DefaultAntigravityStoreInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultAntigravityStoreInspector.swift; sourceTree = "<group>"; };
+		A000000000000000000000E5 /* AntigravityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityProvider.swift; sourceTree = "<group>"; };
+		A000000000000000000000E6 /* AntigravityProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityProviderTests.swift; sourceTree = "<group>"; };
 		A0000000000000000000002B /* SessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStoreTests.swift; sourceTree = "<group>"; };
 		A00000000000000000000030 /* LoomCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LoomCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000031 /* Loom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Loom.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -212,10 +224,23 @@
 		A00000000000000000000018 /* Providers */ = {
 			isa = PBXGroup;
 			children = (
+				A000000000000000000000E0 /* Antigravity */,
 				A000000000000000000000D0 /* Codex */,
 				A00000000000000000000019 /* Mock */,
 			);
 			path = Providers;
+			sourceTree = "<group>";
+		};
+		A000000000000000000000E0 /* Antigravity */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000E1 /* AntigravityProcessInspector.swift */,
+				A000000000000000000000E2 /* AntigravityParser.swift */,
+				A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */,
+				A000000000000000000000E4 /* DefaultAntigravityStoreInspector.swift */,
+				A000000000000000000000E5 /* AntigravityProvider.swift */,
+			);
+			path = Antigravity;
 			sourceTree = "<group>";
 		};
 		A000000000000000000000D0 /* Codex */ = {
@@ -251,6 +276,7 @@
 			children = (
 				A0000000000000000000002B /* SessionStoreTests.swift */,
 				A000000000000000000000C6 /* CodexProviderTests.swift */,
+				A000000000000000000000E6 /* AntigravityProviderTests.swift */,
 			);
 			path = LoomCoreTests;
 			sourceTree = "<group>";
@@ -379,6 +405,11 @@
 				A000000000000000000000A3 /* GitRepositoryResolver.swift in Sources */,
 				A000000000000000000000A4 /* DefaultCodexProcessDiscoverer.swift in Sources */,
 				A000000000000000000000A5 /* CodexProvider.swift in Sources */,
+				A000000000000000000000B1 /* AntigravityProcessInspector.swift in Sources */,
+				A000000000000000000000B2 /* AntigravityParser.swift in Sources */,
+				A000000000000000000000B3 /* DefaultAntigravityProcessDiscoverer.swift in Sources */,
+				A000000000000000000000B4 /* DefaultAntigravityStoreInspector.swift in Sources */,
+				A000000000000000000000B5 /* AntigravityProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -400,6 +431,7 @@
 			files = (
 				A00000000000000000000088 /* SessionStoreTests.swift in Sources */,
 				A000000000000000000000A6 /* CodexProviderTests.swift in Sources */,
+				A000000000000000000000B6 /* AntigravityProviderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

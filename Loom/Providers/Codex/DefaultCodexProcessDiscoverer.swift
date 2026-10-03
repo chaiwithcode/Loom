@@ -19,9 +19,8 @@ public final class DefaultProcessExecutor: ProcessExecuting, Sendable {
             process.standardError = stderrPipe
 
             try process.run()
-            process.waitUntilExit()
-
             let data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             guard let output = String(data: data, encoding: .utf8) else {
                 return ""
             }
