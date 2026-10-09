@@ -1,22 +1,49 @@
 import SwiftUI
+import AppKit
 import LoomCore
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        DockController.shared.updateActivationPolicy()
+    }
+
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        DockController.shared.buildDockMenu()
+    }
+}
 
 @main
 struct LoomApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store: SessionStore
+    @State private var settings = LoomSettings()
 
     init() {
         let fixture = DemoFixture.resolve()
         let providers = fixture.makeProviders()
-        _store = State(initialValue: SessionStore(providers: providers))
+        let initialSettings = LoomSettings()
+        let initialStore = SessionStore(providers: providers, fixture: fixture)
+        initialStore.startPeriodicRefresh(interval: TimeInterval(initialSettings.refreshIntervalSeconds))
+        _store = State(initialValue: initialStore)
+        _settings = State(initialValue: initialSettings)
+
+        DockController.shared.configure(settings: initialSettings) { [weak initialStore] in
+            Task { @MainActor in
+                await initialStore?.refresh()
+            }
+        }
     }
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarRootView(store: store)
+            MenuBarRootView(store: store, settings: settings)
         } label: {
             Image(nsImage: LoomIcon.menuBarImage)
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            SettingsView(settings: settings, store: store)
+        }
     }
 }

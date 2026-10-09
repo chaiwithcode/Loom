@@ -45,17 +45,11 @@ public final class DefaultCodexProcessDiscoverer: CodexProcessDiscovering, Senda
     }
 
     public func findRunningProcesses() async throws -> [CodexProcessInfo] {
-        // 1. Query running processes via /bin/ps
-        let psOutput: String
-        do {
-            psOutput = try await executor.execute(
-                executablePath: psPath,
-                arguments: ["-ax", "-o", "pid=,lstart=,command="]
-            )
-        } catch {
-            // If ps execution fails (e.g. permission or missing), return empty list rather than crashing
-            return []
-        }
+        // 1. Query running processes via /bin/ps; propagate actionable discovery errors
+        let psOutput = try await executor.execute(
+            executablePath: psPath,
+            arguments: ["-ax", "-o", "pid=,lstart=,command="]
+        )
 
         let parsedProcesses = CodexParser.parsePsOutput(psOutput)
         guard !parsedProcesses.isEmpty else {

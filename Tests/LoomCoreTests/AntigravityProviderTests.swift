@@ -279,7 +279,7 @@ final class AntigravityProviderTests: XCTestCase {
         XCTAssertEqual(session.branch, "main")
         XCTAssertEqual(session.state, AgentState.working)
         XCTAssertEqual(session.summary, "Refactor session discovery")
-        XCTAssertNotNil(session.startedAt)
+        XCTAssertNil(session.startedAt, "Antigravity has no true start timestamp field")
         XCTAssertNotNil(session.lastActivityAt)
     }
 
@@ -605,8 +605,181 @@ final class AntigravityProviderTests: XCTestCase {
         let sessions = try await provider.discoverSessions()
         for session in sessions {
             XCTAssertEqual(session.provider, ProviderID.antigravity)
-            XCTAssertEqual(session.state, AgentState.working)
+            XCTAssertTrue(session.state == .working || session.state == .idle || session.state == .unknown)
             XCTAssertNotNil(session.projectName)
+            XCTAssertNil(session.startedAt, "Discovered Antigravity sessions must have startedAt nil")
         }
+    }
+
+    // MARK: 5. Truthful State Mapping & Nil Timestamp Tests
+
+    func testAntigravityStateMappingTruthfulRules() {
+        // Explicit RUNNING -> .working
+        XCTAssertEqual(AntigravityParser.mapState(status: "CASCADE_RUN_STATUS_RUNNING", notFullyIdle: false), .working)
+        XCTAssertEqual(AntigravityParser.mapState(status: "CASCADE_RUN_STATUS_RUNNING", notFullyIdle: true), .working)
+
+        // Explicit IDLE -> .idle
+        XCTAssertEqual(AntigravityParser.mapState(status: "CASCADE_RUN_STATUS_IDLE", notFullyIdle: false), .idle)
+        XCTAssertEqual(AntigravityParser.mapState(status: "CASCADE_RUN_STATUS_IDLE", notFullyIdle: true), .idle)
+
+        // Ambiguous combinations / unknown states -> .unknown
+        // not_fully_idle alone is ambiguous and must NOT imply Working
+        XCTAssertEqual(AntigravityParser.mapState(status: "CASCADE_RUN_STATUS_UNKNOWN", notFullyIdle: true), .unknown)
+        XCTAssertEqual(AntigravityParser.mapState(status: "", notFullyIdle: true), .unknown)
+        XCTAssertEqual(AntigravityParser.mapState(status: "WAITING", notFullyIdle: true), .unknown)
+        XCTAssertEqual(AntigravityParser.mapState(status: "OTHER", notFullyIdle: false), .unknown)
+    }
+
+    func testAntigravityTimestampsNeverManufactured() async throws {
+        let processDiscoverer = MockAntigravityProcessDiscoverer(isRunning: true)
+        let storeInspector = MockAntigravityStoreInspector(records: [
+            AntigravitySessionRecord(
+                conversationId: "conv-timestamps",
+                title: "Timestamp Test",
+                workspaceURIsJSON: "[\"file:///Users/deepak/Desktop/Projects/oss/Loom\"]",
+                status: "CASCADE_RUN_STATUS_IDLE",
+                notFullyIdle: true,
+                killed: false,
+                lastUserInputTime: "2026-10-03 12:00:00.000000+00:00",
+                lastModifiedTime: "" // missing modified time
+            )
+        ])
+
+        let provider = AntigravityProvider(
+            processDiscoverer: processDiscoverer,
+            storeInspector: storeInspector,
+            gitResolver: DefaultGitRepositoryResolver(fileSystem: MockFileSystemForAntigravity(existingDirectories: [], fileContents: [:]))
+        )
+
+        let sessions = try await provider.discoverSessions()
+        XCTAssertEqual(sessions.count, 1)
+
+        let session = sessions[0]
+        XCTAssertNil(session.startedAt, "startedAt must be nil without true start field")
+        XCTAssertNil(session.lastActivityAt, "lastActivityAt must be nil when lastModifiedTime is empty (no Date() fallback)")
+        XCTAssertEqual(session.state, .idle)
+    }
+
+    func testDefaultAntigravityStoreInspectorPropagatesErrorsOnCorruptDatabase() async throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let corruptDBURL = tempDir.appendingPathComponent("corrupt.db")
+        try "NOT A VALID SQLITE DATABASE FILE".write(to: corruptDBURL, atomically: true, encoding: .utf8)
+
+        let inspector = DefaultAntigravityStoreInspector(databaseURL: corruptDBURL)
+        do {
+            _ = try await inspector.fetchActiveSessions()
+            XCTFail("Should throw error on corrupt database file")
+        } catch {
+            // Verify real error is propagated through
+            XCTAssertTrue(error is AntigravityStoreError || error.localizedDescription.contains("database") || error.localizedDescription.contains("prepare"))
+        }
+    }
+
+    func testDefaultAntigravityStoreInspectorWALVisibilityWithHeldOpenWriter() async throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let dbURL = tempDir.appendingPathComponent("conversation_summaries.db")
+
+        // 1. Open writer connection and configure WAL mode
+        var writeDb: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(dbURL.path, &writeDb), SQLITE_OK)
+        defer {
+            if let writeDb = writeDb {
+                sqlite3_close(writeDb)
+            }
+        }
+
+        XCTAssertEqual(sqlite3_exec(writeDb, "PRAGMA journal_mode=WAL;", nil, nil, nil), SQLITE_OK)
+
+        let schema = """
+        CREATE TABLE conversation_summaries (
+            conversation_id text PRIMARY KEY,
+            title text NOT NULL DEFAULT "",
+            workspace_uris text NOT NULL,
+            status text NOT NULL DEFAULT "",
+            not_fully_idle numeric NOT NULL DEFAULT false,
+            killed numeric NOT NULL DEFAULT false,
+            last_user_input_time datetime NOT NULL,
+            last_modified_time datetime NOT NULL
+        );
+        """
+        XCTAssertEqual(sqlite3_exec(writeDb, schema, nil, nil, nil), SQLITE_OK)
+
+        // 2. Insert initial committed record into WAL; writer remains held open (uncheckpointed WAL)
+        let insert1 = """
+        INSERT INTO conversation_summaries VALUES
+        ('conv-wal-1', 'Initial WAL task', '["file:///Users/deepak/Desktop/Projects/oss/Loom"]', 'CASCADE_RUN_STATUS_RUNNING', 1, 0, '2026-10-04 10:00:00.000000+00:00', '2026-10-04 10:10:00.000000+00:00');
+        """
+        XCTAssertEqual(sqlite3_exec(writeDb, insert1, nil, nil, nil), SQLITE_OK)
+
+        // 3. Reader inspects database while writer is still open
+        let inspector = DefaultAntigravityStoreInspector(databaseURL: dbURL)
+        let firstRefresh = try await inspector.fetchActiveSessions()
+        XCTAssertEqual(firstRefresh.count, 1)
+        XCTAssertEqual(firstRefresh[0].conversationId, "conv-wal-1")
+        XCTAssertEqual(firstRefresh[0].title, "Initial WAL task")
+        XCTAssertEqual(firstRefresh[0].status, "CASCADE_RUN_STATUS_RUNNING")
+
+        // 4. Writer modifies record in WAL and inserts a second record, still holding connection open
+        let updateAndInsert = """
+        UPDATE conversation_summaries SET title = 'Updated WAL task' WHERE conversation_id = 'conv-wal-1';
+        INSERT INTO conversation_summaries VALUES
+        ('conv-wal-2', 'Second WAL task', '["file:///Users/deepak/Desktop/Projects/oss/Other"]', 'CASCADE_RUN_STATUS_RUNNING', 1, 0, '2026-10-04 10:00:00.000000+00:00', '2026-10-04 10:15:00.000000+00:00');
+        """
+        XCTAssertEqual(sqlite3_exec(writeDb, updateAndInsert, nil, nil, nil), SQLITE_OK)
+
+        // 5. Subsequent reader refresh must observe latest committed WAL state
+        let secondRefresh = try await inspector.fetchActiveSessions()
+        XCTAssertEqual(secondRefresh.count, 2)
+        let wal1 = secondRefresh.first(where: { $0.conversationId == "conv-wal-1" })
+        let wal2 = secondRefresh.first(where: { $0.conversationId == "conv-wal-2" })
+        XCTAssertEqual(wal1?.title, "Updated WAL task", "Reader must observe updated state from uncheckpointed WAL")
+        XCTAssertEqual(wal2?.title, "Second WAL task", "Reader must observe newly committed row in uncheckpointed WAL")
+    }
+
+    func testDefaultAntigravityStoreInspectorPropagatesPrepareAndStepErrors() async throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        // 1. Prepare failure test: valid SQLite database but missing conversation_summaries table
+        let missingTableDBURL = tempDir.appendingPathComponent("wrong_schema.db")
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(missingTableDBURL.path, &db), SQLITE_OK)
+        XCTAssertEqual(sqlite3_exec(db, "CREATE TABLE unrelated_table (id INT);", nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+
+        let inspector = DefaultAntigravityStoreInspector(databaseURL: missingTableDBURL)
+        do {
+            _ = try await inspector.fetchActiveSessions()
+            XCTFail("Should throw queryPrepareFailed when table is missing")
+        } catch let AntigravityStoreError.queryPrepareFailed(code, message) {
+            XCTAssertEqual(code, 1) // SQLITE_ERROR
+            XCTAssertTrue(message.contains("no such table: conversation_summaries"))
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
+
+        // 2. Error descriptions & Step failure enum check
+        let openErr = AntigravityStoreError.databaseOpenFailed(code: 14, message: "cannot open")
+        XCTAssertEqual(openErr.errorDescription, "Failed to open Antigravity database (code: 14): cannot open")
+
+        let prepErr = AntigravityStoreError.queryPrepareFailed(code: 1, message: "syntax error")
+        XCTAssertEqual(prepErr.errorDescription, "Failed to prepare query on Antigravity database (code: 1): syntax error")
+
+        let stepErr = AntigravityStoreError.queryStepFailed(code: 11, message: "database disk image is malformed")
+        XCTAssertEqual(stepErr.errorDescription, "Failed to execute query step on Antigravity database (code: 11): database disk image is malformed")
+        XCTAssertEqual(stepErr, AntigravityStoreError.queryStepFailed(code: 11, message: "database disk image is malformed"))
     }
 }

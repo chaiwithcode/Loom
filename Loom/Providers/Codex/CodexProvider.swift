@@ -6,18 +6,25 @@ public final class CodexProvider: AgentProvider, Sendable {
 
     private let processDiscoverer: any CodexProcessDiscovering
     private let gitResolver: any GitRepositoryResolving
+    private let usageFetcher: any CodexUsageFetching
 
     public init(
         processDiscoverer: any CodexProcessDiscovering = DefaultCodexProcessDiscoverer(),
-        gitResolver: any GitRepositoryResolving = DefaultGitRepositoryResolver()
+        gitResolver: any GitRepositoryResolving = DefaultGitRepositoryResolver(),
+        usageFetcher: any CodexUsageFetching = DefaultCodexUsageFetcher()
     ) {
         self.processDiscoverer = processDiscoverer
         self.gitResolver = gitResolver
+        self.usageFetcher = usageFetcher
     }
 
     public func availability() async -> ProviderAvailability {
         // As long as the provider can run process discovery, it is available.
         return .available
+    }
+
+    public func fetchUsage() async throws -> ProviderUsageSnapshot? {
+        return try await usageFetcher.fetchUsage()
     }
 
     public func discoverSessions() async throws -> [AgentSession] {
@@ -29,17 +36,26 @@ public final class CodexProvider: AgentProvider, Sendable {
         var sessions: [AgentSession] = []
 
         for process in processes {
+            // Determine effective working directory: fallback to extracted workspace if cwd is nil or root '/'
+            var effectiveDir = process.workingDirectory
+            if effectiveDir == nil || effectiveDir?.path == "/" {
+                if let detected = CodexParser.extractWorkspaceDirectory(from: process.command) {
+                    effectiveDir = detected
+                }
+            }
+
             var projectName: String? = nil
             var projectPath: URL? = nil
             var branch: String? = nil
 
-            if let cwd = process.workingDirectory {
+            if let cwd = effectiveDir, cwd.path != "/" {
                 if let gitInfo = await gitResolver.resolveRepository(for: cwd) {
                     projectName = gitInfo.projectName
                     projectPath = gitInfo.rootURL
                     branch = gitInfo.branch
                 } else {
-                    projectName = cwd.lastPathComponent.isEmpty ? cwd.path : cwd.lastPathComponent
+                    let name = cwd.lastPathComponent
+                    projectName = name.isEmpty ? "Codex Session" : name
                     projectPath = cwd
                     branch = nil
                 }
@@ -54,11 +70,12 @@ public final class CodexProvider: AgentProvider, Sendable {
                 provider: .codex,
                 projectName: projectName,
                 projectPath: projectPath,
-                state: .working,
+                state: .unknown,
                 startedAt: process.startedAt,
-                lastActivityAt: process.startedAt ?? Date(),
+                lastActivityAt: nil,
                 branch: branch,
-                summary: "Active Codex session (PID \(process.pid))"
+                summary: nil,
+                pid: Int(process.pid)
             )
             sessions.append(session)
         }

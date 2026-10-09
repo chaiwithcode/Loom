@@ -22,6 +22,7 @@ public final class MockAgentProvider: AgentProvider, Sendable {
     private struct State: Sendable {
         var availability: ProviderAvailability
         var sessions: [AgentSession]
+        var usage: ProviderUsageSnapshot?
         var error: (any Error)?
         var delayNanoseconds: UInt64
         var discoverCallCount: Int = 0
@@ -34,6 +35,7 @@ public final class MockAgentProvider: AgentProvider, Sendable {
         displayName: String,
         availability: ProviderAvailability = .available,
         sessions: [AgentSession] = [],
+        usage: ProviderUsageSnapshot? = nil,
         error: (any Error)? = nil,
         delayNanoseconds: UInt64 = 0
     ) {
@@ -42,6 +44,7 @@ public final class MockAgentProvider: AgentProvider, Sendable {
         self.stateLock = OSAllocatedUnfairLock(initialState: State(
             availability: availability,
             sessions: sessions,
+            usage: usage,
             error: error,
             delayNanoseconds: delayNanoseconds,
             discoverCallCount: 0
@@ -91,6 +94,21 @@ public final class MockAgentProvider: AgentProvider, Sendable {
         }
         return sessions
     }
+
+    public func setUsage(_ usage: ProviderUsageSnapshot?) {
+        stateLock.withLock { $0.usage = usage }
+    }
+
+    public func fetchUsage() async throws -> ProviderUsageSnapshot? {
+        let (delay, err, usage) = stateLock.withLock { ($0.delayNanoseconds, $0.error, $0.usage) }
+        if delay > 0 {
+            try? await Task.sleep(nanoseconds: delay)
+        }
+        if let err {
+            throw err
+        }
+        return usage
+    }
 }
 
 extension MockAgentProvider {
@@ -121,11 +139,35 @@ extension MockAgentProvider {
             )
         ]
 
+        let codexUsage = ProviderUsageSnapshot(
+            providerID: .codex,
+            updatedAt: referenceDate,
+            planType: "plus",
+            primaryBucket: UsageBucket(
+                identifier: "codex-primary",
+                label: "5h Window",
+                usedFraction: 0.08,
+                resetsAt: referenceDate.addingTimeInterval(14400),
+                windowDurationMins: 300
+            ),
+            secondaryBucket: UsageBucket(
+                identifier: "codex-secondary",
+                label: "Weekly Window",
+                usedFraction: 0.33,
+                resetsAt: referenceDate.addingTimeInterval(518400),
+                windowDurationMins: 10080
+            ),
+            additionalGroups: [],
+            isStale: false,
+            errorMessage: nil
+        )
+
         let codex = MockAgentProvider(
             id: .codex,
             displayName: "Codex (Mock)",
             availability: .available,
-            sessions: codexSessions
+            sessions: codexSessions,
+            usage: codexUsage
         )
 
         // Claude mock: .waiting and .failed
@@ -187,11 +229,49 @@ extension MockAgentProvider {
             )
         ]
 
+        let antigravityUsage = ProviderUsageSnapshot(
+            providerID: .antigravity,
+            updatedAt: referenceDate,
+            planType: nil,
+            primaryBucket: UsageBucket(
+                identifier: "gemini-5h",
+                label: "Gemini 5h",
+                usedFraction: 0.15,
+                resetsAt: referenceDate.addingTimeInterval(8820),
+                windowDurationMins: 300
+            ),
+            secondaryBucket: UsageBucket(
+                identifier: "gemini-weekly",
+                label: "Gemini Weekly",
+                usedFraction: 0.13,
+                resetsAt: referenceDate.addingTimeInterval(518400),
+                windowDurationMins: 10080
+            ),
+            additionalGroups: [
+                UsageGroup(
+                    identifier: "claude-and-gpt",
+                    label: "Claude & GPT",
+                    buckets: [
+                        UsageBucket(
+                            identifier: "3p-5h",
+                            label: "3P 5h",
+                            usedFraction: 0.0,
+                            resetsAt: referenceDate.addingTimeInterval(14400),
+                            windowDurationMins: 300
+                        )
+                    ]
+                )
+            ],
+            isStale: false,
+            errorMessage: nil
+        )
+
         let antigravity = MockAgentProvider(
             id: .antigravity,
             displayName: "Antigravity (Mock)",
             availability: .available,
-            sessions: antigravitySessions
+            sessions: antigravitySessions,
+            usage: antigravityUsage
         )
 
         return [codex, claude, antigravity]
@@ -237,6 +317,23 @@ public enum DemoFixture: Sendable, Equatable {
     case empty
     case failure
 
+    public var isDemo: Bool {
+        self != .standard
+    }
+
+    public var badgeLabel: String? {
+        switch self {
+        case .standard:
+            return nil
+        case .mock:
+            return "DEMO"
+        case .empty:
+            return "DEMO EMPTY"
+        case .failure:
+            return "DEMO FAIL"
+        }
+    }
+
     public static func resolve(from arguments: [String] = ProcessInfo.processInfo.arguments) -> DemoFixture {
         if arguments.contains("--demo-empty") {
             return .empty
@@ -253,13 +350,7 @@ public enum DemoFixture: Sendable, Equatable {
     public func makeProviders() -> [any AgentProvider] {
         switch self {
         case .standard:
-            let codex = CodexProvider()
-            let antigravity = AntigravityProvider()
-            if let claudeMock = MockAgentProvider.createDefaultProviders().first(where: { $0.id == .claude }) {
-                return [codex, claudeMock, antigravity]
-            } else {
-                return [codex, antigravity]
-            }
+            return [CodexProvider(), AntigravityProvider()]
         case .mock:
             return MockAgentProvider.createDefaultProviders()
         case .empty:

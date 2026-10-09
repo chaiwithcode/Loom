@@ -1,15 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-  <!-- 3 Agent Nodes (Codex, Claude, Antigravity) -->
-  <rect x="2.5" y="3.5" width="4" height="4" rx="1.2" />
-  <rect x="2.5" y="10" width="4" height="4" rx="1.2" />
-  <rect x="2.5" y="16.5" width="4" height="4" rx="1.2" />
-  <line x1="4.5" y1="7.5" x2="4.5" y2="10" />
-  <line x1="4.5" y1="14" x2="4.5" y2="16.5" />
-  <!-- Loom Central Gathering Wheel -->
-  <circle cx="16" cy="12" r="5.5" />
-  <circle cx="16" cy="12" r="2" />
-  <!-- Converging Threads -->
-  <line x1="6.5" y1="5.5" x2="11.5" y2="8.5" />
-  <line x1="6.5" y1="12" x2="10.5" y2="12" />
-  <line x1="6.5" y1="18.5" x2="11.5" y2="15.5" />
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <mask id="underpass" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="white"/>
+      <path d="M 9 10.7 C 10.7 12 13 13.5 14.7 15.1" fill="none" stroke="black" stroke-width="5.3" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <g fill="none" stroke="black" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+    <g mask="url(#underpass)">
+      <path d="M 12 2.8 L 12 10.5"/>
+      <path d="M 17 4.2 L 17 8 C 17 9.8 15.3 10.6 13.4 11.9 C 10.2 14 7.1 16.2 6.9 19.8"/>
+    </g>
+    <path d="M 7 4.2 L 7 8 C 7 9.8 8.7 10.6 10.6 11.9 C 13.8 14 16.9 16.2 17.1 19.8"/>
+  </g>
+  <path fill="black" fill-rule="evenodd" d="M 22 17.45 A 10 4.55 0 1 0 2 17.45 A 10 4.55 0 1 0 22 17.45 Z M 20 16.6 A 8 2.5 0 1 0 4 16.6 A 8 2.5 0 1 0 20 16.6 Z"/>
 </svg>

@@ -3,97 +3,184 @@ import LoomCore
 
 public struct ProviderSectionView: View {
     public let snapshot: ProviderSnapshot
+    public let showsSessions: Bool
+    public let showsUsage: Bool
+    public let expandedSessionIds: Set<String>
+    @State private var isShowingAdditionalQuotas = false
 
-    public init(snapshot: ProviderSnapshot) {
+    public init(snapshot: ProviderSnapshot, showsSessions: Bool = true, showsUsage: Bool = true, expandedSessionIds: Set<String> = []) {
         self.snapshot = snapshot
+        self.showsSessions = showsSessions
+        self.showsUsage = showsUsage
+        self.expandedSessionIds = expandedSessionIds
+    }
+
+    private var status: (label: String, color: Color) {
+        if snapshot.isRefreshing || snapshot.availability == .unknown { return ("Checking", .secondary) }
+        if snapshot.errorMessage != nil { return ("Error", .red) }
+        if snapshot.availability.isAvailable { return ("Available", .green) }
+        return ("Unavailable", .orange)
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Provider header
-            HStack(alignment: .center, spacing: 6) {
-                Text(snapshot.displayName)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 12) {
+            providerHeader
 
-                if snapshot.isRefreshing && snapshot.availability != .unknown {
-                    ProgressView()
-                        .controlSize(.mini)
-                } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil {
-                    Text("\(snapshot.sessions.count)")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.2), in: Capsule())
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-
-            // Provider content
-            if snapshot.availability == .unknown {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .controlSize(.mini)
-                    Text("Checking provider...")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else if !snapshot.availability.isAvailable {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .font(.caption)
-                    Text(snapshot.availability.unavailabilityReason ?? "Provider unavailable")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
-            } else if let error = snapshot.errorMessage {
-                HStack(spacing: 6) {
-                    Image(systemName: "xmark.octagon.fill")
-                        .foregroundStyle(.red)
-                        .font(.caption)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
-            } else if snapshot.sessions.isEmpty {
-                HStack(spacing: 6) {
-                    Circle()
-                        .strokeBorder(Color.secondary, lineWidth: 1.5)
-                        .frame(width: 8, height: 8)
-                        .accessibilityHidden(true)
-                    Text("Idle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-            } else {
-                VStack(spacing: 6) {
-                    ForEach(snapshot.sessions) { session in
-                        SessionRowView(session: session)
+            if showsUsage {
+                if let usage = snapshot.usage {
+                    primaryQuotas(usage)
+                    if let error = usage.errorMessage ?? snapshot.usageErrorMessage, !error.isEmpty {
+                        notice(error, symbol: "exclamationmark.triangle", color: .orange)
                     }
+                } else if let error = snapshot.usageErrorMessage, !error.isEmpty {
+                    notice("Quota unavailable: \(error)", symbol: "gauge.with.dots.needle.bottom.50percent", color: .orange)
+                } else if snapshot.availability.isAvailable && !snapshot.isRefreshing {
+                    Text("No quota data available")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                 }
+            }
+
+            if let error = snapshot.errorMessage, !error.isEmpty {
+                notice(error, symbol: "exclamationmark.triangle", color: .red)
+            } else if let reason = snapshot.availability.unavailabilityReason {
+                notice(reason, symbol: "exclamationmark.triangle", color: .orange)
+            }
+
+            // Render any sessions supplied by the snapshot alongside provider notices.
+            if showsSessions {
+                if !snapshot.sessions.isEmpty {
+                    if showsUsage && snapshot.usage != nil { Divider() }
+                    Text("Recent sessions")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    VStack(spacing: 8) {
+                        ForEach(snapshot.sessions) { session in
+                            SessionRowView(session: session, isExpanded: expandedSessionIds.contains(session.id))
+                        }
+                    }
+                } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil && !snapshot.isRefreshing {
+                    Text("No recent sessions")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 2)
+                }
+            }
+
+            if showsUsage, let usage = snapshot.usage, !usage.additionalGroups.isEmpty {
+                Divider()
+                DisclosureGroup(isExpanded: $isShowingAdditionalQuotas) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(usage.additionalGroups) { group in
+                            Text(group.label)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            ForEach(group.buckets) { bucket in
+                                quotaCard(bucket, usage: usage)
+                            }
+                        }
+                    }
+                    .padding(.top, 10)
+                } label: {
+                    Text("More model limits")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.primary)
+                }
+                .tint(.secondary)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(snapshot.displayName) section")
+    }
+
+    private var providerHeader: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                providerTitle.fixedSize()
+                statusBadge.fixedSize()
+                Spacer(minLength: 4)
+                planBadge
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    providerTitle
+                    Spacer(minLength: 4)
+                    planBadge
+                }
+                statusBadge
+            }
+        }
+    }
+
+    private var providerTitle: some View {
+        Text(snapshot.displayName)
+            .font(.system(size: 18, weight: .semibold))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var statusBadge: some View {
+        HStack(spacing: 5) {
+            if status.label == "Checking" {
+                ProgressView().controlSize(.mini)
+            } else {
+                Circle().fill(status.color).frame(width: 7, height: 7)
+            }
+            Text(status.label).font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(status.color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(status.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+        .help("Local provider availability; this does not confirm account authentication")
+    }
+
+    @ViewBuilder
+    private var planBadge: some View {
+        if showsUsage, let plan = snapshot.usage?.planType, !plan.isEmpty {
+            Text(plan)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+                .help(plan)
+        }
+    }
+
+    @ViewBuilder
+    private func primaryQuotas(_ usage: ProviderUsageSnapshot) -> some View {
+        if let primary = usage.primaryBucket, let secondary = usage.secondaryBucket {
+            HStack(alignment: .top, spacing: 8) {
+                quotaCard(primary, usage: usage)
+                quotaCard(secondary, usage: usage)
+            }
+        } else if let bucket = usage.primaryBucket ?? usage.secondaryBucket {
+            quotaCard(bucket, usage: usage)
+        } else if usage.additionalGroups.allSatisfy({ $0.buckets.isEmpty }),
+                  usage.errorMessage == nil, snapshot.usageErrorMessage == nil,
+                  snapshot.availability.isAvailable, !snapshot.isRefreshing {
+            Text("No quota data available")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func quotaCard(_ bucket: UsageBucket, usage: ProviderUsageSnapshot) -> some View {
+        UsageBarView(bucket: bucket, isStale: usage.isStale, updatedAt: usage.updatedAt, staleReason: usage.errorMessage)
+    }
+
+    private func notice(_ text: String, symbol: String, color: Color) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            Image(systemName: symbol).foregroundStyle(color)
+            Text(text)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 11))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(9)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }

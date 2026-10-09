@@ -1,41 +1,36 @@
 # Loom — Product Brief
 
-## Problem
+## Problem and thesis
 
-Developers increasingly run multiple AI coding agents across repositories. Their state is fragmented across terminals and apps. The developer repeatedly checks: what is running, where, whether anything needs attention, and what finished.
+Developers run independent AI coding agents across repositories. Sessions and quota information are fragmented across terminals and apps. Loom is a small native macOS surface that shows what is running, where it is working, what needs attention, and whether usage limits are approaching.
 
-## Product thesis
+The core object is an agent session and its relationship to a project. Usage complements this context without replacing session monitoring.
 
-Loom should be the smallest useful layer above local coding agents: a single macOS surface that shows what each agent is doing without replacing the agents themselves.
+## Current experience
 
-## Target user
+- **Sessions:** provider availability and project sessions with normalized states. Expanded cards show available metadata and Finder reveal when a project path exists.
+- **Usage:** quota remaining, reset times and additional model limits. Stale, unavailable and failed responses stay visible.
 
-A developer who actively uses two or more local AI coding tools such as Codex, Claude Code, and Antigravity.
+A shared header provides refresh and settings. Content determines menu height up to available screen space; longer content scrolls. Each text tab retains independent scroll and disclosure state.
 
-## V0 user story
+## Integration status
 
-> When I click Loom in the menu bar, I can immediately see which AI agents have sessions, which project each belongs to, and whether the session is working, waiting, finished, failed, or unknown.
+Normal launch uses real Codex and Antigravity discovery and usage adapters. Codex discovers running processes and Git metadata, reporting Unknown state because process existence does not prove working/waiting status. Antigravity reads local session metadata. Claude Code exists in identities and demo fixtures; live support is planned, not shipped. Demo modes require explicit launch flags and are visibly labeled. Availability does not prove an installed CLI, authentication, an active session or a usable quota response.
 
 ## V0 acceptance criteria
 
-- Launches as a macOS menu bar app.
-- Detects installed/available Codex, Claude Code, and Antigravity independently.
-- Displays real session information for each integration where locally obtainable.
-- Refreshes without relaunching.
-- One broken provider cannot crash or block the others.
-- No login/backend/telemetry.
-- No secrets displayed or persisted.
+- Native SwiftUI macOS 14+ menu bar presentation.
+- Independent local discovery for implemented providers.
+- Truthful project/state metadata, with unknown states when evidence is missing.
+- Manual refresh and configurable periodic refresh without relaunching.
+- Isolated provider failures and visibly stale retained usage snapshots.
+- Read-only monitoring with no Loom backend, sign-in or telemetry pipeline.
+- No persisted credentials or displayed secrets.
 
-## Differentiation
+## Priorities
 
-Loom is not primarily a token/quota meter. Quota may become metadata later. Its core object is the **agent session** and its relationship to a project.
+Reliable discovery and normalization come first. Next: a real Claude Code adapter, upstream compatibility, diagnostics and accessibility. Safe actions, notifications and richer repository context need separate product decisions. Remote control, cloud sync and orchestration are outside the current scope.
 
-## Future expansion
+## Brand
 
-Once session monitoring is trustworthy:
-- attention notifications
-- git diff/test summaries
-- safe session actions
-- handoff between providers
-- local CLI/API
-- remote companion
+Three vertical agent strands weave into one circular base. Preserve this approved silhouette, refined material colors and native macOS balance. Use the full-color icon for app identity and a simplified monochrome glyph for the menu bar. No vendor-specific logos belong in the core mark.

@@ -7,19 +7,29 @@ public final class AntigravityProvider: AgentProvider, Sendable {
     private let processDiscoverer: any AntigravityProcessDiscovering
     private let storeInspector: any AntigravityStoreInspecting
     private let gitResolver: any GitRepositoryResolving
+    private let usageFetcher: any AntigravityUsageFetching
 
     public init(
         processDiscoverer: any AntigravityProcessDiscovering = DefaultAntigravityProcessDiscoverer(),
         storeInspector: any AntigravityStoreInspecting = DefaultAntigravityStoreInspector(),
-        gitResolver: any GitRepositoryResolving = DefaultGitRepositoryResolver()
+        gitResolver: any GitRepositoryResolving = DefaultGitRepositoryResolver(),
+        usageFetcher: any AntigravityUsageFetching = DefaultAntigravityUsageFetcher()
     ) {
         self.processDiscoverer = processDiscoverer
         self.storeInspector = storeInspector
         self.gitResolver = gitResolver
+        self.usageFetcher = usageFetcher
     }
 
     public func availability() async -> ProviderAvailability {
         return .available
+    }
+
+    public func fetchUsage() async throws -> ProviderUsageSnapshot? {
+        guard await processDiscoverer.isAntigravityRunning() else {
+            throw AntigravityUsageError.processNotFound
+        }
+        return try await usageFetcher.fetchUsage()
     }
 
     public func discoverSessions() async throws -> [AgentSession] {
@@ -72,17 +82,21 @@ public final class AntigravityProvider: AgentProvider, Sendable {
                 branch = nil
             }
 
-            let startedAt = AntigravityParser.parseDate(from: record.lastUserInputTime)
-            let lastActivityAt = AntigravityParser.parseDate(from: record.lastModifiedTime) ?? startedAt ?? Date()
+            let startedAt: Date? = nil
+            let lastActivityAt = AntigravityParser.parseDate(from: record.lastModifiedTime)
             let cleanTitle = record.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let summary = cleanTitle.isEmpty ? "Active Antigravity session" : cleanTitle
+            let sessionState = AntigravityParser.mapState(
+                status: record.status,
+                notFullyIdle: record.notFullyIdle
+            )
 
             let session = AgentSession(
                 id: "antigravity-\(record.conversationId)",
                 provider: .antigravity,
                 projectName: projectName,
                 projectPath: projectPath,
-                state: .working,
+                state: sessionState,
                 startedAt: startedAt,
                 lastActivityAt: lastActivityAt,
                 branch: branch,

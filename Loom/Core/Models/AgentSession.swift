@@ -10,6 +10,7 @@ public struct AgentSession: Identifiable, Hashable, Equatable, Sendable {
     public let lastActivityAt: Date?
     public let branch: String?
     public let summary: String?
+    public let pid: Int?
 
     public init(
         id: String,
@@ -20,7 +21,8 @@ public struct AgentSession: Identifiable, Hashable, Equatable, Sendable {
         startedAt: Date? = nil,
         lastActivityAt: Date? = nil,
         branch: String? = nil,
-        summary: String? = nil
+        summary: String? = nil,
+        pid: Int? = nil
     ) {
         self.id = id
         self.provider = provider
@@ -31,5 +33,10 @@ public struct AgentSession: Identifiable, Hashable, Equatable, Sendable {
         self.lastActivityAt = lastActivityAt
         self.branch = branch
         self.summary = summary
+        self.pid = pid
+    }
+
+    public var providerQualifiedId: String {
+        "\(provider.rawValue):\(id)"
     }
 }

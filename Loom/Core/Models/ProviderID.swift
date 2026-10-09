@@ -17,4 +17,17 @@ public struct ProviderID: Hashable, Equatable, Sendable, RawRepresentable, Ident
     public static let codex = ProviderID("codex")
     public static let claude = ProviderID("claude")
     public static let antigravity = ProviderID("antigravity")
+
+    public var displayName: String {
+        switch self {
+        case .codex:
+            return "Codex"
+        case .claude:
+            return "Claude Code"
+        case .antigravity:
+            return "Antigravity"
+        default:
+            return rawValue.capitalized
+        }
+    }
 }

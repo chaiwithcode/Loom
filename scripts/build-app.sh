@@ -29,6 +29,10 @@ mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
 cp "${EXECUTABLE}" "${MACOS_DIR}/Loom"
 chmod +x "${MACOS_DIR}/Loom"
 
+if [[ -f "${ROOT_DIR}/Resources/Loom.icns" ]]; then
+    cp "${ROOT_DIR}/Resources/Loom.icns" "${RESOURCES_DIR}/Loom.icns"
+fi
+
 cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -37,6 +41,8 @@ cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
+    <string>Loom</string>
+    <key>CFBundleIconFile</key>
     <string>Loom</string>
     <key>CFBundleIdentifier</key>
     <string>com.loom.mac</string>

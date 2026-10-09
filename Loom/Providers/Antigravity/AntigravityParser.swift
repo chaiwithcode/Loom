@@ -72,6 +72,17 @@ public struct AntigravityParser: Sendable {
         return status == "CASCADE_RUN_STATUS_RUNNING" || notFullyIdle
     }
 
+    public static func mapState(status: String, notFullyIdle: Bool) -> AgentState {
+        switch status {
+        case "CASCADE_RUN_STATUS_RUNNING":
+            return .working
+        case "CASCADE_RUN_STATUS_IDLE":
+            return .idle
+        default:
+            return .unknown
+        }
+    }
+
     public static func isAntigravityProcessCommand(_ command: String) -> Bool {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
