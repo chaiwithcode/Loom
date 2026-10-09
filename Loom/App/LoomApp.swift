@@ -24,10 +24,13 @@ struct LoomApp: App {
         let initialSettings = LoomSettings()
         let initialStore = SessionStore(providers: providers, fixture: fixture)
         initialStore.startPeriodicRefresh(interval: TimeInterval(initialSettings.refreshIntervalSeconds))
+        initialSettings.onRefreshIntervalChanged = { [weak initialStore] interval in
+            initialStore?.startPeriodicRefresh(interval: TimeInterval(interval))
+        }
         _store = State(initialValue: initialStore)
         _settings = State(initialValue: initialSettings)
 
-        DockController.shared.configure(settings: initialSettings) { [weak initialStore] in
+        DockController.shared.configure(settings: initialSettings, store: initialStore) { [weak initialStore] in
             Task { @MainActor in
                 await initialStore?.refresh()
             }

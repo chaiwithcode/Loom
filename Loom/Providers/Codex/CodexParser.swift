@@ -238,14 +238,13 @@ public struct CodexParser: Sendable {
     }
 
     private static func hasChromiumHelperFlags(remainder: String) -> Bool {
-        let tokens = remainder.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        let tokens = commandRoleTokens(remainder)
         for token in tokens {
-            let clean = token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-            if clean == "--type=renderer" ||
-               clean == "--type=utility" ||
-               clean == "--type=gpu-process" ||
-               clean == "--type=crashpad-handler" ||
-               clean == "--type=zygote" {
+            if token == "--type=renderer" ||
+               token == "--type=utility" ||
+               token == "--type=gpu-process" ||
+               token == "--type=crashpad-handler" ||
+               token == "--type=zygote" {
                 return true
             }
         }
@@ -253,22 +252,67 @@ public struct CodexParser: Sendable {
     }
 
     private static func isAppServerInfrastructure(remainder: String) -> Bool {
-        let lower = remainder.lowercased()
-        if lower.contains("codex-code-mode-host") ||
-           lower.contains("--code-mode-host") ||
-           lower.contains("--managed-daemon") {
-            return true
+        commandRoleTokens(remainder).contains { token in
+            let option = String(token.split(separator: "=", maxSplits: 1).first ?? "")
+            return token == "app-server" || token == "exec-server" ||
+                option == "--code-mode-host" || option == "--managed-daemon"
         }
+    }
 
-        let tokens = remainder.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-        for token in tokens {
-            let clean = token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-            if clean == "app-server" || clean == "exec-server" {
-                return true
+    private static func commandRoleTokens(_ remainder: String) -> [String] {
+        // Only global options and the first subcommand describe the process's role.
+        // Everything after a user subcommand or the first prompt word is user input.
+        let valueOptions: Set<String> = [
+            "-c", "--config", "-m", "--model", "-p", "--profile",
+            "-s", "--sandbox", "-a", "--ask-for-approval", "-C", "--cd",
+            "--working-dir", "--cwd", "--add-dir", "--enable", "--disable",
+            "-i", "--image", "--prompt"
+        ]
+        let tokens = commandArgumentTokens(remainder)
+        var roleTokens: [String] = []
+        var index = 0
+        while index < tokens.count {
+            let token = tokens[index]
+            if token == "--" { break }
+            roleTokens.append(token)
+            if !token.hasPrefix("-") {
+                break
+            }
+            let option = String(token.split(separator: "=", maxSplits: 1).first ?? "")
+            if valueOptions.contains(option) && !token.contains("=") {
+                index += 1
+            }
+            index += 1
+        }
+        return roleTokens
+    }
+
+    private static func commandArgumentTokens(_ arguments: String) -> [String] {
+        var tokens: [String] = []
+        var token = ""
+        var quote: Character?
+        var escaped = false
+        for character in arguments {
+            if escaped {
+                token.append(character)
+                escaped = false
+            } else if character == "\\" && quote != "'" {
+                token.append(character)
+                escaped = true
+            } else if let activeQuote = quote {
+                token.append(character)
+                if character == activeQuote { quote = nil }
+            } else if character == "\"" || character == "'" {
+                token.append(character)
+                quote = character
+            } else if character.isWhitespace {
+                if !token.isEmpty { tokens.append(token); token = "" }
+            } else {
+                token.append(character)
             }
         }
-
-        return false
+        if !token.isEmpty { tokens.append(token) }
+        return tokens
     }
 
     private static func matchesNodeOrDenoOrBunScript(_ command: String) -> Bool {

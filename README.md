@@ -70,7 +70,7 @@ Paths and session summaries can contain sensitive information. Review screenshot
 ```bash
 swift build
 
-# Portable suite used by CI: 126 tests currently pass locally.
+# Portable suite used by CI: 131 tests currently pass locally.
 swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest|testDefaultCodexAppServerTransportSigtermResistantCancellation'
 
 # Native menu sizing and interaction probe.

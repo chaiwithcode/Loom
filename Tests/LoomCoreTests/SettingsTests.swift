@@ -65,6 +65,38 @@ final class SettingsTests: XCTestCase {
     }
 
     @MainActor
+    func testRefreshIntervalCallbackUsesEffectiveValueOncePerChange() {
+        let settings = LoomSettings(defaults: testDefaults)
+        var intervals: [Int] = []
+        settings.onRefreshIntervalChanged = { interval in
+            intervals.append(interval)
+            XCTAssertEqual(settings.refreshIntervalSeconds, interval)
+            XCTAssertEqual(self.testDefaults.integer(forKey: LoomSettings.refreshIntervalKey), interval)
+        }
+
+        settings.refreshIntervalSeconds = 120
+        settings.refreshIntervalSeconds = 120
+        settings.refreshIntervalSeconds = 999
+        settings.refreshIntervalSeconds = -1
+        XCTAssertEqual(intervals, [120, 60])
+        XCTAssertEqual(settings.refreshIntervalSeconds, 60)
+        XCTAssertEqual(testDefaults.integer(forKey: LoomSettings.refreshIntervalKey), 60)
+    }
+
+    @MainActor
+    func testResetNotifiesRefreshIntervalAndPersistsDefault() {
+        let settings = LoomSettings(defaults: testDefaults)
+        settings.refreshIntervalSeconds = 300
+        var intervals: [Int] = []
+        settings.onRefreshIntervalChanged = { intervals.append($0) }
+
+        settings.resetToDefaults()
+        settings.resetToDefaults()
+        XCTAssertEqual(intervals, [60])
+        XCTAssertEqual(testDefaults.integer(forKey: LoomSettings.refreshIntervalKey), 60)
+    }
+
+    @MainActor
     func testResetToDefaults() {
         let settings = LoomSettings(defaults: testDefaults)
         settings.showInDock = true

@@ -17,10 +17,12 @@ public final class DockController: NSObject, NSApplicationDelegate {
     public private(set) var settings: LoomSettings?
     public private(set) var isSettingsWindowPresented: Bool = false
     private weak var settingsWindow: NSWindow?
+    private weak var configuredStore: SessionStore?
     private var refreshAction: (@MainActor () -> Void)?
 
-    public func configure(settings: LoomSettings, onRefresh: (@MainActor () -> Void)? = nil) {
+    public func configure(settings: LoomSettings, store: SessionStore? = nil, onRefresh: (@MainActor () -> Void)? = nil) {
         self.settings = settings
+        self.configuredStore = store
         self.refreshAction = onRefresh
 
         settings.onShowInDockChanged = { [weak self] _ in
@@ -60,7 +62,7 @@ public final class DockController: NSObject, NSApplicationDelegate {
 
         guard let settings else { return }
 
-        let contentView = SettingsView(settings: settings, store: store)
+        let contentView = SettingsView(settings: settings, store: store ?? configuredStore)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 440, height: 320),
             styleMask: [.titled, .closable, .miniaturizable],

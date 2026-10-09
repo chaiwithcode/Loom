@@ -21,6 +21,8 @@ public final class LoomSettings {
 
     private let defaults: UserDefaults
     public var onShowInDockChanged: (@MainActor (Bool) -> Void)?
+    @ObservationIgnored public var onRefreshIntervalChanged: (@MainActor (Int) -> Void)?
+    @ObservationIgnored private var isNormalizingRefreshInterval = false
 
     public var showInDock: Bool {
         didSet {
@@ -31,14 +33,19 @@ public final class LoomSettings {
 
     public var refreshIntervalSeconds: Int {
         didSet {
+            guard !isNormalizingRefreshInterval else { return }
             let sanitized = Self.supportedRefreshIntervals.contains(refreshIntervalSeconds)
                 ? refreshIntervalSeconds
                 : Self.defaultRefreshIntervalSeconds
             if sanitized != refreshIntervalSeconds {
+                isNormalizingRefreshInterval = true
                 refreshIntervalSeconds = sanitized
-                return
+                isNormalizingRefreshInterval = false
             }
             defaults.set(sanitized, forKey: Self.refreshIntervalKey)
+            if sanitized != oldValue {
+                onRefreshIntervalChanged?(sanitized)
+            }
         }
     }
 

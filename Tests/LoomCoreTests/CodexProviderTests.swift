@@ -339,6 +339,49 @@ final class CodexProviderTests: XCTestCase {
         XCTAssertFalse(CodexParser.isCodexCommand(codeModeHost))
     }
 
+    func testCodexParserKeepsInfrastructureNamesInUserPrompts() {
+        let commands = [
+            "codex exec Explain app-server",
+            "codex exec Explain --managed-daemon",
+            "codex exec Explain codex-code-mode-host and --code-mode-host",
+            "codex resume --last Explain exec-server",
+            "codex \"Explain app-server and --managed-daemon\"",
+            "codex -- Explain --code-mode-host",
+            "codex -C /tmp/app-server exec Explain --managed-daemon",
+            "codex -c note=codex-code-mode-host exec Explain app-server"
+        ]
+        for command in commands {
+            XCTAssertTrue(CodexParser.isCodexCommand(command), command)
+        }
+    }
+
+    func testCodexParserStillRejectsInfrastructureAfterGlobalOptions() {
+        let commands = [
+            "codex app-server",
+            "codex exec-server --remote http://localhost",
+            "codex --managed-daemon",
+            "codex --code-mode-host",
+            "codex -c features.code_mode_host=true app-server",
+            "codex --config 'note=two words' --model test exec-server",
+            "codex -C /tmp/project --managed-daemon app-server"
+        ]
+        for command in commands {
+            XCTAssertFalse(CodexParser.isCodexCommand(command), command)
+        }
+    }
+
+    func testCodexParserDistinguishesHelperFlagsFromPromptText() {
+        for flag in ["--type=renderer", "--type=utility", "--type=gpu-process",
+                     "--type=crashpad-handler", "--type=zygote"] {
+            XCTAssertFalse(CodexParser.isCodexCommand("codex \(flag)"), flag)
+            XCTAssertFalse(CodexParser.isCodexCommand("codex -c mode=test \(flag)"), flag)
+            XCTAssertTrue(CodexParser.isCodexCommand("codex exec Explain \(flag)"), flag)
+            XCTAssertTrue(CodexParser.isCodexCommand("codex \"\(flag)\""), flag)
+            XCTAssertTrue(CodexParser.isCodexCommand("codex --prompt \"\(flag)\""), flag)
+            XCTAssertTrue(CodexParser.isCodexCommand("codex -- Explain \(flag)"), flag)
+        }
+    }
+
     func testCodexParserMatchesPathsWithSpaces() {
         let directWithSpaces = "/Applications/Codex Tools/bin/codex resume --session 123"
         XCTAssertTrue(CodexParser.isCodexCommand(directWithSpaces))
