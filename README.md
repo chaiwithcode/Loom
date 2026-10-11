@@ -13,7 +13,7 @@ Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or
 **Usage** answers “how much room do I have?” See remaining quota, reset times and additional model limits. Cached data, unavailable providers and errors remain visible; missing information is never presented as a healthy quota.
 
 <p align="center">
-  <img src="docs/menu-navigation-sessions.png" width="360" alt="Loom Sessions tab with illustrative project sessions">
+  <img src="docs/menu-navigation-sessions.png" width="360" alt="Loom Sessions tab showing provider selector and active agent sessions">
   <img src="docs/menu-navigation-usage.png" width="360" alt="Loom Usage tab showing provider quotas and reset times">
 </p>
 <p align="center"><em>Loom Sessions and Usage views.</em></p>
