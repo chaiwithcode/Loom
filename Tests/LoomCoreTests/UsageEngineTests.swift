@@ -1011,6 +1011,70 @@ final class UsageEngineTests: XCTestCase {
             XCTFail("Expected CodexUsageError.processFailed, got \(error)")
         }
     }
+
+    func testDefaultCodexAppServerTransportRepeatedImmediateNaturalExits() async throws {
+        // Deterministic regression test for natural process termination:
+        // Spawns 35 fast natural exits (exit 0 without reading/responding)
+        // to prove that natural process exit and terminationHandler never falsely report
+        // CancellationError or lose classification as CodexUsageError.processFailed.
+        let transport = DefaultCodexAppServerTransport()
+        let immediateExitURL = FileManager.default.temporaryDirectory.appendingPathComponent("loom-imm-exit-fast-\(UUID().uuidString).sh")
+        let scriptContent = "#!/bin/sh\nexit 0\n"
+        try scriptContent.write(to: immediateExitURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: immediateExitURL.path)
+        defer { try? FileManager.default.removeItem(at: immediateExitURL) }
+
+        for iteration in 1...35 {
+            do {
+                _ = try await transport.execute(executableURL: immediateExitURL, timeoutSeconds: 2.0)
+                XCTFail("Iteration \(iteration): Expected failure on immediate fast natural exit")
+            } catch let err as CodexUsageError {
+                switch err {
+                case .processFailed(let msg):
+                    XCTAssertTrue(msg.contains("before initialize response"), "Iteration \(iteration): Unexpected msg: \(msg)")
+                default:
+                    XCTFail("Iteration \(iteration): Expected .processFailed, got \(err)")
+                }
+            } catch is CancellationError {
+                XCTFail("Iteration \(iteration): Falsely reported CancellationError on natural exit")
+            } catch {
+                XCTFail("Iteration \(iteration): Unexpected error: \(error)")
+            }
+        }
+    }
+
+    func testDefaultCodexAppServerTransportFastSuccessfulQuotaImmediateExit() async throws {
+        // Deterministic test proving that when child writes responses and immediately exits,
+        // readNextLine drains the buffered stdout pipe completely and returns the parsed snapshot
+        // rather than dropping buffered output or misclassifying the natural exit as CancellationError.
+        let transport = DefaultCodexAppServerTransport()
+        let scriptURL = FileManager.default.temporaryDirectory.appendingPathComponent("loom-fast-success-imm-exit-\(UUID().uuidString).sh")
+        let scriptContent = """
+        #!/bin/sh
+        read line1
+        echo '{"id":1,"result":{"capabilities":{}}}'
+        read line2
+        read line3
+        echo '{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":12,"windowDurationMins":300,"resetsAt":1791061204},"secondary":{"usedPercent":45,"windowDurationMins":10080,"resetsAt":1791593905}}}}'
+        exit 0
+        """
+        try scriptContent.write(to: scriptURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+        defer { try? FileManager.default.removeItem(at: scriptURL) }
+
+        for iteration in 1...5 {
+            do {
+                let snapshot = try await transport.execute(executableURL: scriptURL, timeoutSeconds: 2.0)
+                let unwrapped = try XCTUnwrap(snapshot, "Iteration \(iteration): Expected non-nil snapshot")
+                XCTAssertEqual(unwrapped.primaryBucket?.usedPercent, 12, "Iteration \(iteration): Primary bucket mismatch")
+                XCTAssertEqual(unwrapped.primaryBucket?.remainingPercent, 88, "Iteration \(iteration): Primary remaining mismatch")
+                XCTAssertEqual(unwrapped.secondaryBucket?.usedPercent, 45, "Iteration \(iteration): Secondary bucket mismatch")
+                XCTAssertEqual(unwrapped.secondaryBucket?.remainingPercent, 55, "Iteration \(iteration): Secondary remaining mismatch")
+            } catch {
+                XCTFail("Iteration \(iteration): Unexpected failure reading buffered quota before exit: \(error)")
+            }
+        }
+    }
 }
 
 // MARK: - Mock Transports & Test Doubles
