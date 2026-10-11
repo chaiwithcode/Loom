@@ -1,0 +1,153 @@
+# Loom Release and Distribution Guide
+
+This document describes the requirements, current build status, and official macOS signing and notarization workflow required before publishing public Loom binary releases.
+
+## 1. System & Toolchain Requirements
+
+- **Deployment Target**: macOS 14.0 or newer.
+- **Build Toolchain**: Xcode 15+ / Swift 5.9+.
+- **Architectures**: Apple Silicon (`arm64`) verified locally. Intel (`x86_64`) and universal binary packaging remain unverified and require dedicated build and runtime testing.
+
+## 2. Current Development State & Honest Readiness
+
+The local packaging script (`scripts/build-app.sh`) builds and packages `.build/Loom.app` for **local development only**. It does **not** produce a trusted public distribution artifact:
+
+- **Ad-Hoc Signing**: Inspecting the packaged application (`codesign -dvv .build/Loom.app`) reveals:
+  - `Signature=adhoc` (bundle ad-hoc signed with sealed `Info.plist` and resources, no longer linker-only).
+  - `TeamIdentifier` is not set.
+  - `flags=0x2(adhoc)` (Hardened Runtime is **disabled**).
+- **Identity Inventory**: Running `security find-identity -p codesigning -v` on the primary development machine confirms that only **Apple Development** certificates are present. **No Developer ID Application identity** is installed.
+- **Architecture**: The default build script compiles for the host architecture only (currently Apple Silicon `arm64`).
+- **Gatekeeper**: Local ad-hoc trust is valid for execution on the local development machine without Developer ID, but if an ad-hoc signed build is downloaded from the internet, macOS Gatekeeper will block execution as an untrusted application from an unidentified developer.
+
+**Status**: Loom is currently distributed as **source-only**. Public binary releases cannot be published until a Developer ID Application certificate is obtained and the notarization workflow described below is completed.
+
+### Mac App Store Considerations & Distribution Route
+
+Distributing via the Mac App Store is a fundamentally separate route from direct Developer ID distribution:
+- **App Sandbox Requirement**: Mac App Store submission strictly requires the macOS App Sandbox.
+- **Unverified Sandbox Compatibility**: Loom's current architecture relies on local agent discovery via process listing (`/bin/ps`), open file descriptor inspection (`lsof`), local provider CLI invocations, and reading external agent databases/transcripts (e.g. SQLite databases in `~/.gemini/` or session logs). These external process and data inspection capabilities have **not been verified** within the macOS App Sandbox, and standard sandbox containers typically restrict cross-process inspection and arbitrary filesystem access.
+- **No Readiness Promise**: There is no promise of Mac App Store readiness at this time.
+- **Recommended Path**: A direct Developer ID-signed, notarized beta release outside the App Store is recommended first. No personal signing identities, team IDs, or Apple account values should ever be committed to the repository.
+
+## 3. Architecture Considerations
+
+`scripts/build-app.sh` invokes `swift build -c release` for the host machine. Currently, only **`arm64`** (Apple Silicon) execution has been verified. Loom does not yet claim verified universal or Intel support.
+
+To build a universal macOS binary using SwiftPM, the standard command pattern is:
+
+```bash
+# Unrun / unverified example (requires testing on Intel / Rosetta):
+swift build -c release --arch arm64 --arch x86_64
+```
+
+Universal packaging and Intel compatibility remain unverified and require thorough build, test, and runtime verification before any claim of multi-architecture support.
+
+## 4. Prerequisites for Public Distribution
+
+Before creating a public release build:
+
+1. **Apple Developer Account**: Active Apple Developer Program enrollment.
+2. **Developer ID Application Certificate**: Obtain a valid **Developer ID Application** certificate and private key via Apple Developer account / Xcode Settings > Accounts, installed in the macOS Keychain.
+3. **Hardened Runtime**: Mandatory for Apple notarization (`--options runtime`).
+4. **Entitlements**: Start without additional entitlements and validate actual application subprocess execution and loopback communication behavior under Hardened Runtime before asserting that standard defaults are sufficient. Do not invent or add speculative entitlements without observed runtime failures.
+5. **Notarization Profile**: Store Apple Notary credentials locally in the macOS Keychain using `notarytool`, omitting the `--password` flag so credentials are submitted securely via an interactive prompt rather than exposed in shell history:
+   ```bash
+   xcrun notarytool store-credentials "AC_PASSWORD" \
+     --apple-id "<your-apple-id>" \
+     --team-id "<team-id>"
+   ```
+   > [!IMPORTANT]
+   > Never commit signing certificates, private keys, app-specific passwords, or keychain profiles to this repository or CI workflows.
+
+## 5. Step-by-Step Signing and Notarization Workflow
+
+When a public release is prepared, follow this sequential procedure:
+
+### Step 5.1: Package App Bundle
+Compile the release binary and package the `.build/Loom.app` bundle with valid `Info.plist` and icon assets.
+
+### Step 5.2: Code Sign with Hardened Runtime
+Sign the application bundle directly with your Developer ID Application identity and a secure timestamp. **Do not use `--deep` for code signing**:
+```bash
+codesign --force --options runtime --timestamp \
+  --sign "Developer ID Application: <Developer Name> (<TEAM_ID>)" \
+  .build/Loom.app
+```
+
+> [!NOTE]
+> Apple guidelines advise against `--deep` when signing. Because `.build/Loom.app` currently contains no nested frameworks or plugins, signing the bundle root directly is correct. If nested code (frameworks, helpers, or dylibs) is introduced later, each nested item must be signed individually from inside out before signing the outer application bundle.
+
+### Step 5.3: Archive for Notarization Submission
+Package the signed application into a zip archive using `ditto` to preserve code signing attributes and resource forks:
+```bash
+ditto -c -k --keepParent .build/Loom.app Loom-submission.zip
+```
+
+### Step 5.4: Submit to Apple Notary Service
+Submit the archive to the Apple Notary Service and wait for processing:
+```bash
+xcrun notarytool submit Loom-submission.zip \
+  --keychain-profile "AC_PASSWORD" \
+  --wait
+```
+
+Review the submission outcome. When processing completes, examine the acceptance log:
+```bash
+xcrun notarytool log <submission-id> --keychain-profile "AC_PASSWORD"
+```
+
+### Step 5.5: Staple the Notarization Ticket to the App
+> [!IMPORTANT]
+> The notarization ticket must be stapled directly to the `.app` bundle, **not** to the zip archive:
+```bash
+xcrun stapler staple .build/Loom.app
+```
+
+### Step 5.6: Verify Strict Code Signing, Stapling, and Gatekeeper
+Validate the stapled app bundle using strict verification commands:
+
+```bash
+# 1. Strict signature verification with deep traversal
+codesign --verify --deep --strict --verbose=2 .build/Loom.app
+
+# 2. Gatekeeper policy assessment (verifies policy acceptance)
+spctl --assess -vv --type execute .build/Loom.app
+
+# 3. Stapler ticket validation
+xcrun stapler validate .build/Loom.app
+```
+
+Each verification tool reports distinct diagnostics:
+- `codesign` verifies the seal is valid on disk and satisfies its Designated Requirement (`valid on disk`, `satisfies its Designated Requirement`).
+- `spctl` evaluates Gatekeeper policy and must report `accepted` with `source=Notarized Developer ID`.
+- `xcrun stapler validate` confirms the ticket is properly stapled (`The validate action worked!`).
+
+### Step 5.7: Repackage Stapled Distribution Archive
+Create the final distributable zip archive from the **stapled** `.app` bundle:
+```bash
+ditto -c -k --keepParent .build/Loom.app Loom-0.1.0-beta.zip
+```
+
+### Step 5.8: Clean Mac Download Verification
+Before distribution, test the artifact on a separate clean Mac that has never built the project or installed development certificates. Download the archive through a real web browser (e.g. Safari) to ensure genuine quarantine extended attributes and Gatekeeper evaluation occur—synthetic `xattr` or local decompression is not equivalent to real distribution conditions. Extract the archive and verify that Loom launches cleanly without Gatekeeper warnings or developer trust blocks.
+
+> [!CAUTION]
+> Never provide security bypass instructions (such as `xattr -cr` or Gatekeeper overrides) to end users. If Gatekeeper blocks the app, resolve the code signing or notarization issue.
+
+### Step 5.9: Generate Checksums
+Generate SHA-256 checksums for distribution artifacts:
+```bash
+shasum -a 256 Loom-0.1.0-beta.zip > Loom-0.1.0-beta.zip.sha256
+```
+
+## 6. Manual Publication Policy
+
+- **No Automated Publishing**: Release tagging and binary asset publication are intentionally manual actions executed by the repository owner after local verification.
+- **Release Verification**: Do not tag a release in Git or attach binary archives to GitHub Releases until Developer ID signing, notarization, stapling, and clean-Mac testing are fully confirmed.
+
+## 7. Official Apple Documentation References
+
+- [Notarizing macOS Software Before Distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
+- [Customizing the Notarization Workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)
+- [Developer ID Overview](https://developer.apple.com/developer-id/)

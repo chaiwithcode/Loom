@@ -13,14 +13,21 @@ Use macOS 14+ and Swift 5.9+ / Xcode 15+. Build with `swift build`, or run the L
 The portable command used by CI is:
 
 ```bash
-swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest|testDefaultCodexAppServerTransportSigtermResistantCancellation'
+swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest'
 ```
 
-These explicit exclusions are known limitations: the Antigravity smoke test requires a local database and can fail with SQLite error 14; the subprocess cancellation test has a known hang. `swift test` still includes both. Some live usage checks need `ENABLE_LIVE_SMOKE_TESTS=1`; never describe a skipped check as a pass. Remote CI execution has not yet been verified.
+The live Antigravity discovery smoke test (`testRealAntigravityDiscoverySmokeTest`) requires a local Antigravity installation and SQLite database, and is excluded in environments lacking local agent state. The SIGTERM-resistant cancellation regression test (`testDefaultCodexAppServerTransportSigtermResistantCancellation`) is verified passing and is included in portable test runs. Running `swift test` locally without skips executes the full test suite. Some live usage checks additionally require `ENABLE_LIVE_SMOKE_TESTS=1`; never describe a skipped check as a pass. Remote CI execution has not yet been verified.
 
 For menu changes, run `bash scripts/verify-menu-sizing.sh`, then open the packaged app and inspect narrow layouts, long lists, empty/error states, tab switches and repeated refresh. Report what you actually ran and any gaps.
 
 Parser changes should include synthetic fixtures proving normalization and malformed/missing data handling. Never commit real transcripts, account identifiers, credentials, databases, or full configuration files. Use generic paths and scrub screenshots. Preserve errors rather than suppressing them to make tests pass.
+
+## Branching and release workflow
+
+- **Main branch**: `main` is the stable release branch. There is no `develop` branch.
+- **Short-lived branches**: Work in focused, short-lived branches (`feat/*`, `fix/*`, `docs/*`).
+- **Pull requests**: Propose changes via pull requests targeting `main`. A pull request requires passing CI checks and a read-only review before merge.
+- **Release tags**: Release tags are created only after code signing, notarization, and clean-Mac download verification checks have succeeded.
 
 ## Submit a reviewable change
 

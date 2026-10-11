@@ -20,6 +20,17 @@ Loom.xcodeproj/project.xcworkspace/xcuserdata/
 .env
 .env*
 
+# Signing private material
+*.p12
+*.pfx
+*.key
+*.pem
+*.mobileprovision
+*.provisionprofile
+AuthKey_*.p8
+*.keychain
+*.keychain-db
+
 # Runtime logs
 *.log
 logs/

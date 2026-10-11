@@ -18,7 +18,7 @@ Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or
 </p>
 <p align="center"><em>Illustrative demo data; these previews do not show live accounts.</em></p>
 
-The menu fits its content within the available screen height, with scrolling for longer lists. Each tab preserves its own scroll and disclosure state. Refresh manually or use the configured background interval (60 seconds by default).
+The menu fits its content within the available screen height, with scrolling for longer lists. Each tab preserves its own scroll and disclosure state. Refresh manually or use the configured background interval (60 seconds by default). Open **Settings** from the header gear button (⌘,) to configure provider monitoring, session retention, Dock visibility, refresh intervals, or privacy options.
 
 ## Integrations
 
@@ -32,6 +32,15 @@ Normal launch registers **Codex, Claude Code, and Antigravity**. Provider health
 
 Loom is independent and is not affiliated with or endorsed by these providers.
 
+## Settings and privacy controls
+
+Loom provides local, persisted settings to customize monitoring and protect developer privacy:
+
+- **Providers**: Enable or disable monitoring individually for Codex, Claude Code, and Antigravity. Disabling a provider immediately stops new discovery and quota polling, applies cooperative cancellation to running provider tasks, and keeps the provider selectable in Settings. A preferred default provider can be configured with automatic fallback if disabled. The interface remains fully functional even if all providers are disabled.
+- **Sessions & retention**: Filter between active sessions only or include recent sessions. When including recent sessions, finished sessions can be hidden automatically after a configurable duration: **Never** (default), 1 hour, 24 hours, or 7 days. Keeping the default set to **Never** preserves existing behavior, and finished sessions lacking activity timestamps are conservatively retained. Active sessions with uncertain or unknown states are never hidden.
+- **Privacy mode**: The **Hide project paths** toggle conceals filesystem paths and path evidence in the menu UI and session inspector to prevent inadvertent exposure during screen sharing. The **Reveal in Finder** action still points to the actual project path on disk so local workflows remain unaffected.
+- **General**: Toggle Dock icon visibility and choose background refresh intervals (15s, 30s, 60s, 2m, 5m, or Manual). **Restore Defaults** resets all settings immediately and updates the active scheduler, registered providers, and UI in real time.
+
 ## Build and run
 
 Requires **macOS 14+** and **Swift 5.9+ / Xcode 15+**. Install the coding tools you want to monitor separately. From the repository root:
@@ -41,7 +50,7 @@ bash scripts/build-app.sh
 open .build/Loom.app
 ```
 
-This builds a Release executable and packages a local development app with the Loom icon. It is not a signed or notarized distribution download.
+This builds a Release executable and packages a local development app with the Loom icon. It is an ad-hoc signed build for local development, not a Developer ID-signed or notarized distribution download. See [Release Documentation](docs/RELEASING.md) for public distribution prerequisites, Developer ID signing, and Apple notarization.
 
 For Xcode, open `Loom.xcodeproj`, select the **Loom** scheme and **My Mac**, then press **⌘R**. Launch the bundled app when checking icon identity and native UI behavior.
 
@@ -51,6 +60,7 @@ Build the bundle first using the command above. Demo data is explicitly opt-in a
 
 ```bash
 open -n .build/Loom.app --args --demo-mock
+open -n .build/Loom.app --args --demo-mock --show-settings
 open -n .build/Loom.app --args --demo-empty
 open -n .build/Loom.app --args --demo-failure
 ```
@@ -63,23 +73,23 @@ Loom inspects local processes and metadata and queries local status interfaces. 
 
 Codex usage is queried through a local subprocess over standard input/output. Antigravity usage uses HTTPS to a discovered loopback endpoint. Its transport accepts local TLS trust only for the discovered loopback host and port, rejects redirects, and uses an ephemeral token in memory. This is a narrow local connection exception, not normal certificate-chain validation. Loom does not persist provider tokens or credentials. Monitored tools retain their own accounts and network behavior.
 
-Paths and session summaries can contain sensitive information. Review screenshots and diagnostics before sharing them. See [security guidance](SECURITY.md) and the [architecture](docs/ARCHITECTURE.md).
+Paths and session summaries can contain sensitive information. Enable the **Hide project paths** privacy toggle in Settings to conceal filesystem paths and detailed path evidence in the menu UI and session inspector (the Finder reveal action continues to point to the actual path on disk). Review screenshots and diagnostics before sharing them. See [security guidance](SECURITY.md) and the [architecture](docs/ARCHITECTURE.md).
 
 ## Development and verification
 
 ```bash
 swift build
 
-# Portable suite: 208+ tests currently pass locally.
+# Portable suite: unit, integration, and cancellation regression tests.
 swift test
 
 # Native menu sizing and interaction probe.
 bash scripts/verify-menu-sizing.sh
 ```
 
-The macOS [CI workflow](.github/workflows/ci.yml) builds/packages the app and runs that portable suite. The native probe checks content sizing, tab/disclosure behavior and constrained layouts; it does not replace checking the actual menu bar on a Mac.
+The macOS [CI workflow](.github/workflows/ci.yml) builds/packages the app and runs the portable suite. The native probe checks content sizing, tab/disclosure behavior and constrained layouts; it does not replace checking the actual menu bar on a Mac.
 
-`swift test` runs the full test suite across Codex, Claude Code, Antigravity, and UI components. SQLite WAL lock contention and code 14 (`SQLITE_CANTOPEN`) are handled gracefully via `?immutable=1&mode=ro` and temporary snapshot fallbacks. Some live usage checks additionally require `ENABLE_LIVE_SMOKE_TESTS=1`.
+`swift test` runs the full test suite across Codex, Claude Code, Antigravity, settings, and UI components. In local verification, the full suite passes, including SIGTERM-resistant cancellation regression checks. CI executes the portable suite while excluding only the live Antigravity discovery smoke test (`testRealAntigravityDiscoverySmokeTest`), which requires a local Antigravity database installation. SQLite WAL lock contention and code 14 (`SQLITE_CANTOPEN`) are handled gracefully via `?immutable=1&mode=ro` and temporary snapshot fallbacks. Some live usage checks additionally require `ENABLE_LIVE_SMOKE_TESTS=1`.
 
 Xcode builds are also supported:
 
