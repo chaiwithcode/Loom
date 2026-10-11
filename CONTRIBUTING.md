@@ -27,3 +27,23 @@ Parser changes should include synthetic fixtures proving normalization and malfo
 Explain the concrete problem, resulting behavior and validation in the pull request. Keep changes focused and disclose known failures. Include UI screenshots when useful, with private project information removed.
 
 Contributions are under Loom's [MIT License](LICENSE). Retain applicable notices and identify external code/assets with their licenses. No contributor agreement is required by this repository.
+
+## Source-file headers
+
+All first-party Swift source and test files (`.swift`) in `Loom/` and `Tests/` must include the canonical license header:
+
+```swift
+//
+//  <Filename>.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+```
+
+- Replace `<Filename>.swift` with the dynamic filename.
+- `Package.swift` must begin with the `// swift-tools-version: 5.9` directive and does not take a header above it.
+- Scripts in `scripts/` retain their shebang lines (`#!/usr/bin/env ...`).
+- Third-party or vendored files retain their original headers.
+

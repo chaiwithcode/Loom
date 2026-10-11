@@ -1,14 +1,49 @@
 .DS_Store
+
+# Build products & caches
 .build/
 DerivedData/
-*.xcuserstate
-xcuserdata/
 .swiftpm/
-.env
-.env*
-backups/
-*.bak
 __pycache__/
 *.pyc
+
+# User-specific Xcode state
+*.xcuserstate
+xcuserdata/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+Loom.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Environment & secrets
+.env
+.env*
+
+# Runtime logs
+*.log
+logs/
+
+# SQLite runtime locks and temporary databases
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
+
+# Ephemeral temporary and editor files
+*.tmp
+*.temp
+*.bak
+backups/
+*~
+*.swp
+*.swo
+
+# Provider local runtime directories
+.claude/
+.codex/
+
+# IDE configuration
 .vscode/
+.idea/
 

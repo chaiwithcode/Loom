@@ -8,7 +8,7 @@ Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or
 
 ## One menu, two views
 
-**Sessions** answers “what is happening?” Project cards show working, waiting, finished, failed, idle, or unknown states. Expand a session for available paths, branches, timestamps and summaries; reveal its project in Finder when a path exists.
+**Sessions** answers “what is happening?” Repository-first cards display the project/repository name, host application (e.g. VS Code, Terminal), active process count, truthful lifecycle state (starting, working, waiting, idle, finished, failed, or unknown), and relative activity timeline. A fixed provider selector displays live session counts and lets you switch between providers so each tool remains directly accessible even with long session lists. Expand a session inspector to reveal the associated process tree, discovery evidence, normalized path, and Finder reveal.
 
 **Usage** answers “how much room do I have?” See remaining quota, reset times and additional model limits. Cached data, unavailable providers and errors remain visible; missing information is never presented as a healthy quota.
 
@@ -24,11 +24,11 @@ The menu fits its content within the available screen height, with scrolling for
 
 | Provider | Session discovery | Usage | Status |
 | --- | --- | --- | --- |
-| OpenAI Codex | Running processes and Git metadata | Local app-server interface | Implemented |
-| Google Antigravity | Local session metadata | Local language-server interface | Implemented |
-| Anthropic Claude Code | Demo fixtures only | No live adapter | Planned |
+| OpenAI Codex | Running processes, process tree, and Git metadata | Local app-server interface | Implemented |
+| Google Antigravity | Local session metadata and language-server processes | Local language-server interface | Implemented |
+| Anthropic Claude Code | Running processes, process tree, CLI detection, transcripts | Local status / files | Implemented |
 
-Normal launch registers **Codex and Antigravity**. Available reports provider discovery availability; it does not guarantee an installed CLI, authentication, an active session, or a usable quota response. Session details vary with the data each provider exposes. Codex currently reports session state conservatively as **Unknown** because process discovery does not prove whether an agent is working or waiting; the working states in the previews are illustrative demo data.
+Normal launch registers **Codex, Claude Code, and Antigravity**. Provider health (`available`, `degraded`, `unavailable`, `error`) is strictly separated from session lifecycle states. Process trees correlate child workers and helpers into exactly one logical session per repo task. Expandable discovery diagnostics report processes detected, logical sessions, workspaces resolved, metadata status/errors, and discovery duration timing.
 
 Loom is independent and is not affiliated with or endorsed by these providers.
 
@@ -55,7 +55,7 @@ open -n .build/Loom.app --args --demo-empty
 open -n .build/Loom.app --args --demo-failure
 ```
 
-The mock fixture includes all three provider identities and the normalized states. It does not imply a shipped Claude Code integration.
+The mock fixture includes all three provider identities and the normalized states for testing and visual previews.
 
 ## Local-first, read-only
 
@@ -70,16 +70,16 @@ Paths and session summaries can contain sensitive information. Review screenshot
 ```bash
 swift build
 
-# Portable suite used by CI: 131 tests currently pass locally.
-swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest|testDefaultCodexAppServerTransportSigtermResistantCancellation'
+# Portable suite: 208+ tests currently pass locally.
+swift test
 
 # Native menu sizing and interaction probe.
 bash scripts/verify-menu-sizing.sh
 ```
 
-The macOS [CI workflow](.github/workflows/ci.yml) builds/packages the app and runs that portable suite. Remote CI has not yet been verified. The native probe checks content sizing, tab/disclosure behavior and constrained layouts; it does not replace checking the actual menu bar on a Mac.
+The macOS [CI workflow](.github/workflows/ci.yml) builds/packages the app and runs that portable suite. The native probe checks content sizing, tab/disclosure behavior and constrained layouts; it does not replace checking the actual menu bar on a Mac.
 
-`swift test` runs the full suite. Two known checks prevent claiming a full pass: `testRealAntigravityDiscoverySmokeTest` can fail with SQLite error 14 when its local database is unavailable, and `testDefaultCodexAppServerTransportSigtermResistantCancellation` has a known subprocess cancellation hang. They remain in the suite; CI excludes them explicitly. Some live usage checks additionally require `ENABLE_LIVE_SMOKE_TESTS=1`.
+`swift test` runs the full test suite across Codex, Claude Code, Antigravity, and UI components. SQLite WAL lock contention and code 14 (`SQLITE_CANTOPEN`) are handled gracefully via `?immutable=1&mode=ro` and temporary snapshot fallbacks. Some live usage checks additionally require `ENABLE_LIVE_SMOKE_TESTS=1`.
 
 Xcode builds are also supported:
 
@@ -91,7 +91,7 @@ See [CONTRIBUTING](CONTRIBUTING.md) for fixtures, review expectations and provid
 
 ## What comes next
 
-Reliable local discovery comes first: improve state accuracy, cover upstream format changes, and add a real Claude Code adapter. Better diagnostics and accessibility are also priorities. Remote control, cloud sync and orchestration are outside the current scope.
+Reliable local discovery comes first: improve state accuracy, cover upstream format changes, and expand diagnostics and accessibility. Remote control, cloud sync and orchestration are outside the current scope.
 
 The visual identity stays simple: three independent strands woven into one Loom. The full-color app icon and simplified monochrome menu bar glyph share that silhouette. See [icon design notes](docs/ICON_DESIGN.md) and [product direction](docs/PRODUCT.md).
 
