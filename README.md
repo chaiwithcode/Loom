@@ -14,9 +14,9 @@ Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or
 
 <p align="center">
   <img src="docs/menu-navigation-sessions.png" width="360" alt="Loom Sessions tab with illustrative project sessions">
-  <img src="docs/menu-navigation-usage.png" width="360" alt="Loom Usage tab with illustrative quota cards">
+  <img src="docs/menu-navigation-usage.png" width="360" alt="Loom Usage tab showing provider quotas and reset times">
 </p>
-<p align="center"><em>Illustrative demo data; these previews do not show live accounts.</em></p>
+<p align="center"><em>Loom Sessions and Usage views.</em></p>
 
 The menu fits its content within the available screen height, with scrolling for longer lists. Each tab preserves its own scroll and disclosure state. Refresh manually or use the configured background interval (60 seconds by default). Open **Settings** from the header gear button (⌘,) to configure provider monitoring, session retention, Dock visibility, refresh intervals, or privacy options.
 
@@ -39,7 +39,7 @@ Loom provides local, persisted settings to customize monitoring and protect deve
 - **Providers**: Enable or disable monitoring individually for Codex, Claude Code, and Antigravity. Disabling a provider immediately stops new discovery and quota polling, applies cooperative cancellation to running provider tasks, and keeps the provider selectable in Settings. A preferred default provider can be configured with automatic fallback if disabled. The interface remains fully functional even if all providers are disabled.
 - **Sessions & retention**: Filter between active sessions only or include recent sessions. When including recent sessions, finished sessions can be hidden automatically after a configurable duration: **Never** (default), 1 hour, 24 hours, or 7 days. Keeping the default set to **Never** preserves existing behavior, and finished sessions lacking activity timestamps are conservatively retained. Active sessions with uncertain or unknown states are never hidden.
 - **Privacy mode**: The **Hide project paths** toggle conceals filesystem paths and path evidence in the menu UI and session inspector to prevent inadvertent exposure during screen sharing. The **Reveal in Finder** action still points to the actual project path on disk so local workflows remain unaffected.
-- **General**: Toggle Dock icon visibility and choose background refresh intervals (15s, 30s, 60s, 2m, 5m, or Manual). **Restore Defaults** resets all settings immediately and updates the active scheduler, registered providers, and UI in real time.
+- **General**: Toggle Dock icon visibility and choose background refresh intervals (30s, 60s, 2m, or 5m). **Restore Defaults** resets all settings immediately and updates the active scheduler, registered providers, and UI in real time.
 
 ## Build and run
 
