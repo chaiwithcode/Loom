@@ -61,6 +61,12 @@ public final class SubprocessController: @unchecked Sendable {
         return isCancelled || isTerminated
     }
 
+    public var isCancelledOnly: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return isCancelled
+    }
+
     public var retainedCleanupError: (any Error)? {
         lock.lock()
         defer { lock.unlock() }
@@ -370,7 +376,7 @@ public final class DefaultCodexAppServerTransport: CodexAppServerTransporting, S
                     try Task.checkCancellation()
                     guard let line = try readNextLine(fd: stdoutFd, buffer: &buffer, controller: controller) else {
                         try Task.checkCancellation()
-                        if controller.isTerminatedOrCancelled {
+                        if controller.isCancelledOnly {
                             throw CancellationError()
                         }
                         throw CodexUsageError.processFailed("Process terminated before initialize response")
@@ -405,7 +411,7 @@ public final class DefaultCodexAppServerTransport: CodexAppServerTransporting, S
                     try Task.checkCancellation()
                     guard let line = try readNextLine(fd: stdoutFd, buffer: &buffer, controller: controller) else {
                         try Task.checkCancellation()
-                        if controller.isTerminatedOrCancelled {
+                        if controller.isCancelledOnly {
                             throw CancellationError()
                         }
                         throw CodexUsageError.malformedResponse
@@ -439,7 +445,7 @@ public final class DefaultCodexAppServerTransport: CodexAppServerTransporting, S
                 return lineData
             }
 
-            if controller.isTerminatedOrCancelled {
+            if controller.isCancelledOnly {
                 throw CancellationError()
             }
 

@@ -14,9 +14,9 @@ Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or
 
 <p align="center">
   <img src="docs/menu-navigation-sessions.png" width="360" alt="Loom Sessions tab with illustrative project sessions">
-  <img src="docs/menu-navigation-usage.png" width="360" alt="Loom Usage tab with illustrative quota cards">
+  <img src="docs/menu-navigation-usage.png" width="360" alt="Loom Usage tab showing provider quotas and reset times">
 </p>
-<p align="center"><em>Illustrative demo data; these previews do not show live accounts.</em></p>
+<p align="center"><em>Loom Sessions and Usage views.</em></p>
 
 The menu fits its content within the available screen height, with scrolling for longer lists. Each tab preserves its own scroll and disclosure state. Refresh manually or use the configured background interval (60 seconds by default). Open **Settings** from the header gear button (⌘,) to configure provider monitoring, session retention, Dock visibility, refresh intervals, or privacy options.
 
