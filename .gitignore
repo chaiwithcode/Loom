@@ -58,3 +58,14 @@ backups/
 .vscode/
 .idea/
 
+# Private execution artifacts (maintained outside source)
+/PLAN.md
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/.github/copilot-instructions.md
+/docs/CODEX_KICKOFF.md
+/docs/ANTIGRAVITY_WORKFLOW.md
+/scripts/agy-helper.py
+/scripts/agy-project.json
+/scripts/test_agy_helper.py

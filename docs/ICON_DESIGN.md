@@ -29,5 +29,4 @@ application artwork, matching the Dock; they do not use the menu-bar template.
 
 `docs/icon-preview.png` compares the unchanged Dock artwork with the refined
 monochrome glyph at actual 18, 36 and 48 pixel resolutions on light and dark surfaces.
-The enlarged 96 pixel mark makes its ribbon crossings and transparent gaps inspectable. Backups of the superseded flat
-artwork and exports are recorded in PLAN.md.
+The enlarged 96 pixel mark makes its ribbon crossings and transparent gaps inspectable. See [ICON_PROMPT.md](ICON_PROMPT.md) for the icon design prompt.
