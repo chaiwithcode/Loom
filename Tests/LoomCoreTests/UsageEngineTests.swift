@@ -2,8 +2,8 @@
 //  UsageEngineTests.swift
 //  Loom
 //
-//  Created by Deepak Sharma on 03/10/2026.
-//  Copyright © 2026 ChaiWithCode. All rights reserved.
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
 //
 
 import XCTest
@@ -688,7 +688,7 @@ final class UsageEngineTests: XCTestCase {
             psOutput: """
             user 100 0.0 0.1 /usr/bin/cat agy --csrf_token fake-token
             user 101 0.0 0.1 /bin/echo language_server --csrf_token fake-token
-            user 102 0.0 0.1 /Users/deepak/.local/bin/agy --csrf_token valid-agy-token
+            user 102 0.0 0.1 /Users/developer/.local/bin/agy --csrf_token valid-agy-token
             """,
             lsofOutput: "agy 102 user 10u IPv4 0x1234 TCP 127.0.0.1:45678 (LISTEN)"
         )
@@ -708,7 +708,7 @@ final class UsageEngineTests: XCTestCase {
 
     func testAntigravityCSRFDiscoveryWithTokenAsFinalArgument() async throws {
         let mockExecutor = MockProcessExecutorForQuota(
-            psOutput: "user 202 0.0 0.1 /Users/deepak/.local/bin/agy --verbose --csrf_token=final-arg-token",
+            psOutput: "user 202 0.0 0.1 /Users/developer/.local/bin/agy --verbose --csrf_token=final-arg-token",
             lsofOutput: "agy 202 user 10u IPv4 0x1234 TCP 127.0.0.1:45678 (LISTEN)"
         )
         let mockTransport = MockAntigravityQuotaTransport(

@@ -1,5 +1,16 @@
+//
+//  SessionStore.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import Foundation
 import Observation
+#if canImport(AppKit)
+import AppKit
+#endif
 
 public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
     public var id: ProviderID { providerID }
@@ -11,6 +22,7 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
     public var usageErrorMessage: String?
     public var errorMessage: String?
     public var isRefreshing: Bool
+    public var diagnostics: ProviderDiscoveryDiagnostics?
 
     public init(
         providerID: ProviderID,
@@ -20,7 +32,8 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
         usage: ProviderUsageSnapshot? = nil,
         usageErrorMessage: String? = nil,
         errorMessage: String? = nil,
-        isRefreshing: Bool = false
+        isRefreshing: Bool = false,
+        diagnostics: ProviderDiscoveryDiagnostics? = nil
     ) {
         self.providerID = providerID
         self.displayName = displayName
@@ -30,6 +43,7 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
         self.usageErrorMessage = usageErrorMessage
         self.errorMessage = errorMessage
         self.isRefreshing = isRefreshing
+        self.diagnostics = diagnostics
     }
 
     public var hasWarning: Bool {
@@ -190,6 +204,7 @@ private struct ProviderRefreshResult: Sendable {
     let usage: ProviderUsageSnapshot?
     let usageError: String?
     let sessionError: String?
+    let diagnostics: ProviderDiscoveryDiagnostics?
 }
 
 @Observable
@@ -203,6 +218,8 @@ public final class SessionStore {
     private let registeredProviders: [any AgentProvider]
     private var activeRefreshTask: Task<Void, Never>?
     private var periodicRefreshTask: Task<Void, Never>?
+    @ObservationIgnored
+    nonisolated(unsafe) private var wakeObserver: (any NSObjectProtocol)?
 
     public init(providers: [any AgentProvider], fixture: DemoFixture = .standard) {
         self.fixture = fixture
@@ -215,9 +232,30 @@ public final class SessionStore {
                 sessions: [],
                 usage: nil,
                 errorMessage: nil,
-                isRefreshing: false
+                isRefreshing: false,
+                diagnostics: nil
             )
         }
+
+        #if canImport(AppKit)
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.refresh()
+            }
+        }
+        #endif
+    }
+
+    deinit {
+        #if canImport(AppKit)
+        if let obs = wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
+        }
+        #endif
     }
 
     public var allSessions: [AgentSession] {
@@ -343,7 +381,8 @@ public final class SessionStore {
                             sessions: [],
                             usage: nil,
                             usageError: "Provider is unavailable",
-                            sessionError: nil
+                            sessionError: nil,
+                            diagnostics: nil
                         )
                     }
 
@@ -368,6 +407,7 @@ public final class SessionStore {
 
                     let (discoveredSessions, sErr) = await sessionsTask
                     let (fetchedUsage, uErr) = await usageTask
+                    let diag = await provider.lastDiagnostics() ?? discoveredSessions.first?.diagnostics
 
                     return ProviderRefreshResult(
                         providerID: provider.id,
@@ -375,7 +415,8 @@ public final class SessionStore {
                         sessions: discoveredSessions,
                         usage: fetchedUsage,
                         usageError: uErr,
-                        sessionError: sErr
+                        sessionError: sErr,
+                        diagnostics: diag
                     )
                 }
             }
@@ -398,9 +439,43 @@ public final class SessionStore {
 
         var snapshot = providerSnapshots[index]
         snapshot.availability = result.availability
-        snapshot.sessions = result.sessions
         snapshot.errorMessage = result.sessionError
+        snapshot.diagnostics = result.diagnostics ?? result.sessions.first?.diagnostics
         snapshot.isRefreshing = false
+
+        // Stale lifecycle protection: if provider encountered a fatal error or is unavailable,
+        // ensure any previously active sessions do not remain stuck in .working!
+        if result.sessionError != nil || !result.availability.isAvailable {
+            if result.sessions.isEmpty && !snapshot.sessions.isEmpty {
+                snapshot.sessions = snapshot.sessions.map { s in
+                    if s.state == .working || s.state == .starting || s.state == .waiting {
+                        let reason = result.sessionError != nil ? "Provider error: \(result.sessionError!)" : "Provider unavailable"
+                        return AgentSession(
+                            id: s.id,
+                            provider: s.provider,
+                            projectName: s.projectName,
+                            projectPath: s.projectPath,
+                            state: result.sessionError != nil ? .failed : .idle,
+                            startedAt: s.startedAt,
+                            lastActivityAt: Date(),
+                            branch: s.branch,
+                            summary: reason,
+                            pid: s.pid,
+                            providerSessionID: s.providerSessionID,
+                            associatedProcesses: [],
+                            hostApp: s.hostApp,
+                            diagnostics: s.diagnostics,
+                            discoveryEvidence: s.discoveryEvidence + [reason]
+                        )
+                    }
+                    return s
+                }
+            } else {
+                snapshot.sessions = result.sessions
+            }
+        } else {
+            snapshot.sessions = result.sessions
+        }
 
         // Retain previous successful usage marked as stale if current fetch failed or returned nil or provider unavailable
         if let newUsage = result.usage {

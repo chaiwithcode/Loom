@@ -2,8 +2,8 @@
 //  SettingsView.swift
 //  Loom
 //
-//  Created by Deepak Sharma on 03/10/2026.
-//  Copyright © 2026 ChaiWithCode. All rights reserved.
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
 //
 
 import SwiftUI
@@ -139,7 +139,7 @@ private struct AboutSettingsTab: View {
 
             Spacer()
 
-            Text("© 2026 ChaiWithCode. All rights reserved.")
+            Text("© 2026 Deepak Sharma. MIT License.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }

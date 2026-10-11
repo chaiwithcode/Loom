@@ -2,8 +2,8 @@
 //  AntigravityUsageFetcher.swift
 //  Loom
 //
-//  Created by Deepak Sharma on 03/10/2026.
-//  Copyright © 2026 ChaiWithCode. All rights reserved.
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
 //
 
 import Foundation

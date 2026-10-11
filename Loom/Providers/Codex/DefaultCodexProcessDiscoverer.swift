@@ -1,3 +1,11 @@
+//
+//  DefaultCodexProcessDiscoverer.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import Foundation
 
 public protocol ProcessExecuting: Sendable {
@@ -44,37 +52,66 @@ public final class DefaultCodexProcessDiscoverer: CodexProcessDiscovering, Senda
         self.lsofPath = lsofPath
     }
 
-    public func findRunningProcesses() async throws -> [CodexProcessInfo] {
-        // 1. Query running processes via /bin/ps; propagate actionable discovery errors
-        let psOutput = try await executor.execute(
-            executablePath: psPath,
-            arguments: ["-ax", "-o", "pid=,lstart=,command="]
-        )
-
-        let parsedProcesses = CodexParser.parsePsOutput(psOutput)
-        guard !parsedProcesses.isEmpty else {
-            return []
+    public func discoverProcesses() async throws -> (processes: [AgentProcess], processTree: ProcessTree) {
+        // 1. Query running processes via /bin/ps with resilient error handling (e.g. sandbox EPERM)
+        let psOutput: String
+        do {
+            psOutput = try await executor.execute(
+                executablePath: psPath,
+                arguments: ["-ax", "-o", "pid=,ppid=,lstart=,command="]
+            )
+        } catch let posixError as POSIXError where posixError.code == .EPERM {
+            return (processes: [], processTree: ProcessTree(nodes: []))
+        } catch let nsError as NSError where nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(EPERM) {
+            return (processes: [], processTree: ProcessTree(nodes: []))
         }
 
-        // 2. For each identified Codex process, resolve its working directory via lsof
-        var results: [CodexProcessInfo] = []
-        for item in parsedProcesses {
+        let nodes = ProcessTree.parsePsOutput(psOutput)
+        let tree = ProcessTree(nodes: nodes)
+
+        var matchedProcesses: [AgentProcess] = []
+
+        for node in nodes {
+            guard CodexParser.isCodexCommand(node.command) else {
+                continue
+            }
+
             var cwd: URL? = nil
             if let lsofOutput = try? await executor.execute(
                 executablePath: lsofPath,
-                arguments: ["-a", "-p", "\(item.pid)", "-d", "cwd", "-Fn"]
+                arguments: ["-a", "-p", "\(node.pid)", "-d", "cwd", "-Fn"]
             ) {
                 cwd = CodexParser.parseLsofCwdOutput(lsofOutput)
             }
 
-            results.append(CodexProcessInfo(
-                pid: item.pid,
-                command: item.command,
+            let hostApp = tree.resolveHostApp(for: node.pid)
+            let sessionToken = ProcessTree.extractSessionIDToken(from: node.command)
+
+            matchedProcesses.append(AgentProcess(
+                pid: node.pid,
+                parentPID: node.parentPID,
+                executable: node.executable,
+                commandLine: node.command,
                 workingDirectory: cwd,
-                startedAt: item.startedAt
+                startedAt: node.startedAt,
+                provider: .codex,
+                hostApp: hostApp,
+                sessionIDToken: sessionToken
             ))
         }
 
-        return results
+        return (processes: matchedProcesses, processTree: tree)
+    }
+
+    public func findRunningProcesses() async throws -> [CodexProcessInfo] {
+        let (processes, _) = try await discoverProcesses()
+        return processes.map {
+            CodexProcessInfo(
+                pid: $0.pid,
+                command: $0.commandLine,
+                workingDirectory: $0.workingDirectory,
+                startedAt: $0.startedAt
+            )
+        }
     }
 }

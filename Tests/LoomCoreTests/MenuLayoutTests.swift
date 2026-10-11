@@ -2,8 +2,8 @@
 //  MenuLayoutTests.swift
 //  Loom
 //
-//  Created by Deepak Sharma on 03/10/2026.
-//  Copyright © 2026 ChaiWithCode. All rights reserved.
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
 //
 
 import XCTest
@@ -317,7 +317,7 @@ final class MenuLayoutTests: XCTestCase {
         }
 
         let host = NSHostingView(rootView: DetailWrapTestView(
-            path: "/Users/deepak/Desktop/Projects/indie/SmartRemote/submodules/core/extra/very/long/path/with/no/breaks/deep/in/hierarchy",
+            path: "/Users/developer/Desktop/Projects/indie/SmartRemote/submodules/core/extra/very/long/path/with/no/breaks/deep/in/hierarchy",
             summary: "This is a detailed multiline summary describing the current agent operation which spans multiple sentences and needs to wrap cleanly without truncating abruptly or pushing out adjacent views."
         ))
         let size = host.fittingSize
@@ -422,7 +422,7 @@ final class MenuLayoutTests: XCTestCase {
                     }
                     HStack {
                         Text("Project Path:").font(.caption).frame(width: 84, alignment: .leading)
-                        Text("/Users/deepak/Desktop/Projects/oss/Loom").font(.caption)
+                        Text("/Users/developer/Desktop/Projects/oss/Loom").font(.caption)
                     }
                 }
                 .frame(width: 320)
@@ -469,7 +469,7 @@ final class MenuLayoutTests: XCTestCase {
             id: "test-row-1",
             provider: .codex,
             projectName: "Loom",
-            projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Loom"),
+            projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Loom"),
             state: .unknown,
             startedAt: Date(timeIntervalSince1970: 1700000000),
             lastActivityAt: nil,
@@ -835,16 +835,16 @@ final class MenuLayoutTests: XCTestCase {
 
         // 2. Same project name with distinct parent basenames (/work/Loom vs /personal/Loom)
         let distinctParents: [(name: String, path: URL)] = [
-            ("Loom", URL(fileURLWithPath: "/Users/deepak/work/Loom")),
-            ("Loom", URL(fileURLWithPath: "/Users/deepak/personal/Loom"))
+            ("Loom", URL(fileURLWithPath: "/Users/developer/work/Loom")),
+            ("Loom", URL(fileURLWithPath: "/Users/developer/personal/Loom"))
         ]
         let cueWork = shortestUniqueParentSuffix(
-            projectPath: URL(fileURLWithPath: "/Users/deepak/work/Loom"),
+            projectPath: URL(fileURLWithPath: "/Users/developer/work/Loom"),
             projectName: "Loom",
             allProjects: distinctParents
         )
         let cuePersonal = shortestUniqueParentSuffix(
-            projectPath: URL(fileURLWithPath: "/Users/deepak/personal/Loom"),
+            projectPath: URL(fileURLWithPath: "/Users/developer/personal/Loom"),
             projectName: "Loom",
             allProjects: distinctParents
         )
@@ -853,9 +853,9 @@ final class MenuLayoutTests: XCTestCase {
 
         // 3. Unique project repo: no duplicate name, parent folder cue is omitted
         let uniqueCue = shortestUniqueParentSuffix(
-            projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/indie/SmartRemote"),
+            projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/indie/SmartRemote"),
             projectName: "SmartRemote",
-            allProjects: distinctParents + [("SmartRemote", URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/indie/SmartRemote"))]
+            allProjects: distinctParents + [("SmartRemote", URL(fileURLWithPath: "/Users/developer/Desktop/Projects/indie/SmartRemote"))]
         )
         XCTAssertNil(uniqueCue, "Unique project name omits parent folder cue")
     }
@@ -878,6 +878,8 @@ final class MenuLayoutTests: XCTestCase {
 
                     HStack(spacing: 5) {
                         switch state {
+                        case .starting:
+                            Circle().frame(width: 7, height: 7)
                         case .working:
                             Circle().frame(width: 7, height: 7)
                         case .idle:

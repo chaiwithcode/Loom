@@ -1,3 +1,11 @@
+//
+//  GitRepositoryResolver.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import Foundation
 
 public struct GitHEADParser: Sendable {

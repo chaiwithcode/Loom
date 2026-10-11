@@ -1,3 +1,11 @@
+//
+//  MockAgentProvider.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import Foundation
 import os
 
@@ -119,7 +127,7 @@ extension MockAgentProvider {
                 id: "codex-session-1",
                 provider: .codex,
                 projectName: "XKit",
-                projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/XKit"),
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/XKit"),
                 state: .working,
                 startedAt: referenceDate.addingTimeInterval(-900), // 15m ago
                 lastActivityAt: referenceDate.addingTimeInterval(-480), // 8m ago
@@ -130,12 +138,23 @@ extension MockAgentProvider {
                 id: "codex-session-2",
                 provider: .codex,
                 projectName: "DevPortal",
-                projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/DevPortal"),
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/DevPortal"),
                 state: .idle,
                 startedAt: referenceDate.addingTimeInterval(-7200), // 2h ago
                 lastActivityAt: referenceDate.addingTimeInterval(-2700), // 45m ago
                 branch: "feature/api",
                 summary: "Awaiting next user prompt"
+            ),
+            AgentSession(
+                id: "codex-session-3",
+                provider: .codex,
+                projectName: "CoreEngine",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/CoreEngine"),
+                state: .starting,
+                startedAt: referenceDate.addingTimeInterval(-60),
+                lastActivityAt: referenceDate.addingTimeInterval(-30),
+                branch: "main",
+                summary: "Initializing session"
             )
         ]
 
@@ -170,13 +189,13 @@ extension MockAgentProvider {
             usage: codexUsage
         )
 
-        // Claude mock: .waiting and .failed
+        // Claude mock: .waiting, .failed, and .offline
         let claudeSessions = [
             AgentSession(
                 id: "claude-session-1",
                 provider: .claude,
                 projectName: "SmartRemote",
-                projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/SmartRemote"),
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/SmartRemote"),
                 state: .waiting,
                 startedAt: referenceDate.addingTimeInterval(-2100), // 35m ago
                 lastActivityAt: referenceDate.addingTimeInterval(-120), // 2m ago
@@ -187,12 +206,23 @@ extension MockAgentProvider {
                 id: "claude-session-2",
                 provider: .claude,
                 projectName: "Loom",
-                projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Loom"),
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Loom"),
                 state: .failed,
                 startedAt: referenceDate.addingTimeInterval(-3600), // 1h ago
                 lastActivityAt: referenceDate.addingTimeInterval(-720), // 12m ago
                 branch: "v0-kickoff",
                 summary: "Build failed: undefined symbol in parser"
+            ),
+            AgentSession(
+                id: "claude-session-3",
+                provider: .claude,
+                projectName: "IdleService",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/IdleService"),
+                state: .idle,
+                startedAt: referenceDate.addingTimeInterval(-7200),
+                lastActivityAt: referenceDate.addingTimeInterval(-3600),
+                branch: "main",
+                summary: "Service daemon idle"
             )
         ]
 
@@ -203,13 +233,13 @@ extension MockAgentProvider {
             sessions: claudeSessions
         )
 
-        // Antigravity mock: .finished and .unknown
+        // Antigravity mock: .finished, .unknown, and .failed
         let antigravitySessions = [
             AgentSession(
                 id: "antigravity-session-1",
                 provider: .antigravity,
                 projectName: "Experiment",
-                projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Experiment"),
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Experiment"),
                 state: .finished,
                 startedAt: referenceDate.addingTimeInterval(-3000), // 50m ago
                 lastActivityAt: referenceDate.addingTimeInterval(-300), // 5m ago
@@ -220,12 +250,23 @@ extension MockAgentProvider {
                 id: "antigravity-session-2",
                 provider: .antigravity,
                 projectName: "KernelMod",
-                projectPath: URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/KernelMod"),
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/KernelMod"),
                 state: .unknown,
                 startedAt: referenceDate.addingTimeInterval(-10800), // 3h ago
                 lastActivityAt: referenceDate.addingTimeInterval(-1500), // 25m ago
                 branch: "patch-1",
                 summary: "Process detached without final status report"
+            ),
+            AgentSession(
+                id: "antigravity-session-3",
+                provider: .antigravity,
+                projectName: "CrashProbe",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/CrashProbe"),
+                state: .failed,
+                startedAt: referenceDate.addingTimeInterval(-1800),
+                lastActivityAt: referenceDate.addingTimeInterval(-900),
+                branch: "main",
+                summary: "Fatal exception in runtime"
             )
         ]
 
@@ -350,7 +391,7 @@ public enum DemoFixture: Sendable, Equatable {
     public func makeProviders() -> [any AgentProvider] {
         switch self {
         case .standard:
-            return [CodexProvider(), AntigravityProvider()]
+            return [CodexProvider(), ClaudeProvider(), AntigravityProvider()]
         case .mock:
             return MockAgentProvider.createDefaultProviders()
         case .empty:

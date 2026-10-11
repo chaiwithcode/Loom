@@ -1,3 +1,11 @@
+//
+//  ProviderSectionView.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import SwiftUI
 import LoomCore
 
@@ -7,6 +15,7 @@ public struct ProviderSectionView: View {
     public let showsUsage: Bool
     public let expandedSessionIds: Set<String>
     @State private var isShowingAdditionalQuotas = false
+    @State private var isShowingDiagnostics = false
 
     public init(snapshot: ProviderSnapshot, showsSessions: Bool = true, showsUsage: Bool = true, expandedSessionIds: Set<String> = []) {
         self.snapshot = snapshot
@@ -18,6 +27,7 @@ public struct ProviderSectionView: View {
     private var status: (label: String, color: Color) {
         if snapshot.isRefreshing || snapshot.availability == .unknown { return ("Checking", .secondary) }
         if snapshot.errorMessage != nil { return ("Error", .red) }
+        if snapshot.availability.isDegraded { return ("Degraded", .orange) }
         if snapshot.availability.isAvailable { return ("Available", .green) }
         return ("Unavailable", .orange)
     }
@@ -65,6 +75,34 @@ public struct ProviderSectionView: View {
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 2)
                 }
+
+                // Expose Developer Discovery Diagnostics
+                if let diag = snapshot.diagnostics {
+                    DisclosureGroup(isExpanded: $isShowingDiagnostics) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            diagRow("Processes detected", value: "\(diag.processesDetected)")
+                            diagRow("Logical sessions", value: "\(diag.logicalSessions)")
+                            diagRow("Workspaces resolved", value: "\(diag.workspacesResolved)/\(max(diag.logicalSessions, 1))")
+                            diagRow("Metadata status", value: diag.metadataStatus.rawValue.capitalized)
+                            if let dur = diag.discoveryDurationMsFormatted {
+                                diagRow("Discovery duration", value: dur)
+                            }
+                            if let err = diag.metadataError {
+                                diagRow("Metadata error", value: err)
+                            }
+                        }
+                        .padding(.top, 6)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "wrench.and.screwdriver")
+                                .font(.system(size: 11))
+                            Text("Discovery Diagnostics")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                    .tint(.secondary)
+                }
             }
 
             if showsUsage, let usage = snapshot.usage, !usage.additionalGroups.isEmpty {
@@ -91,6 +129,20 @@ public struct ProviderSectionView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(snapshot.displayName) section")
+    }
+
+    private func diagRow(_ label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(label)
+                .foregroundStyle(.secondary)
+                .frame(width: 140, alignment: .leading)
+            Text(value)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.system(size: 12))
     }
 
     private var providerHeader: some View {

@@ -1,3 +1,11 @@
+//
+//  AntigravityProcessInspector.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import Foundation
 
 public struct AntigravitySessionRecord: Hashable, Equatable, Sendable {
@@ -37,4 +45,11 @@ public protocol AntigravityStoreInspecting: Sendable {
 
 public protocol AntigravityProcessDiscovering: Sendable {
     func isAntigravityRunning() async -> Bool
+    func discoverProcesses() async -> [AgentProcess]
+}
+
+extension AntigravityProcessDiscovering {
+    public func discoverProcesses() async -> [AgentProcess] {
+        return []
+    }
 }

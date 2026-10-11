@@ -1,3 +1,11 @@
+//
+//  LoomApp.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import SwiftUI
 import AppKit
 import LoomCore

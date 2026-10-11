@@ -1,3 +1,11 @@
+//
+//  CodexProcessInspector.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import Foundation
 
 public struct CodexProcessInfo: Identifiable, Hashable, Equatable, Sendable {
@@ -22,6 +30,37 @@ public struct CodexProcessInfo: Identifiable, Hashable, Equatable, Sendable {
 
 public protocol CodexProcessDiscovering: Sendable {
     func findRunningProcesses() async throws -> [CodexProcessInfo]
+    func discoverProcesses() async throws -> (processes: [AgentProcess], processTree: ProcessTree)
+}
+
+extension CodexProcessDiscovering {
+    public func discoverProcesses() async throws -> (processes: [AgentProcess], processTree: ProcessTree) {
+        let legacy = try await findRunningProcesses()
+        let nodes = legacy.map {
+            ProcessNode(
+                pid: $0.pid,
+                parentPID: nil,
+                command: $0.command,
+                executable: $0.command,
+                startedAt: $0.startedAt
+            )
+        }
+        let tree = ProcessTree(nodes: nodes)
+        let agentProcesses = legacy.map {
+            AgentProcess(
+                pid: $0.pid,
+                parentPID: nil,
+                executable: $0.command,
+                commandLine: $0.command,
+                workingDirectory: $0.workingDirectory,
+                startedAt: $0.startedAt,
+                provider: .codex,
+                hostApp: nil,
+                sessionIDToken: ProcessTree.extractSessionIDToken(from: $0.command)
+            )
+        }
+        return (processes: agentProcesses, processTree: tree)
+    }
 }
 
 public struct GitRepositoryInfo: Hashable, Equatable, Sendable {

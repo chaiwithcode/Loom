@@ -1,3 +1,11 @@
+//
+//  CodexProviderTests.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import XCTest
 @testable import LoomCore
 
@@ -13,7 +21,7 @@ final class CodexProviderTests: XCTestCase {
 
     func testCodexParserPsOutputIgnoresNonCodex() {
         let output = """
-          101 Sat Oct  3 10:00:00 2026 /usr/bin/login -pf deepak
+          101 Sat Oct  3 10:00:00 2026 /usr/bin/login -pf developer
           102 Sat Oct  3 10:00:05 2026 /bin/zsh
           103 Sat Oct  3 10:00:10 2026 grep codex
           104 Sat Oct  3 10:00:15 2026 /Applications/Loom.app/Contents/MacOS/Loom
@@ -47,10 +55,10 @@ final class CodexProviderTests: XCTestCase {
         let lsofOutput = """
         p54321
         fcwd
-        n/Users/deepak/Desktop/Projects/oss/Loom
+        n/Users/developer/Desktop/Projects/oss/Loom
         """
         let url = CodexParser.parseLsofCwdOutput(lsofOutput)
-        XCTAssertEqual(url?.path, "/Users/deepak/Desktop/Projects/oss/Loom")
+        XCTAssertEqual(url?.path, "/Users/developer/Desktop/Projects/oss/Loom")
     }
 
     func testCodexParserLsofCwdEmpty() {
@@ -80,10 +88,10 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testGitHEADParserWorktreeGitDir() {
-        let gitFileContent = "gitdir: /Users/deepak/Desktop/Projects/oss/Loom/.git/worktrees/feat1\n"
-        let base = URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Loom-feat1")
+        let gitFileContent = "gitdir: /Users/developer/Desktop/Projects/oss/Loom/.git/worktrees/feat1\n"
+        let base = URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Loom-feat1")
         let resolved = GitHEADParser.parseWorktreeGitDir(gitFileContent: gitFileContent, relativeTo: base)
-        XCTAssertEqual(resolved?.path, "/Users/deepak/Desktop/Projects/oss/Loom/.git/worktrees/feat1")
+        XCTAssertEqual(resolved?.path, "/Users/developer/Desktop/Projects/oss/Loom/.git/worktrees/feat1")
     }
 
     // MARK: - Git Repository Resolver Tests
@@ -118,8 +126,8 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testGitRepositoryResolverStandardGitRepo() async {
-        let repoRoot = "/Users/deepak/Desktop/Projects/oss/Loom"
-        let subDir = "/Users/deepak/Desktop/Projects/oss/Loom/Sources/LoomCore"
+        let repoRoot = "/Users/developer/Desktop/Projects/oss/Loom"
+        let subDir = "/Users/developer/Desktop/Projects/oss/Loom/Sources/LoomCore"
 
         let mockFS = MockFileSystem(
             files: [
@@ -142,9 +150,9 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testGitRepositoryResolverNonGitDirectory() async {
-        let mockFS = MockFileSystem(files: [:], directories: ["/Users/deepak/Desktop/Notes"])
+        let mockFS = MockFileSystem(files: [:], directories: ["/Users/developer/Desktop/Notes"])
         let resolver = DefaultGitRepositoryResolver(fileSystem: mockFS)
-        let info = await resolver.resolveRepository(for: URL(fileURLWithPath: "/Users/deepak/Desktop/Notes"))
+        let info = await resolver.resolveRepository(for: URL(fileURLWithPath: "/Users/developer/Desktop/Notes"))
 
         XCTAssertNil(info)
     }
@@ -192,7 +200,7 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testCodexProviderSingleSessionInGitRepo() async throws {
-        let repoURL = URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Loom")
+        let repoURL = URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Loom")
         let process = CodexProcessInfo(
             pid: 1234,
             command: "/opt/homebrew/bin/codex",
@@ -225,8 +233,8 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testCodexProviderMultipleSessionsInDifferentRepos() async throws {
-        let repo1 = URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Loom")
-        let repo2 = URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/XKit")
+        let repo1 = URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Loom")
+        let repo2 = URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/XKit")
 
         let process1 = CodexProcessInfo(
             pid: 1001,
@@ -259,7 +267,7 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testCodexProviderSessionInNonGitDir() async throws {
-        let nonGitURL = URL(fileURLWithPath: "/Users/deepak/Desktop/ScratchPad")
+        let nonGitURL = URL(fileURLWithPath: "/Users/developer/Desktop/ScratchPad")
         let process = CodexProcessInfo(
             pid: 2001,
             command: "codex",
@@ -306,7 +314,7 @@ final class CodexProviderTests: XCTestCase {
     // MARK: - Helper Rejection and Path Edge Cases
 
     func testCodexParserRejectsHelperProcesses() {
-        let rendererHelper = "/Applications/Codex.app/Contents/Frameworks/Codex Helper (Renderer).app/Contents/MacOS/Codex Helper (Renderer) --type=renderer --user-data-dir=/Users/deepak/Library"
+        let rendererHelper = "/Applications/Codex.app/Contents/Frameworks/Codex Helper (Renderer).app/Contents/MacOS/Codex Helper (Renderer) --type=renderer --user-data-dir=/Users/developer/Library"
         XCTAssertFalse(CodexParser.isCodexCommand(rendererHelper))
 
         let chatgptService = "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/154.0/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service) --type=utility"
@@ -315,10 +323,10 @@ final class CodexProviderTests: XCTestCase {
         let gpuHelper = "/Applications/Codex.app/Contents/Frameworks/Codex Helper.app/Contents/MacOS/Codex Helper --type=gpu-process"
         XCTAssertFalse(CodexParser.isCodexCommand(gpuHelper))
 
-        let sparkleAutoUpdate = "/Applications/ChatGPT.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate com.openai.codex /Users/deepak deepak"
+        let sparkleAutoUpdate = "/Applications/ChatGPT.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate com.openai.codex /Users/developer developer"
         XCTAssertFalse(CodexParser.isCodexCommand(sparkleAutoUpdate))
 
-        let computerUse = "/Users/deepak/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        let computerUse = "/Users/developer/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
         XCTAssertFalse(CodexParser.isCodexCommand(computerUse))
 
         let modifierMonitor = "/Applications/ChatGPT.app/Contents/Resources/native/bare-modifier-monitor --key DoubleCommand --immediate"
@@ -326,7 +334,7 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testCodexParserRejectsAppServerInfrastructure() {
-        let appServerDaemon = "/Users/deepak/.codex/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex app-server --listen unix:// --managed-daemon"
+        let appServerDaemon = "/Users/developer/.codex/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex app-server --listen unix:// --managed-daemon"
         XCTAssertFalse(CodexParser.isCodexCommand(appServerDaemon))
 
         let bundledAppServer = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex -c features.code_mode_host=true app-server --analytics-default-enabled"
@@ -389,24 +397,24 @@ final class CodexProviderTests: XCTestCase {
         let quotedWithSpaces = "\"/Applications/Codex Tools/bin/codex\" resume"
         XCTAssertTrue(CodexParser.isCodexCommand(quotedWithSpaces))
 
-        let cliWithSpaces = "/Users/deepak/My Developer Tools/codex-cli exec \"echo hi\""
+        let cliWithSpaces = "/Users/developer/My Developer Tools/codex-cli exec \"echo hi\""
         XCTAssertTrue(CodexParser.isCodexCommand(cliWithSpaces))
 
-        let nodeScriptWithSpaces = "/usr/local/bin/node \"/Users/deepak/My Tools/codex.js\""
+        let nodeScriptWithSpaces = "/usr/local/bin/node \"/Users/developer/My Tools/codex.js\""
         XCTAssertTrue(CodexParser.isCodexCommand(nodeScriptWithSpaces))
 
-        let nodeUnquotedWithSpaces = "/opt/homebrew/bin/node /Users/deepak/My Tools/node_modules/@openai/codex/bin/codex.js"
+        let nodeUnquotedWithSpaces = "/opt/homebrew/bin/node /Users/developer/My Tools/node_modules/@openai/codex/bin/codex.js"
         XCTAssertTrue(CodexParser.isCodexCommand(nodeUnquotedWithSpaces))
     }
 
     func testCodexParserWorkspaceExtraction() {
-        let cmdWorkingDir = "codex sandbox -c shell=none --working-dir /Users/deepak/Desktop/Projects/oss/Loom"
+        let cmdWorkingDir = "codex sandbox -c shell=none --working-dir /Users/developer/Desktop/Projects/oss/Loom"
         let url1 = CodexParser.extractWorkspaceDirectory(from: cmdWorkingDir)
-        XCTAssertEqual(url1?.path, "/Users/deepak/Desktop/Projects/oss/Loom")
+        XCTAssertEqual(url1?.path, "/Users/developer/Desktop/Projects/oss/Loom")
 
-        let cmdQuoted = "codex -C \"/Users/deepak/My Projects/Loom\""
+        let cmdQuoted = "codex -C \"/Users/developer/My Projects/Loom\""
         let url2 = CodexParser.extractWorkspaceDirectory(from: cmdQuoted)
-        XCTAssertEqual(url2?.path, "/Users/deepak/My Projects/Loom")
+        XCTAssertEqual(url2?.path, "/Users/developer/My Projects/Loom")
 
         let cmdRoot = "codex --working-dir /"
         let url3 = CodexParser.extractWorkspaceDirectory(from: cmdRoot)
@@ -442,12 +450,12 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testCodexProviderUsesExtractedWorkspaceWhenCwdIsRoot() async throws {
-        let repoURL = URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Loom")
+        let repoURL = URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Loom")
         let gitInfo = GitRepositoryInfo(rootURL: repoURL, projectName: "Loom", branch: "main")
 
         let process = CodexProcessInfo(
             pid: 8888,
-            command: "codex sandbox --working-dir /Users/deepak/Desktop/Projects/oss/Loom",
+            command: "codex sandbox --working-dir /Users/developer/Desktop/Projects/oss/Loom",
             workingDirectory: URL(fileURLWithPath: "/"),
             startedAt: Date(timeIntervalSince1970: 1700000000)
         )
@@ -519,13 +527,13 @@ final class CodexProviderTests: XCTestCase {
     func testCodexCommandPermitsLoomAndCommonKeywordsInArguments() {
         // Gap 1: broad substring filtering on command line previously rejected valid Codex commands
         // when arguments or prompts contained "loom", "grep", "agy", "swiftc", "helper", or "renderer".
-        XCTAssertTrue(CodexParser.isCodexCommand("codex -C /Users/deepak/Desktop/Projects/oss/Loom"))
-        XCTAssertTrue(CodexParser.isCodexCommand("/opt/homebrew/bin/codex -C /Users/deepak/Desktop/Projects/oss/Loom"))
+        XCTAssertTrue(CodexParser.isCodexCommand("codex -C /Users/developer/Desktop/Projects/oss/Loom"))
+        XCTAssertTrue(CodexParser.isCodexCommand("/opt/homebrew/bin/codex -C /Users/developer/Desktop/Projects/oss/Loom"))
         XCTAssertTrue(CodexParser.isCodexCommand("codex \"how do I use grep to find symbols?\""))
         XCTAssertTrue(CodexParser.isCodexCommand("codex --prompt \"test agy CLI options\""))
         XCTAssertTrue(CodexParser.isCodexCommand("codex \"explain swiftc warning\""))
         XCTAssertTrue(CodexParser.isCodexCommand("codex \"fix the auth helper and React renderer component\""))
-        XCTAssertTrue(CodexParser.isCodexCommand("/usr/local/bin/node /usr/local/lib/node_modules/@openai/codex/bin/codex.js -C /Users/deepak/Desktop/Projects/oss/Loom"))
+        XCTAssertTrue(CodexParser.isCodexCommand("/usr/local/bin/node /usr/local/lib/node_modules/@openai/codex/bin/codex.js -C /Users/developer/Desktop/Projects/oss/Loom"))
     }
 
     func testCodexCommandRejectsEchoAndNonExecutableArgumentsMentioningCodex() {
@@ -541,20 +549,20 @@ final class CodexProviderTests: XCTestCase {
 
     func testWorkspaceExtractionTokenBoundariesAndNoLoomCwdResolution() {
         // Token boundary flag matching
-        let url1 = CodexParser.extractWorkspaceDirectory(from: "codex -C /Users/deepak/Desktop/Projects/oss/Loom")
-        XCTAssertEqual(url1?.path, "/Users/deepak/Desktop/Projects/oss/Loom")
+        let url1 = CodexParser.extractWorkspaceDirectory(from: "codex -C /Users/developer/Desktop/Projects/oss/Loom")
+        XCTAssertEqual(url1?.path, "/Users/developer/Desktop/Projects/oss/Loom")
 
-        let url2 = CodexParser.extractWorkspaceDirectory(from: "codex -c shell=none -C /Users/deepak/Desktop/Projects/oss/Loom")
-        XCTAssertEqual(url2?.path, "/Users/deepak/Desktop/Projects/oss/Loom")
+        let url2 = CodexParser.extractWorkspaceDirectory(from: "codex -c shell=none -C /Users/developer/Desktop/Projects/oss/Loom")
+        XCTAssertEqual(url2?.path, "/Users/developer/Desktop/Projects/oss/Loom")
 
-        let urlFlagEq = CodexParser.extractWorkspaceDirectory(from: "codex --working-dir=/Users/deepak/Desktop/Projects/oss/Loom")
-        XCTAssertEqual(urlFlagEq?.path, "/Users/deepak/Desktop/Projects/oss/Loom")
+        let urlFlagEq = CodexParser.extractWorkspaceDirectory(from: "codex --working-dir=/Users/developer/Desktop/Projects/oss/Loom")
+        XCTAssertEqual(urlFlagEq?.path, "/Users/developer/Desktop/Projects/oss/Loom")
 
         // Non-boundary flag matching should be rejected
-        let urlColor = CodexParser.extractWorkspaceDirectory(from: "codex -Color /Users/deepak/Desktop/Projects/oss/Loom")
+        let urlColor = CodexParser.extractWorkspaceDirectory(from: "codex -Color /Users/developer/Desktop/Projects/oss/Loom")
         XCTAssertNil(urlColor)
 
-        let urlEmbedded = CodexParser.extractWorkspaceDirectory(from: "codex --my--working-dir=/Users/deepak/Desktop/Projects/oss/Loom")
+        let urlEmbedded = CodexParser.extractWorkspaceDirectory(from: "codex --my--working-dir=/Users/developer/Desktop/Projects/oss/Loom")
         XCTAssertNil(urlEmbedded)
 
         // Relative path must not resolve against Loom's process cwd
@@ -588,5 +596,41 @@ final class CodexProviderTests: XCTestCase {
         XCTAssertEqual(session.startedAt, startTime, "startedAt preserves true process start time")
         XCTAssertNil(session.lastActivityAt, "lastActivityAt must be nil without actual recorded evidence and no Date() fallback")
         XCTAssertEqual(session.pid, 4242)
+    }
+
+    func testDefaultCodexProcessDiscovererHandlesPsPermissionDeniedGracefully() async throws {
+        let executor = MockProcessExecutor { execPath, args in
+            if execPath == "/bin/ps" {
+                throw POSIXError(.EPERM)
+            }
+            return ""
+        }
+
+        let discoverer = DefaultCodexProcessDiscoverer(executor: executor)
+        let (processes, tree) = try await discoverer.discoverProcesses()
+        XCTAssertTrue(processes.isEmpty, "Permission denied on /bin/ps must return empty processes rather than throwing")
+        XCTAssertTrue(tree.allNodes.isEmpty)
+
+        let provider = CodexProvider(processDiscoverer: discoverer, gitResolver: MockGitResolver())
+        let sessions = try await provider.discoverSessions()
+        XCTAssertTrue(sessions.isEmpty)
+        let diag = await provider.lastDiagnostics()
+        XCTAssertEqual(diag?.processesDetected, 0)
+    }
+
+    func testCodexProviderHandlesThrowingDiscovererGracefully() async throws {
+        struct ThrowingDiscoverer: CodexProcessDiscovering, Sendable {
+            func findRunningProcesses() async throws -> [CodexProcessInfo] { [] }
+            func discoverProcesses() async throws -> (processes: [AgentProcess], processTree: ProcessTree) {
+                throw POSIXError(.EPERM)
+            }
+        }
+
+        let provider = CodexProvider(processDiscoverer: ThrowingDiscoverer(), gitResolver: MockGitResolver())
+        let sessions = try await provider.discoverSessions()
+        XCTAssertTrue(sessions.isEmpty, "Throwing discoverer must be safely handled without throwing")
+        let diag = await provider.lastDiagnostics()
+        XCTAssertEqual(diag?.metadataStatus, .unavailable)
+        XCTAssertNotNil(diag?.metadataError)
     }
 }

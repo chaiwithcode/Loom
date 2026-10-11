@@ -1,3 +1,11 @@
+//
+//  CodexParser.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import Foundation
 
 public struct CodexParser: Sendable {
@@ -259,7 +267,14 @@ public struct CodexParser: Sendable {
         }
     }
 
-    private static func commandRoleTokens(_ remainder: String) -> [String] {
+    public static func commandInfrastructureTokens(_ command: String) -> [String] {
+        guard let (_, remainder) = extractExecutableAndRemainder(command) else {
+            return []
+        }
+        return commandRoleTokens(remainder)
+    }
+
+    public static func commandRoleTokens(_ remainder: String) -> [String] {
         // Only global options and the first subcommand describe the process's role.
         // Everything after a user subcommand or the first prompt word is user input.
         let valueOptions: Set<String> = [
@@ -274,13 +289,22 @@ public struct CodexParser: Sendable {
         while index < tokens.count {
             let token = tokens[index]
             if token == "--" { break }
-            roleTokens.append(token)
-            if !token.hasPrefix("-") {
+            if token.hasPrefix("-") {
+                roleTokens.append(token)
+                let option = String(token.split(separator: "=", maxSplits: 1).first ?? "")
+                if valueOptions.contains(option) && !token.contains("=") {
+                    index += 1
+                }
+            } else {
+                let lower = token.lowercased()
+                let recognizedSubcommands: Set<String> = [
+                    "resume", "exec", "sandbox", "app-server", "exec-server",
+                    "daemon", "server", "review", "apply", "mcp"
+                ]
+                if recognizedSubcommands.contains(lower) {
+                    roleTokens.append(token)
+                }
                 break
-            }
-            let option = String(token.split(separator: "=", maxSplits: 1).first ?? "")
-            if valueOptions.contains(option) && !token.contains("=") {
-                index += 1
             }
             index += 1
         }

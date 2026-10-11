@@ -1,3 +1,11 @@
+//
+//  MenuBarRootView.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import SwiftUI
 import AppKit
 import LoomCore
@@ -7,7 +15,9 @@ public struct MenuBarRootView: View {
     var settings: LoomSettings?
     @State private var contentHeights: [MenuTab: CGFloat] = [.agents: 180, .usage: 180]
     @State private var selectedTab: MenuTab
-    @State private var chromeHeight: CGFloat = 81
+    @State private var selectedProviderID: ProviderID?
+    @State private var chromeHeight: CGFloat = 162
+    @State private var selectorHeight: CGFloat = 36
     @State private var availableHeight: CGFloat = 720
     private let defaultExpandedSessionIds: Set<String>
 
@@ -15,12 +25,22 @@ public struct MenuBarRootView: View {
         store: SessionStore,
         settings: LoomSettings? = nil,
         isUsageExpanded: Bool = false,
-        expandedSessionIds: Set<String> = []
+        expandedSessionIds: Set<String> = [],
+        selectedProviderID: ProviderID? = nil
     ) {
         self.store = store
         self.settings = settings
         self._selectedTab = State(initialValue: isUsageExpanded ? .usage : .agents)
         self.defaultExpandedSessionIds = expandedSessionIds
+        self._selectedProviderID = State(initialValue: selectedProviderID)
+    }
+
+    private var resolvedSelectedProviderID: ProviderID? {
+        if let selected = selectedProviderID,
+           store.providerSnapshots.contains(where: { $0.id == selected }) {
+            return selected
+        }
+        return store.providerSnapshots.first?.id
     }
 
     public var body: some View {
@@ -37,6 +57,12 @@ public struct MenuBarRootView: View {
             }
             .background(MenuHeightReader(part: "header"))
 
+            if selectedTab == .agents && !store.providerSnapshots.isEmpty {
+                Divider()
+                providerSelector
+                    .background(MenuHeightReader(part: "selector"))
+            }
+
             Divider()
 
             // Preserve separate scroll/disclosure state without letting the inactive
@@ -51,12 +77,21 @@ public struct MenuBarRootView: View {
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .center)
                                     .padding(.vertical, 24)
+                            } else if tab == .agents {
+                                if let selectedSnapshot = store.providerSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
+                                    ProviderSectionView(
+                                        snapshot: selectedSnapshot,
+                                        showsSessions: true,
+                                        showsUsage: false,
+                                        expandedSessionIds: defaultExpandedSessionIds
+                                    )
+                                }
                             } else {
                                 ForEach(store.providerSnapshots) { snapshot in
                                     ProviderSectionView(
                                         snapshot: snapshot,
-                                        showsSessions: tab == .agents,
-                                        showsUsage: tab == .usage,
+                                        showsSessions: false,
+                                        showsUsage: true,
                                         expandedSessionIds: defaultExpandedSessionIds
                                     )
                                     if snapshot.id != store.providerSnapshots.last?.id {
@@ -69,6 +104,7 @@ public struct MenuBarRootView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .background(MenuHeightReader(part: tab.rawValue))
                     }
+                    .id(tab == .agents ? "scroll-agents-\(resolvedSelectedProviderID?.rawValue ?? "none")" : "scroll-usage")
                     .frame(height: viewportHeight(for: tab))
                     .opacity(selectedTab == tab ? 1 : 0)
                     .allowsHitTesting(selectedTab == tab)
@@ -102,11 +138,68 @@ public struct MenuBarRootView: View {
                 let height = header + footer + 2 // The two dividers.
                 if abs(chromeHeight - height) > 0.5 { chromeHeight = height }
             }
+            if let selector = heights["selector"], selector > 0,
+               abs(selectorHeight - selector) > 0.5 {
+                selectorHeight = selector
+            }
         }
         .task {
             // Refresh on popover display
             await store.refresh()
         }
+    }
+
+    @ViewBuilder
+    private var providerSelector: some View {
+        HStack(spacing: 6) {
+            ForEach(store.providerSnapshots) { snapshot in
+                providerButton(for: snapshot)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Provider selector")
+    }
+
+    private func providerButton(for snapshot: ProviderSnapshot) -> some View {
+        let isSelected = resolvedSelectedProviderID == snapshot.id
+        return Button {
+            selectedProviderID = snapshot.id
+        } label: {
+            HStack(spacing: 3) {
+                Text(snapshot.displayName)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                Text("\(snapshot.sessions.count)")
+                    .font(.system(size: 10.5, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(
+                        (isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12)),
+                        in: Capsule()
+                    )
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+            .padding(.vertical, 4)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(isSelected ? Color.accentColor : Color.clear)
+                    .frame(height: 2)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 28)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(snapshot.displayName), \(snapshot.sessions.count) \(snapshot.sessions.count == 1 ? "session" : "sessions")")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityValue(isSelected ? "Selected" : "")
+        .accessibilityIdentifier("provider-tab-\(snapshot.id.rawValue)")
     }
 
     private func tabButton(_ title: String, tab: MenuTab) -> some View {
@@ -134,7 +227,13 @@ public struct MenuBarRootView: View {
     }
 
     private func viewportHeight(for tab: MenuTab) -> CGFloat {
-        min(contentHeights[tab] ?? 180, max(1, availableHeight - chromeHeight))
+        let extraChrome: CGFloat
+        if tab == .agents && !store.providerSnapshots.isEmpty {
+            extraChrome = selectorHeight + 1
+        } else {
+            extraChrome = 0
+        }
+        return min(contentHeights[tab] ?? 180, max(1, availableHeight - (chromeHeight + extraChrome)))
     }
 }
 

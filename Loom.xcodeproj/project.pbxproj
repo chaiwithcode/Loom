@@ -48,6 +48,23 @@
 		A000000000000000000000F6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F5 /* SettingsView.swift */; };
 		A000000000000000000000F8 /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F7 /* SettingsTests.swift */; };
 		A000000000000000000000FA /* MenuLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F9 /* MenuLayoutTests.swift */; };
+		A00000000000000000000102 /* AgentProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000101 /* AgentProcess.swift */; };
+		A00000000000000000000104 /* ProviderDiscoveryDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000103 /* ProviderDiscoveryDiagnostics.swift */; };
+		A00000000000000000000106 /* ProcessTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000105 /* ProcessTree.swift */; };
+		A00000000000000000000108 /* WorkspaceResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000107 /* WorkspaceResolver.swift */; };
+		A0000000000000000000010A /* SessionCorrelationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000109 /* SessionCorrelationEngine.swift */; };
+		A0000000000000000000010C /* DiscoveryPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000010B /* DiscoveryPipelineTests.swift */; };
+		A0000000000000000000010E /* LiveSessionTruthfulnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000010F /* LiveSessionTruthfulnessTests.swift */; };
+		A00000000000000000000110 /* CodexStateStoreInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000111 /* CodexStateStoreInspector.swift */; };
+		A00000000000000000000112 /* CodexWorkspaceEvidenceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000113 /* CodexWorkspaceEvidenceProvider.swift */; };
+		A00000000000000000000114 /* CodexStateStoreInspectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000115 /* CodexStateStoreInspectorTests.swift */; };
+		A00000000000000000000116 /* SessionLifecycleReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000117 /* SessionLifecycleReconciler.swift */; };
+		A00000000000000000000118 /* SessionLifecycleReconcilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000119 /* SessionLifecycleReconcilerTests.swift */; };
+		A00000000000000000000120 /* ClaudeProcessInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000121 /* ClaudeProcessInspector.swift */; };
+		A00000000000000000000122 /* ClaudeParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000123 /* ClaudeParser.swift */; };
+		A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000125 /* ClaudeTranscriptInspector.swift */; };
+		A00000000000000000000126 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000127 /* ClaudeProvider.swift */; };
+		A00000000000000000000128 /* ClaudeProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000129 /* ClaudeProviderTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -123,6 +140,23 @@
 		A000000000000000000000F5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A000000000000000000000F7 /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
 		A000000000000000000000F9 /* MenuLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuLayoutTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000101 /* AgentProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProcess.swift; sourceTree = "<group>"; };
+		A00000000000000000000103 /* ProviderDiscoveryDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderDiscoveryDiagnostics.swift; sourceTree = "<group>"; };
+		A00000000000000000000105 /* ProcessTree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessTree.swift; sourceTree = "<group>"; };
+		A00000000000000000000107 /* WorkspaceResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceResolver.swift; sourceTree = "<group>"; };
+		A00000000000000000000109 /* SessionCorrelationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCorrelationEngine.swift; sourceTree = "<group>"; };
+		A0000000000000000000010B /* DiscoveryPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryPipelineTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000010F /* LiveSessionTruthfulnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSessionTruthfulnessTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000111 /* CodexStateStoreInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexStateStoreInspector.swift; sourceTree = "<group>"; };
+		A00000000000000000000113 /* CodexWorkspaceEvidenceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexWorkspaceEvidenceProvider.swift; sourceTree = "<group>"; };
+		A00000000000000000000115 /* CodexStateStoreInspectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexStateStoreInspectorTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000117 /* SessionLifecycleReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLifecycleReconciler.swift; sourceTree = "<group>"; };
+		A00000000000000000000119 /* SessionLifecycleReconcilerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLifecycleReconcilerTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000121 /* ClaudeProcessInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProcessInspector.swift; sourceTree = "<group>"; };
+		A00000000000000000000123 /* ClaudeParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeParser.swift; sourceTree = "<group>"; };
+		A00000000000000000000125 /* ClaudeTranscriptInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptInspector.swift; sourceTree = "<group>"; };
+		A00000000000000000000127 /* ClaudeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProvider.swift; sourceTree = "<group>"; };
+		A00000000000000000000129 /* ClaudeProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProviderTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -236,8 +270,20 @@
 				A00000000000000000000015 /* Models */,
 				A00000000000000000000016 /* Protocols */,
 				A00000000000000000000017 /* Store */,
+				A0000000000000000000010D /* Discovery */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000010D /* Discovery */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000105 /* ProcessTree.swift */,
+				A00000000000000000000107 /* WorkspaceResolver.swift */,
+				A00000000000000000000109 /* SessionCorrelationEngine.swift */,
+				A00000000000000000000117 /* SessionLifecycleReconciler.swift */,
+			);
+			path = Discovery;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000015 /* Models */ = {
@@ -249,6 +295,8 @@
 				A00000000000000000000027 /* ProviderAvailability.swift */,
 				A0000000000000000000002C /* AgentUsage.swift */,
 				A000000000000000000000F1 /* LoomSettings.swift */,
+				A00000000000000000000101 /* AgentProcess.swift */,
+				A00000000000000000000103 /* ProviderDiscoveryDiagnostics.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -273,10 +321,22 @@
 			isa = PBXGroup;
 			children = (
 				A000000000000000000000E0 /* Antigravity */,
+				A0000000000000000000012A /* Claude */,
 				A000000000000000000000D0 /* Codex */,
 				A00000000000000000000019 /* Mock */,
 			);
 			path = Providers;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000012A /* Claude */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000121 /* ClaudeProcessInspector.swift */,
+				A00000000000000000000123 /* ClaudeParser.swift */,
+				A00000000000000000000125 /* ClaudeTranscriptInspector.swift */,
+				A00000000000000000000127 /* ClaudeProvider.swift */,
+			);
+			path = Claude;
 			sourceTree = "<group>";
 		};
 		A000000000000000000000E0 /* Antigravity */ = {
@@ -303,6 +363,8 @@
 				A000000000000000000000C5 /* CodexProvider.swift */,
 				A000000000000000000000C7 /* CodexUsageParser.swift */,
 				A000000000000000000000C8 /* CodexUsageFetcher.swift */,
+				A00000000000000000000111 /* CodexStateStoreInspector.swift */,
+				A00000000000000000000113 /* CodexWorkspaceEvidenceProvider.swift */,
 			);
 			path = Codex;
 			sourceTree = "<group>";
@@ -332,6 +394,11 @@
 				A000000000000000000000C9 /* UsageEngineTests.swift */,
 				A000000000000000000000F7 /* SettingsTests.swift */,
 				A000000000000000000000F9 /* MenuLayoutTests.swift */,
+				A0000000000000000000010B /* DiscoveryPipelineTests.swift */,
+				A0000000000000000000010F /* LiveSessionTruthfulnessTests.swift */,
+				A00000000000000000000115 /* CodexStateStoreInspectorTests.swift */,
+				A00000000000000000000119 /* SessionLifecycleReconcilerTests.swift */,
+				A00000000000000000000129 /* ClaudeProviderTests.swift */,
 			);
 			path = LoomCoreTests;
 			sourceTree = "<group>";
@@ -483,6 +550,18 @@
 				A000000000000000000000B7 /* AntigravityUsageParser.swift in Sources */,
 				A000000000000000000000B8 /* AntigravityUsageFetcher.swift in Sources */,
 				A000000000000000000000F2 /* LoomSettings.swift in Sources */,
+				A00000000000000000000102 /* AgentProcess.swift in Sources */,
+				A00000000000000000000104 /* ProviderDiscoveryDiagnostics.swift in Sources */,
+				A00000000000000000000106 /* ProcessTree.swift in Sources */,
+				A00000000000000000000108 /* WorkspaceResolver.swift in Sources */,
+				A0000000000000000000010A /* SessionCorrelationEngine.swift in Sources */,
+				A00000000000000000000110 /* CodexStateStoreInspector.swift in Sources */,
+				A00000000000000000000112 /* CodexWorkspaceEvidenceProvider.swift in Sources */,
+				A00000000000000000000116 /* SessionLifecycleReconciler.swift in Sources */,
+				A00000000000000000000120 /* ClaudeProcessInspector.swift in Sources */,
+				A00000000000000000000122 /* ClaudeParser.swift in Sources */,
+				A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */,
+				A00000000000000000000126 /* ClaudeProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -511,6 +590,11 @@
 				A000000000000000000000A9 /* UsageEngineTests.swift in Sources */,
 				A000000000000000000000F8 /* SettingsTests.swift in Sources */,
 				A000000000000000000000FA /* MenuLayoutTests.swift in Sources */,
+				A0000000000000000000010C /* DiscoveryPipelineTests.swift in Sources */,
+				A0000000000000000000010E /* LiveSessionTruthfulnessTests.swift in Sources */,
+				A00000000000000000000114 /* CodexStateStoreInspectorTests.swift in Sources */,
+				A00000000000000000000118 /* SessionLifecycleReconcilerTests.swift in Sources */,
+				A00000000000000000000128 /* ClaudeProviderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

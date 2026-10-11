@@ -1,3 +1,11 @@
+//
+//  SessionStoreTests.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
 import XCTest
 import os
 @testable import LoomCore
@@ -455,8 +463,8 @@ final class SessionStoreTests: XCTestCase {
     @MainActor
     func testDemoFixturesAndStates() async throws {
         let standardProviders = DemoFixture.standard.makeProviders()
-        XCTAssertEqual(standardProviders.count, 2)
-        XCTAssertEqual(standardProviders.map(\.id), [.codex, .antigravity])
+        XCTAssertEqual(standardProviders.count, 3)
+        XCTAssertEqual(standardProviders.map(\.id), [.codex, .claude, .antigravity])
 
         // Verify DemoFixture metadata
         XCTAssertNil(DemoFixture.standard.badgeLabel)
@@ -519,7 +527,7 @@ final class SessionStoreTests: XCTestCase {
     // MARK: - Project Grouping Tests
 
     func testProjectGroupingSameProjectTwoProviders() {
-        let loomPath = URL(fileURLWithPath: "/Users/deepak/Desktop/Projects/oss/Loom")
+        let loomPath = URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Loom")
         let codexSession = AgentSession(
             id: "codex-101",
             provider: .codex,
@@ -558,8 +566,8 @@ final class SessionStoreTests: XCTestCase {
     }
 
     func testProjectGroupingSameNameDifferentPathsRemainDistinct() {
-        let pathA = URL(fileURLWithPath: "/Users/deepak/ClientA/Loom")
-        let pathB = URL(fileURLWithPath: "/Users/deepak/ClientB/Loom")
+        let pathA = URL(fileURLWithPath: "/Users/developer/ClientA/Loom")
+        let pathB = URL(fileURLWithPath: "/Users/developer/ClientB/Loom")
 
         let sessionA = AgentSession(
             id: "codex-a",
