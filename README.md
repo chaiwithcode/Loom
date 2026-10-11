@@ -4,7 +4,7 @@
 
 Loom brings your local coding sessions and usage limits into one place. See which project an agent is working on, what needs attention, and how much quota remains—without switching between terminals and apps.
 
-Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or third-party package dependencies. **Early V0:** integrations depend on locally available data and may change as upstream tools evolve.
+Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or third-party package dependencies. **Local-first:** Loom monitors supported AI coding agents using local processes and metadata on your Mac. Provider integrations may evolve as upstream tools change.
 
 ## One menu, two views
 
