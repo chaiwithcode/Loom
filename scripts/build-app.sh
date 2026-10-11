@@ -26,8 +26,13 @@ RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 echo "==> Packaging ${APP_BUNDLE}..."
 mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
 
-cp "${EXECUTABLE}" "${MACOS_DIR}/Loom"
-chmod +x "${MACOS_DIR}/Loom"
+# Atomically stage binary to avoid overwriting running inodes
+TMP_BIN="$(mktemp "${MACOS_DIR}/Loom.tmp.XXXXXX")"
+trap 'rm -f "${TMP_BIN}"' EXIT INT TERM
+cp "${EXECUTABLE}" "${TMP_BIN}"
+chmod +x "${TMP_BIN}"
+mv -f "${TMP_BIN}" "${MACOS_DIR}/Loom"
+trap - EXIT INT TERM
 
 if [[ -f "${ROOT_DIR}/Resources/Loom.icns" ]]; then
     cp "${ROOT_DIR}/Resources/Loom.icns" "${RESOURCES_DIR}/Loom.icns"
@@ -68,5 +73,11 @@ EOF
 
 echo "==> Validating Info.plist..."
 plutil -lint "${CONTENTS_DIR}/Info.plist"
+
+echo "==> Code signing bundle (ad-hoc)..."
+codesign --force --sign - "${APP_BUNDLE}"
+
+echo "==> Verifying signature..."
+codesign --verify --deep --strict --verbose=2 "${APP_BUNDLE}"
 
 echo "==> Successfully packaged Loom.app at: ${APP_BUNDLE}"

@@ -36,11 +36,27 @@ public struct MenuBarRootView: View {
     }
 
     private var resolvedSelectedProviderID: ProviderID? {
+        let enabled = store.enabledSnapshots
+        guard !enabled.isEmpty else { return nil }
+
         if let selected = selectedProviderID,
-           store.providerSnapshots.contains(where: { $0.id == selected }) {
+           enabled.contains(where: { $0.id == selected }) {
             return selected
         }
-        return store.providerSnapshots.first?.id
+
+        if let defaultID = settings?.defaultProviderID,
+           enabled.contains(where: { $0.id == defaultID }) {
+            return defaultID
+        }
+
+        return enabled.first?.id
+    }
+
+    private func filteredSessions(for snapshot: ProviderSnapshot) -> [AgentSession] {
+        if let settings {
+            return snapshot.sessions.filter { settings.shouldInclude(session: $0) }
+        }
+        return snapshot.sessions
     }
 
     public var body: some View {
@@ -57,7 +73,7 @@ public struct MenuBarRootView: View {
             }
             .background(MenuHeightReader(part: "header"))
 
-            if selectedTab == .agents && !store.providerSnapshots.isEmpty {
+            if selectedTab == .agents && !store.enabledSnapshots.isEmpty {
                 Divider()
                 providerSelector
                     .background(MenuHeightReader(part: "selector"))
@@ -77,24 +93,46 @@ public struct MenuBarRootView: View {
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .center)
                                     .padding(.vertical, 24)
+                            } else if store.enabledSnapshots.isEmpty {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "pause.circle")
+                                        .font(.system(size: 28))
+                                        .foregroundStyle(.secondary)
+                                    Text("All Providers Disabled")
+                                        .font(.headline)
+                                    Text("Monitoring is disabled for all providers. Enable providers in Settings to monitor sessions and usage.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 24)
+                                    Button("Open Settings…") {
+                                        DockController.shared.showSettings(store: store)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.regular)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.vertical, 32)
                             } else if tab == .agents {
-                                if let selectedSnapshot = store.providerSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
+                                if let selectedSnapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
                                     ProviderSectionView(
                                         snapshot: selectedSnapshot,
                                         showsSessions: true,
                                         showsUsage: false,
-                                        expandedSessionIds: defaultExpandedSessionIds
+                                        expandedSessionIds: defaultExpandedSessionIds,
+                                        settings: settings
                                     )
                                 }
                             } else {
-                                ForEach(store.providerSnapshots) { snapshot in
+                                ForEach(store.enabledSnapshots) { snapshot in
                                     ProviderSectionView(
                                         snapshot: snapshot,
                                         showsSessions: false,
                                         showsUsage: true,
-                                        expandedSessionIds: defaultExpandedSessionIds
+                                        expandedSessionIds: defaultExpandedSessionIds,
+                                        settings: settings
                                     )
-                                    if snapshot.id != store.providerSnapshots.last?.id {
+                                    if snapshot.id != store.enabledSnapshots.last?.id {
                                         Divider().padding(.vertical, 4)
                                     }
                                 }
@@ -143,6 +181,9 @@ public struct MenuBarRootView: View {
                 selectorHeight = selector
             }
         }
+        .onChange(of: settings?.defaultProviderID) { _, _ in
+            selectedProviderID = nil
+        }
         .task {
             // Refresh on popover display
             await store.refresh()
@@ -152,7 +193,7 @@ public struct MenuBarRootView: View {
     @ViewBuilder
     private var providerSelector: some View {
         HStack(spacing: 6) {
-            ForEach(store.providerSnapshots) { snapshot in
+            ForEach(store.enabledSnapshots) { snapshot in
                 providerButton(for: snapshot)
             }
         }
@@ -164,6 +205,7 @@ public struct MenuBarRootView: View {
 
     private func providerButton(for snapshot: ProviderSnapshot) -> some View {
         let isSelected = resolvedSelectedProviderID == snapshot.id
+        let sessionCount = filteredSessions(for: snapshot).count
         return Button {
             selectedProviderID = snapshot.id
         } label: {
@@ -172,7 +214,7 @@ public struct MenuBarRootView: View {
                     .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                Text("\(snapshot.sessions.count)")
+                Text("\(sessionCount)")
                     .font(.system(size: 10.5, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     .padding(.horizontal, 4)
@@ -196,7 +238,7 @@ public struct MenuBarRootView: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(snapshot.displayName), \(snapshot.sessions.count) \(snapshot.sessions.count == 1 ? "session" : "sessions")")
+        .accessibilityLabel("\(snapshot.displayName), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityValue(isSelected ? "Selected" : "")
         .accessibilityIdentifier("provider-tab-\(snapshot.id.rawValue)")
@@ -228,7 +270,7 @@ public struct MenuBarRootView: View {
 
     private func viewportHeight(for tab: MenuTab) -> CGFloat {
         let extraChrome: CGFloat
-        if tab == .agents && !store.providerSnapshots.isEmpty {
+        if tab == .agents && !store.enabledSnapshots.isEmpty {
             extraChrome = selectorHeight + 1
         } else {
             extraChrome = 0

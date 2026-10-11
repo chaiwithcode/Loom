@@ -557,6 +557,8 @@ final class MenuLayoutTests: XCTestCase {
                         }
                     case .noActiveSessions:
                         Text(reason.message)
+                    case .allProvidersDisabled:
+                        Text(reason.message)
                     }
 
                     if hasWarning {

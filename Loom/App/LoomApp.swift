@@ -13,6 +13,9 @@ import LoomCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockController.shared.updateActivationPolicy()
+        if ProcessInfo.processInfo.arguments.contains("--show-settings") && DemoFixture.resolve().isDemo {
+            DockController.shared.showSettings()
+        }
     }
 
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
@@ -30,10 +33,17 @@ struct LoomApp: App {
         let fixture = DemoFixture.resolve()
         let providers = fixture.makeProviders()
         let initialSettings = LoomSettings()
-        let initialStore = SessionStore(providers: providers, fixture: fixture)
+        let initialStore = SessionStore(
+            providers: providers,
+            fixture: fixture,
+            enabledProviderIDs: initialSettings.enabledProviderIDs
+        )
         initialStore.startPeriodicRefresh(interval: TimeInterval(initialSettings.refreshIntervalSeconds))
         initialSettings.onRefreshIntervalChanged = { [weak initialStore] interval in
             initialStore?.startPeriodicRefresh(interval: TimeInterval(interval))
+        }
+        initialSettings.onEnabledProvidersChanged = { [weak initialStore] enabledIDs in
+            initialStore?.updateEnabledProviders(enabledIDs)
         }
         _store = State(initialValue: initialStore)
         _settings = State(initialValue: initialSettings)

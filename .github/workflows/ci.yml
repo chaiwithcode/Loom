@@ -16,7 +16,6 @@ jobs:
       - name: Build and package
         run: bash scripts/build-app.sh
       # The discovery smoke test requires a local Antigravity installation/store.
-      # The SIGTERM-resistant cancellation regression currently hangs locally.
-      # Keep both tests in source; this job does not claim full-suite coverage.
-      - name: Portable tests (two known exclusions)
-        run: swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest|testDefaultCodexAppServerTransportSigtermResistantCancellation'
+      # Keep test in source; this job does not claim live-database coverage.
+      - name: Portable tests (live Antigravity discovery excluded)
+        run: swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest'

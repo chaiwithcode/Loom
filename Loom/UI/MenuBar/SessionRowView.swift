@@ -13,16 +13,23 @@ import LoomCore
 public struct SessionRowView: View {
     public let session: AgentSession
     public let showProvider: Bool
+    public let hideProjectPaths: Bool
     @State private var isExpanded: Bool
 
-    public init(session: AgentSession, isExpanded: Bool = false, showProvider: Bool = false) {
+    public init(
+        session: AgentSession,
+        isExpanded: Bool = false,
+        showProvider: Bool = false,
+        hideProjectPaths: Bool = false
+    ) {
         self.session = session
         self.showProvider = showProvider
+        self.hideProjectPaths = hideProjectPaths
         self._isExpanded = State(initialValue: isExpanded)
     }
 
     private var projectTitle: String {
-        session.projectName.flatMap { $0.isEmpty ? nil : $0 } ?? "Untitled Project"
+        LoomSettings.safeProjectName(for: session, hidePaths: hideProjectPaths)
     }
 
     private var sessionHeaderAccessibilityLabel: String {
@@ -95,7 +102,7 @@ public struct SessionRowView: View {
                             Image(systemName: activityIcon(for: session.state))
                                 .font(.system(size: 10))
                                 .foregroundStyle(stateColor(for: session.state))
-                            Text(summary)
+                            Text(hideProjectPaths ? "Activity details hidden" : summary)
                                 .font(.system(size: 11, weight: .regular))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -167,10 +174,10 @@ public struct SessionRowView: View {
             DetailRow(label: "Provider", value: session.provider.displayName)
             DetailRow(label: "State", value: session.state.displayName)
 
-            if let path = session.formattedProjectPath {
+            if !hideProjectPaths, let path = session.formattedProjectPath {
                 DetailRow(label: "Repository", value: path)
             } else if let name = session.projectName, !name.isEmpty {
-                DetailRow(label: "Project", value: name)
+                DetailRow(label: "Project", value: hideProjectPaths ? projectTitle : name)
             }
 
             if let branch = session.branch, !branch.isEmpty {
@@ -186,7 +193,7 @@ public struct SessionRowView: View {
                 DetailRow(label: "Last activity", value: timestamp(lastActivityAt))
             }
             if let summary = session.summary, !summary.isEmpty {
-                DetailRow(label: "Current activity", value: summary)
+                DetailRow(label: "Current activity", value: hideProjectPaths ? "Details hidden by privacy setting" : summary)
             }
 
             // Associated processes breakdown & hierarchy
@@ -219,13 +226,19 @@ public struct SessionRowView: View {
                         DetailRow(label: "Session ID", value: sid)
                     }
 
-                    ForEach(session.discoveryEvidence, id: \.self) { ev in
-                        HStack(alignment: .top, spacing: 6) {
-                            Text("•")
-                                .foregroundStyle(.secondary)
-                            Text(ev)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.primary)
+                    if hideProjectPaths {
+                        Text("• Evidence details hidden by privacy setting")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(session.discoveryEvidence, id: \.self) { ev in
+                            HStack(alignment: .top, spacing: 6) {
+                                Text("•")
+                                    .foregroundStyle(.secondary)
+                                Text(ev)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.primary)
+                            }
                         }
                     }
                 }
@@ -254,15 +267,19 @@ public struct SessionRowView: View {
     }
 
     private func processRow(_ proc: AgentProcess) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+        let execName = URL(fileURLWithPath: proc.executable).lastPathComponent
+        let displayText = hideProjectPaths
+            ? (execName.isEmpty ? "process" : execName)
+            : (execName.isEmpty ? proc.commandLine : execName)
+
+        return HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text("PID \(proc.pid)")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 65, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 2) {
-                let execName = URL(fileURLWithPath: proc.executable).lastPathComponent
-                Text(execName.isEmpty ? proc.commandLine : execName)
+                Text(displayText)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.primary)
 

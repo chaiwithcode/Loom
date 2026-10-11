@@ -860,4 +860,120 @@ final class SessionStoreTests: XCTestCase {
         await activeStore.refresh()
         XCTAssertNil(activeStore.emptySessionReason)
     }
+
+    @MainActor
+    func testInitialStoreUsesPersistedEnabledIDs() async {
+        let codex = MockAgentProvider(id: .codex, displayName: "Codex", availability: .available, sessions: [])
+        let agy = MockAgentProvider(id: .antigravity, displayName: "Antigravity", availability: .available, sessions: [])
+        let store = SessionStore(providers: [codex, agy], enabledProviderIDs: [.codex])
+
+        XCTAssertEqual(store.enabledProviderIDs, [.codex])
+        XCTAssertEqual(store.enabledSnapshots.count, 1)
+        XCTAssertEqual(store.enabledSnapshots.first?.id, .codex)
+
+        let codexSnap = store.snapshot(for: .codex)
+        XCTAssertEqual(codexSnap?.isEnabled, true)
+
+        let agySnap = store.snapshot(for: .antigravity)
+        XCTAssertEqual(agySnap?.isEnabled, false)
+        XCTAssertEqual(agySnap?.availability, .unavailable(reason: "Monitoring disabled"))
+    }
+
+    @MainActor
+    func testDisablingProviderCancelsInFlightAndClearsData() async {
+        let session = AgentSession(id: "s1", provider: .codex, state: .working)
+        let codex = MockAgentProvider(id: .codex, displayName: "Codex", availability: .available, sessions: [session])
+        let store = SessionStore(providers: [codex])
+        await store.refresh()
+
+        XCTAssertEqual(store.allSessions.count, 1)
+        XCTAssertEqual(store.snapshot(for: .codex)?.isEnabled, true)
+
+        // Disable monitoring
+        store.updateEnabledProviders([])
+        XCTAssertEqual(store.enabledProviderIDs, [])
+        XCTAssertEqual(store.enabledSnapshots.count, 0)
+        XCTAssertEqual(store.allSessions.count, 0)
+
+        let snap = store.snapshot(for: .codex)
+        XCTAssertEqual(snap?.isEnabled, false)
+        XCTAssertEqual(snap?.sessions.count, 0)
+        XCTAssertEqual(snap?.availability, .unavailable(reason: "Monitoring disabled"))
+    }
+
+    @MainActor
+    func testLateRefreshResultRejectedByGenerationWhenProviderDisabled() async {
+        let gate = AsyncGate()
+        let slowCodex = OverlapMockProvider(startedGate: gate, releaseGate: AsyncGate())
+        let store = SessionStore(providers: [slowCodex])
+
+        // Start refresh in background
+        let refreshTask = Task { @MainActor in
+            await store.refresh()
+        }
+
+        // Wait until discovery starts
+        await gate.wait()
+
+        // Disable provider before discovery completes
+        store.updateEnabledProviders([])
+
+        // Release discovery
+        await slowCodex.releaseGate.open()
+        await refreshTask.value
+
+        // Snapshot must remain empty and disabled, late result rejected
+        let snap = store.snapshot(for: .codex)
+        XCTAssertEqual(snap?.isEnabled, false)
+        XCTAssertEqual(snap?.sessions.count, 0)
+        XCTAssertEqual(snap?.availability, .unavailable(reason: "Monitoring disabled"))
+    }
+
+    @MainActor
+    func testReenablingProviderQueuesFreshRefreshDuringInFlightRefresh() async {
+        let codexGate = AsyncGate()
+        let codexProvider = OverlapMockProvider(startedGate: codexGate, releaseGate: AsyncGate())
+        let agySession = AgentSession(id: "agy1", provider: .antigravity, state: .working)
+        let agyProvider = MockAgentProvider(id: .antigravity, displayName: "Antigravity", availability: .available, sessions: [agySession])
+
+        // Initially only Codex is enabled
+        let store = SessionStore(providers: [codexProvider, agyProvider], enabledProviderIDs: [.codex])
+        XCTAssertEqual(store.snapshot(for: .antigravity)?.isEnabled, false)
+
+        // Start refresh while Codex blocks
+        let refreshTask = Task { @MainActor in
+            await store.refresh()
+        }
+
+        // Wait until Codex discovery has begun
+        await codexGate.wait()
+
+        // Re-enable Antigravity during the active in-flight refresh
+        store.updateEnabledProviders([.codex, .antigravity])
+
+        // Release Codex to finish its pass
+        await codexProvider.releaseGate.open()
+        await refreshTask.value
+
+        // Newly enabled Antigravity must have been polled by the queued subsequent pass!
+        let agySnap = store.snapshot(for: .antigravity)
+        XCTAssertEqual(agySnap?.isEnabled, true)
+        XCTAssertEqual(agySnap?.sessions.count, 1, "Newly enabled provider must be polled without manual intervention or timer")
+        XCTAssertEqual(agySnap?.sessions.first?.id, "agy1")
+    }
+
+    @MainActor
+    func testAllProvidersDisabledAndEmptyRosterStateDistinctions() async {
+        // 1. Registered providers exist, but all disabled in Settings
+        let codex = MockAgentProvider(id: .codex, displayName: "Codex", availability: .available, sessions: [])
+        let allDisabledStore = SessionStore(providers: [codex], enabledProviderIDs: [])
+        await allDisabledStore.refresh()
+        XCTAssertEqual(allDisabledStore.emptySessionReason, .allProvidersDisabled)
+        XCTAssertEqual(allDisabledStore.emptySessionReason?.message, "All providers disabled in Settings")
+
+        // 2. Empty registered provider store: preserves noActiveSessions semantics
+        let emptyRosterStore = SessionStore(providers: [])
+        await emptyRosterStore.refresh()
+        XCTAssertEqual(emptyRosterStore.emptySessionReason, .noActiveSessions)
+    }
 }

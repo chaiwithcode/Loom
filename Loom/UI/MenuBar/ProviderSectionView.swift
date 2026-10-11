@@ -14,22 +14,38 @@ public struct ProviderSectionView: View {
     public let showsSessions: Bool
     public let showsUsage: Bool
     public let expandedSessionIds: Set<String>
+    public let settings: LoomSettings?
     @State private var isShowingAdditionalQuotas = false
     @State private var isShowingDiagnostics = false
 
-    public init(snapshot: ProviderSnapshot, showsSessions: Bool = true, showsUsage: Bool = true, expandedSessionIds: Set<String> = []) {
+    public init(
+        snapshot: ProviderSnapshot,
+        showsSessions: Bool = true,
+        showsUsage: Bool = true,
+        expandedSessionIds: Set<String> = [],
+        settings: LoomSettings? = nil
+    ) {
         self.snapshot = snapshot
         self.showsSessions = showsSessions
         self.showsUsage = showsUsage
         self.expandedSessionIds = expandedSessionIds
+        self.settings = settings
     }
 
     private var status: (label: String, color: Color) {
+        if !snapshot.isEnabled { return ("Disabled", .secondary) }
         if snapshot.isRefreshing || snapshot.availability == .unknown { return ("Checking", .secondary) }
         if snapshot.errorMessage != nil { return ("Error", .red) }
         if snapshot.availability.isDegraded { return ("Degraded", .orange) }
         if snapshot.availability.isAvailable { return ("Available", .green) }
         return ("Unavailable", .orange)
+    }
+
+    private var visibleSessions: [AgentSession] {
+        if let settings {
+            return snapshot.sessions.filter { settings.shouldInclude(session: $0) }
+        }
+        return snapshot.sessions
     }
 
     public var body: some View {
@@ -40,10 +56,10 @@ public struct ProviderSectionView: View {
                 if let usage = snapshot.usage {
                     primaryQuotas(usage)
                     if let error = usage.errorMessage ?? snapshot.usageErrorMessage, !error.isEmpty {
-                        notice(error, symbol: "exclamationmark.triangle", color: .orange)
+                        notice(sanitizedNotice(error), symbol: "exclamationmark.triangle", color: .orange)
                     }
                 } else if let error = snapshot.usageErrorMessage, !error.isEmpty {
-                    notice("Quota unavailable: \(error)", symbol: "gauge.with.dots.needle.bottom.50percent", color: .orange)
+                    notice("Quota unavailable: \(sanitizedNotice(error))", symbol: "gauge.with.dots.needle.bottom.50percent", color: .orange)
                 } else if snapshot.availability.isAvailable && !snapshot.isRefreshing {
                     Text("No quota data available")
                         .font(.system(size: 12))
@@ -52,21 +68,25 @@ public struct ProviderSectionView: View {
             }
 
             if let error = snapshot.errorMessage, !error.isEmpty {
-                notice(error, symbol: "exclamationmark.triangle", color: .red)
+                notice(sanitizedNotice(error), symbol: "exclamationmark.triangle", color: .red)
             } else if let reason = snapshot.availability.unavailabilityReason {
-                notice(reason, symbol: "exclamationmark.triangle", color: .orange)
+                notice(sanitizedNotice(reason), symbol: "exclamationmark.triangle", color: .orange)
             }
 
             // Render any sessions supplied by the snapshot alongside provider notices.
             if showsSessions {
-                if !snapshot.sessions.isEmpty {
+                if !visibleSessions.isEmpty {
                     if showsUsage && snapshot.usage != nil { Divider() }
                     Text("Recent sessions")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
                     VStack(spacing: 8) {
-                        ForEach(snapshot.sessions) { session in
-                            SessionRowView(session: session, isExpanded: expandedSessionIds.contains(session.id))
+                        ForEach(visibleSessions) { session in
+                            SessionRowView(
+                                session: session,
+                                isExpanded: expandedSessionIds.contains(session.id),
+                                hideProjectPaths: settings?.hideProjectPaths ?? false
+                            )
                         }
                     }
                 } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil && !snapshot.isRefreshing {
@@ -88,7 +108,8 @@ public struct ProviderSectionView: View {
                                 diagRow("Discovery duration", value: dur)
                             }
                             if let err = diag.metadataError {
-                                diagRow("Metadata error", value: err)
+                                let errVal = (settings?.hideProjectPaths ?? false) ? "Error details hidden by privacy setting" : err
+                                diagRow("Metadata error", value: errVal)
                             }
                         }
                         .padding(.top, 6)
@@ -129,6 +150,13 @@ public struct ProviderSectionView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(snapshot.displayName) section")
+    }
+
+    private func sanitizedNotice(_ text: String) -> String {
+        if (settings?.hideProjectPaths ?? false) && (text.contains("/") || text.contains("~")) {
+            return "Details hidden by privacy setting"
+        }
+        return text
     }
 
     private func diagRow(_ label: String, value: String) -> some View {
@@ -220,7 +248,17 @@ public struct ProviderSectionView: View {
     }
 
     private func quotaCard(_ bucket: UsageBucket, usage: ProviderUsageSnapshot) -> some View {
-        UsageBarView(bucket: bucket, isStale: usage.isStale, updatedAt: usage.updatedAt, staleReason: usage.errorMessage)
+        let reason: String?
+        if let err = usage.errorMessage {
+            if (settings?.hideProjectPaths ?? false) && (err.contains("/") || err.contains("~")) {
+                reason = "Details hidden by privacy setting"
+            } else {
+                reason = err
+            }
+        } else {
+            reason = nil
+        }
+        return UsageBarView(bucket: bucket, isStale: usage.isStale, updatedAt: usage.updatedAt, staleReason: reason)
     }
 
     private func notice(_ text: String, symbol: String, color: Color) -> some View {

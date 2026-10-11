@@ -23,6 +23,7 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
     public var errorMessage: String?
     public var isRefreshing: Bool
     public var diagnostics: ProviderDiscoveryDiagnostics?
+    public var isEnabled: Bool
 
     public init(
         providerID: ProviderID,
@@ -33,7 +34,8 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
         usageErrorMessage: String? = nil,
         errorMessage: String? = nil,
         isRefreshing: Bool = false,
-        diagnostics: ProviderDiscoveryDiagnostics? = nil
+        diagnostics: ProviderDiscoveryDiagnostics? = nil,
+        isEnabled: Bool = true
     ) {
         self.providerID = providerID
         self.displayName = displayName
@@ -44,10 +46,12 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
         self.errorMessage = errorMessage
         self.isRefreshing = isRefreshing
         self.diagnostics = diagnostics
+        self.isEnabled = isEnabled
     }
 
     public var hasWarning: Bool {
-        errorMessage != nil ||
+        guard isEnabled else { return false }
+        return errorMessage != nil ||
         !availability.isAvailable ||
         usageErrorMessage != nil ||
         (usage?.isStale ?? false) ||
@@ -182,6 +186,7 @@ public enum EmptySessionReason: Equatable, Sendable {
     case discoveryFailed(message: String)
     case unavailable(message: String)
     case noActiveSessions
+    case allProvidersDisabled
 
     public var message: String {
         switch self {
@@ -193,6 +198,8 @@ public enum EmptySessionReason: Equatable, Sendable {
             return msg
         case .noActiveSessions:
             return "No active sessions"
+        case .allProvidersDisabled:
+            return "All providers disabled in Settings"
         }
     }
 }
@@ -214,26 +221,44 @@ public final class SessionStore {
     public private(set) var providerSnapshots: [ProviderSnapshot] = []
     public private(set) var isRefreshing: Bool = false
     public private(set) var lastRefreshedAt: Date? = nil
+    public private(set) var enabledProviderIDs: Set<ProviderID>
+
+    public var enabledSnapshots: [ProviderSnapshot] {
+        providerSnapshots.filter(\.isEnabled)
+    }
 
     private let registeredProviders: [any AgentProvider]
     private var activeRefreshTask: Task<Void, Never>?
     private var periodicRefreshTask: Task<Void, Never>?
+    private var providerGenerations: [ProviderID: Int] = [:]
+    private var activeProviderTasks: [ProviderID: Task<ProviderRefreshResult, Never>] = [:]
+    private var needsSubsequentRefresh: Bool = false
+
     @ObservationIgnored
     nonisolated(unsafe) private var wakeObserver: (any NSObjectProtocol)?
 
-    public init(providers: [any AgentProvider], fixture: DemoFixture = .standard) {
+    public init(
+        providers: [any AgentProvider],
+        fixture: DemoFixture = .standard,
+        enabledProviderIDs: Set<ProviderID>? = nil
+    ) {
         self.fixture = fixture
         self.registeredProviders = providers
+        let initialEnabled = enabledProviderIDs ?? Set(providers.map(\.id))
+        self.enabledProviderIDs = initialEnabled
         self.providerSnapshots = providers.map { provider in
-            ProviderSnapshot(
+            let isEnabled = initialEnabled.contains(provider.id)
+            return ProviderSnapshot(
                 providerID: provider.id,
                 displayName: provider.displayName,
-                availability: .unknown,
+                availability: isEnabled ? .unknown : .unavailable(reason: "Monitoring disabled"),
                 sessions: [],
                 usage: nil,
+                usageErrorMessage: nil,
                 errorMessage: nil,
                 isRefreshing: false,
-                diagnostics: nil
+                diagnostics: nil,
+                isEnabled: isEnabled
             )
         }
 
@@ -259,7 +284,7 @@ public final class SessionStore {
     }
 
     public var allSessions: [AgentSession] {
-        providerSnapshots.flatMap(\.sessions)
+        enabledSnapshots.flatMap(\.sessions)
     }
 
     public var groupedSessions: [ProjectGroup] {
@@ -271,17 +296,27 @@ public final class SessionStore {
     }
 
     public var hasUsageOrProviderWarning: Bool {
-        providerSnapshots.contains(where: \.hasWarning)
+        enabledSnapshots.contains(where: \.hasWarning)
     }
 
     public var emptySessionReason: EmptySessionReason? {
+        // Empty registered provider store preserves noActiveSessions semantics
+        guard !registeredProviders.isEmpty else {
+            return isRefreshing ? .refreshing : .noActiveSessions
+        }
+
+        // When registered providers exist but all are disabled in Settings
+        guard !enabledSnapshots.isEmpty else {
+            return .allProvidersDisabled
+        }
+
         guard allSessions.isEmpty else { return nil }
 
         if isRefreshing {
             return .refreshing
         }
 
-        let failedSnapshots = providerSnapshots.filter { $0.errorMessage != nil }
+        let failedSnapshots = enabledSnapshots.filter { $0.errorMessage != nil }
         if !failedSnapshots.isEmpty {
             if failedSnapshots.count == 1, let error = failedSnapshots.first?.errorMessage {
                 return .discoveryFailed(message: "Discovery failed: \(error)")
@@ -290,8 +325,8 @@ public final class SessionStore {
             }
         }
 
-        let unavailableSnapshots = providerSnapshots.filter { !$0.availability.isAvailable }
-        if !providerSnapshots.isEmpty && unavailableSnapshots.count == providerSnapshots.count {
+        let unavailableSnapshots = enabledSnapshots.filter { !$0.availability.isAvailable }
+        if !enabledSnapshots.isEmpty && unavailableSnapshots.count == enabledSnapshots.count {
             let reasons = unavailableSnapshots.compactMap { $0.availability.unavailabilityReason }
             if reasons.count == 1, let reason = reasons.first {
                 return .unavailable(message: reason)
@@ -300,6 +335,53 @@ public final class SessionStore {
         }
 
         return .noActiveSessions
+    }
+
+    public func updateEnabledProviders(_ newIDs: Set<ProviderID>) {
+        let oldIDs = enabledProviderIDs
+        enabledProviderIDs = newIDs
+        var newlyEnabled: [ProviderID] = []
+
+        for provider in registeredProviders {
+            let id = provider.id
+            guard let index = providerSnapshots.firstIndex(where: { $0.providerID == id }) else { continue }
+            let isNowEnabled = newIDs.contains(id)
+            let wasEnabled = oldIDs.contains(id)
+
+            providerSnapshots[index].isEnabled = isNowEnabled
+
+            if !isNowEnabled {
+                // Disabled: increment generation, cancel in-flight task, clear data
+                providerGenerations[id, default: 0] += 1
+                activeProviderTasks[id]?.cancel()
+                activeProviderTasks[id] = nil
+
+                providerSnapshots[index].isRefreshing = false
+                providerSnapshots[index].sessions = []
+                providerSnapshots[index].usage = nil
+                providerSnapshots[index].usageErrorMessage = nil
+                providerSnapshots[index].errorMessage = nil
+                providerSnapshots[index].availability = .unavailable(reason: "Monitoring disabled")
+                providerSnapshots[index].diagnostics = nil
+            } else if isNowEnabled && !wasEnabled {
+                // Newly re-enabled: increment generation, mark unknown, queue refresh
+                providerGenerations[id, default: 0] += 1
+                providerSnapshots[index].availability = .unknown
+                newlyEnabled.append(id)
+            }
+        }
+
+        if !newlyEnabled.isEmpty {
+            if activeRefreshTask != nil {
+                // An active refresh is already running: signal that a fresh pass is needed
+                // once the current pass unwinds so the newly enabled provider is polled without manual intervention
+                needsSubsequentRefresh = true
+            } else {
+                Task { @MainActor [weak self] in
+                    await self?.refresh()
+                }
+            }
+        }
     }
 
     /// Starts a background periodic refresh loop (default 60 seconds).
@@ -325,6 +407,9 @@ public final class SessionStore {
         periodicRefreshTask = nil
         if cancelInFlight {
             activeRefreshTask?.cancel()
+            for (_, task) in activeProviderTasks {
+                task.cancel()
+            }
             // Do NOT nil activeRefreshTask here: retain handle until the in-flight task
             // finishes unwinding/exiting to prevent overlapping execution with any subsequent refresh.
         }
@@ -340,7 +425,10 @@ public final class SessionStore {
 
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.performRefresh()
+            repeat {
+                self.needsSubsequentRefresh = false
+                await self.performRefresh()
+            } while self.needsSubsequentRefresh && !Task.isCancelled
         }
 
         activeRefreshTask = task
@@ -355,9 +443,15 @@ public final class SessionStore {
     private func performRefresh() async {
         isRefreshing = true
 
-        // Mark all snapshots as refreshing
+        let enabledProviders = registeredProviders.filter { enabledProviderIDs.contains($0.id) }
+
+        // Mark only enabled snapshots as refreshing
         for i in providerSnapshots.indices {
-            providerSnapshots[i].isRefreshing = true
+            if enabledProviderIDs.contains(providerSnapshots[i].providerID) {
+                providerSnapshots[i].isRefreshing = true
+            } else {
+                providerSnapshots[i].isRefreshing = false
+            }
         }
 
         defer {
@@ -367,16 +461,46 @@ public final class SessionStore {
             }
         }
 
-        let providers = registeredProviders
+        guard !enabledProviders.isEmpty else {
+            return
+        }
 
-        // Concurrently query providers; isolate errors and stream results
-        await withTaskGroup(of: ProviderRefreshResult.self) { group in
-            for provider in providers {
-                group.addTask {
+        // Concurrently query enabled providers; isolate errors and stream results
+        await withTaskGroup(of: (ProviderRefreshResult, Int).self) { group in
+            for provider in enabledProviders {
+                let id = provider.id
+                let generation = providerGenerations[id, default: 0]
+
+                let task = Task<ProviderRefreshResult, Never> {
+                    // Cooperative check before starting
+                    guard !Task.isCancelled else {
+                        return ProviderRefreshResult(
+                            providerID: id,
+                            availability: .unavailable(reason: "Cancelled"),
+                            sessions: [],
+                            usage: nil,
+                            usageError: nil,
+                            sessionError: nil,
+                            diagnostics: nil
+                        )
+                    }
+
                     let avail = await provider.availability()
+                    guard !Task.isCancelled else {
+                        return ProviderRefreshResult(
+                            providerID: id,
+                            availability: avail,
+                            sessions: [],
+                            usage: nil,
+                            usageError: nil,
+                            sessionError: nil,
+                            diagnostics: nil
+                        )
+                    }
+
                     guard avail.isAvailable else {
                         return ProviderRefreshResult(
-                            providerID: provider.id,
+                            providerID: id,
                             availability: avail,
                             sessions: [],
                             usage: nil,
@@ -386,8 +510,9 @@ public final class SessionStore {
                         )
                     }
 
-                    // Concurrent query for sessions and usage within provider
+                    // Concurrent query for sessions and usage within provider with early cancellation checks
                     async let sessionsTask: ([AgentSession], String?) = {
+                        guard !Task.isCancelled else { return ([], nil) }
                         do {
                             let s = try await provider.discoverSessions()
                             return (s, nil)
@@ -397,6 +522,7 @@ public final class SessionStore {
                     }()
 
                     async let usageTask: (ProviderUsageSnapshot?, String?) = {
+                        guard !Task.isCancelled else { return (nil, nil) }
                         do {
                             let u = try await provider.fetchUsage()
                             return (u, nil)
@@ -407,10 +533,28 @@ public final class SessionStore {
 
                     let (discoveredSessions, sErr) = await sessionsTask
                     let (fetchedUsage, uErr) = await usageTask
-                    let diag = await provider.lastDiagnostics() ?? discoveredSessions.first?.diagnostics
+
+                    guard !Task.isCancelled else {
+                        return ProviderRefreshResult(
+                            providerID: id,
+                            availability: avail,
+                            sessions: [],
+                            usage: nil,
+                            usageError: nil,
+                            sessionError: nil,
+                            diagnostics: nil
+                        )
+                    }
+
+                    let diag: ProviderDiscoveryDiagnostics?
+                    if !Task.isCancelled {
+                        diag = await provider.lastDiagnostics() ?? discoveredSessions.first?.diagnostics
+                    } else {
+                        diag = nil
+                    }
 
                     return ProviderRefreshResult(
-                        providerID: provider.id,
+                        providerID: id,
                         availability: avail,
                         sessions: discoveredSessions,
                         usage: fetchedUsage,
@@ -419,16 +563,28 @@ public final class SessionStore {
                         diagnostics: diag
                     )
                 }
+
+                activeProviderTasks[id] = task
+
+                group.addTask {
+                    let result = await task.value
+                    return (result, generation)
+                }
             }
 
             // Per-provider results become visible as each provider finishes
-            for await result in group {
-                guard !Task.isCancelled else { break }
+            for await (result, generation) in group {
+                activeProviderTasks[result.providerID] = nil
+                // Reject late results if task was cancelled, generation changed, or provider was disabled
+                guard !Task.isCancelled,
+                      generation == self.providerGenerations[result.providerID, default: 0],
+                      self.enabledProviderIDs.contains(result.providerID) else {
+                    continue
+                }
                 self.applyProviderResult(result)
             }
         }
 
-        isRefreshing = false
         lastRefreshedAt = Date()
     }
 

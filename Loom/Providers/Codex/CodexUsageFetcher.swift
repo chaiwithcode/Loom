@@ -44,8 +44,14 @@ public enum CodexUsageError: LocalizedError, Sendable {
 public final class SubprocessController: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
+    private var pid: pid_t = 0
     private var isCancelled = false
     private var isTerminated = false
+    private var cleanupStarted = false
+    private var cleanupError: (any Error)?
+    private let exitSemaphore = DispatchSemaphore(value: 0)
+    private let cleanupGroup = DispatchGroup()
+    private let cleanupQueue = DispatchQueue(label: "com.loom.codex.subprocess-cleanup", qos: .userInitiated)
 
     public init() {}
 
@@ -55,56 +61,186 @@ public final class SubprocessController: @unchecked Sendable {
         return isCancelled || isTerminated
     }
 
-    public func launch(process: Process) throws {
+    public var retainedCleanupError: (any Error)? {
         lock.lock()
         defer { lock.unlock() }
-        if isCancelled || isTerminated {
+        return cleanupError
+    }
+
+    public func launch(process: Process) throws {
+        lock.lock()
+        if isCancelled || isTerminated || cleanupStarted {
+            lock.unlock()
             throw CancellationError()
         }
+
+        // Register terminationHandler BEFORE process.run so no exit event can ever be lost.
+        // Foundation remains the sole child-reaper; when terminationHandler fires,
+        // Foundation has reaped the process and its exit state is captured.
+        process.terminationHandler = { [weak self] _ in
+            guard let self = self else { return }
+            self.lock.lock()
+            self.isTerminated = true
+            self.lock.unlock()
+            self.exitSemaphore.signal()
+        }
+
         self.process = process
-        try process.run()
+        do {
+            try process.run()
+            self.pid = process.processIdentifier
+            lock.unlock()
+        } catch {
+            self.process = nil
+            self.isTerminated = true
+            lock.unlock()
+            throw error
+        }
+    }
+
+    public func cancel() {
+        lock.lock()
+        isCancelled = true
+        guard !cleanupStarted else {
+            lock.unlock()
+            return
+        }
+        cleanupStarted = true
+        guard let p = process else {
+            isTerminated = true
+            lock.unlock()
+            return
+        }
+        let capturedPid = self.pid
+        let alreadyTerminated = self.isTerminated
+        cleanupGroup.enter()
+        lock.unlock()
+
+        cleanupQueue.async { [self] in
+            defer { self.cleanupGroup.leave() }
+            self.performReap(process: p, pid: capturedPid, alreadyTerminated: alreadyTerminated)
+        }
     }
 
     public func terminateAndReap() {
         lock.lock()
         isCancelled = true
-        guard !isTerminated else {
+        if cleanupStarted {
+            lock.unlock()
+            cleanupGroup.wait()
+            return
+        }
+        cleanupStarted = true
+        guard let p = process else {
+            isTerminated = true
             lock.unlock()
             return
         }
-        isTerminated = true
-        guard let p = process, p.isRunning else {
-            lock.unlock()
-            return
-        }
-        let pid = p.processIdentifier
+        let capturedPid = self.pid
+        let alreadyTerminated = self.isTerminated
+        cleanupGroup.enter()
         lock.unlock()
 
-        guard pid > 0 else {
-            if p.isRunning { p.terminate() }
+        cleanupQueue.async { [self] in
+            defer { self.cleanupGroup.leave() }
+            self.performReap(process: p, pid: capturedPid, alreadyTerminated: alreadyTerminated)
+        }
+        cleanupGroup.wait()
+    }
+
+    private func performReap(process: Process, pid: pid_t, alreadyTerminated: Bool) {
+        if alreadyTerminated {
+            lock.lock()
+            isTerminated = true
+            lock.unlock()
             return
         }
 
-        // Graceful SIGTERM to process and process group
-        kill(pid, SIGTERM)
-        kill(-pid, SIGTERM)
+        if !process.isRunning {
+            // Recheck if process has exited
+            let waitRes = exitSemaphore.wait(timeout: .now() + .milliseconds(100))
+            if waitRes == .success {
+                exitSemaphore.signal()
+            }
+            lock.lock()
+            isTerminated = true
+            lock.unlock()
+            return
+        }
 
-        // Poll for up to 200ms
-        for _ in 0..<10 {
-            if !p.isRunning || kill(pid, 0) != 0 {
-                p.waitUntilExit()
+        if pid > 0 {
+            // Graceful SIGTERM to process and process group
+            kill(pid, SIGTERM)
+            kill(-pid, SIGTERM)
+
+            // Wait up to 200ms for terminationHandler signal
+            let gracefulResult = exitSemaphore.wait(timeout: .now() + .milliseconds(200))
+            if gracefulResult == .success {
+                exitSemaphore.signal()
+                lock.lock()
+                isTerminated = true
+                lock.unlock()
                 return
             }
-            usleep(20_000)
-        }
 
-        // Escalate to SIGKILL if child is resistant to SIGTERM
-        if p.isRunning || kill(pid, 0) == 0 {
+            // Recheck process state before SIGKILL to avoid signalling known exited child
+            if !process.isRunning {
+                let waitRes = exitSemaphore.wait(timeout: .now() + .milliseconds(100))
+                if waitRes == .success {
+                    exitSemaphore.signal()
+                }
+                lock.lock()
+                isTerminated = true
+                lock.unlock()
+                return
+            }
+
+            // Escalate to SIGKILL if child did not exit within 200ms
             kill(pid, SIGKILL)
             kill(-pid, SIGKILL)
-        }
 
-        p.waitUntilExit()
+            // Await terminationHandler signal after SIGKILL (bounded up to 2 seconds to prevent infinite hang)
+            let killResult = exitSemaphore.wait(timeout: .now() + .seconds(2))
+            if killResult == .success {
+                exitSemaphore.signal()
+                lock.lock()
+                isTerminated = true
+                lock.unlock()
+                return
+            }
+
+            // If we timed out after SIGKILL and handler/process exit was not confirmed,
+            // do not claim successful reap or mark process terminated.
+            if !process.isRunning {
+                lock.lock()
+                isTerminated = true
+                lock.unlock()
+                return
+            }
+
+            lock.lock()
+            cleanupError = CodexUsageError.processFailed("Failed to terminate subprocess PID \(pid)")
+            lock.unlock()
+        } else {
+            process.terminate()
+            let res = exitSemaphore.wait(timeout: .now() + .milliseconds(200))
+            if res == .success {
+                exitSemaphore.signal()
+                lock.lock()
+                isTerminated = true
+                lock.unlock()
+                return
+            }
+            if !process.isRunning {
+                lock.lock()
+                isTerminated = true
+                lock.unlock()
+                return
+            }
+            lock.lock()
+            cleanupError = CodexUsageError.processFailed("Failed to terminate subprocess")
+            lock.unlock()
+        }
     }
 }
 
@@ -120,7 +256,7 @@ public final class DefaultCodexAppServerTransport: CodexAppServerTransporting, S
         let timedOut = OSAllocatedUnfairLock(initialState: false)
 
         do {
-            return try await withThrowingTaskGroup(of: ProviderUsageSnapshot?.self) { group in
+            let snapshot = try await withThrowingTaskGroup(of: ProviderUsageSnapshot?.self) { group in
                 group.addTask {
                     return try await self.runSubprocess(executableURL: executableURL, controller: controller)
                 }
@@ -136,11 +272,27 @@ public final class DefaultCodexAppServerTransport: CodexAppServerTransporting, S
                 group.cancelAll()
                 return result
             }
+
+            if let cleanupErr = controller.retainedCleanupError {
+                throw cleanupErr
+            }
+            return snapshot
         } catch is CancellationError {
             if timedOut.withLock({ $0 }) {
+                if let cleanupErr = controller.retainedCleanupError {
+                    throw cleanupErr
+                }
                 throw CodexUsageError.timeout
             }
+            if let cleanupErr = controller.retainedCleanupError {
+                throw cleanupErr
+            }
             throw CancellationError()
+        } catch {
+            if let cleanupErr = controller.retainedCleanupError {
+                throw cleanupErr
+            }
+            throw error
         }
     }
 
@@ -166,108 +318,115 @@ public final class DefaultCodexAppServerTransport: CodexAppServerTransporting, S
         _ = fcntl(stdinHandle.fileDescriptor, F_SETNOSIGPIPE, 1)
 
         return try await withTaskCancellationHandler {
-            try Task.checkCancellation()
+            do {
+                try Task.checkCancellation()
 
-            // Asynchronously drain stderr in fixed chunks; stderrQueue is the single cleanup owner of stderrHandle
-            let stderrFd = stderrHandle.fileDescriptor
-            let stderrQueue = DispatchQueue(label: "com.loom.codex.stderr", qos: .utility)
-            stderrQueue.async {
-                var buf = [UInt8](repeating: 0, count: 4096)
-                while true {
-                    let bytesRead = Darwin.read(stderrFd, &buf, buf.count)
-                    if bytesRead <= 0 {
-                        break
+                // Asynchronously drain stderr in fixed chunks; stderrQueue is the single cleanup owner of stderrHandle
+                let stderrFd = stderrHandle.fileDescriptor
+                let stderrQueue = DispatchQueue(label: "com.loom.codex.stderr", qos: .utility)
+                stderrQueue.async {
+                    var buf = [UInt8](repeating: 0, count: 4096)
+                    while true {
+                        let bytesRead = Darwin.read(stderrFd, &buf, buf.count)
+                        if bytesRead <= 0 {
+                            break
+                        }
                     }
+                    try? stderrHandle.close()
                 }
-                try? stderrHandle.close()
-            }
 
-            try controller.launch(process: process)
+                try controller.launch(process: process)
 
-            defer {
-                controller.terminateAndReap()
-                try? stdinHandle.close()
-                try? stdoutHandle.close()
-            }
+                defer {
+                    controller.terminateAndReap()
+                    try? stdinHandle.close()
+                    try? stdoutHandle.close()
+                }
 
-            let stdoutFd = stdoutHandle.fileDescriptor
-            var buffer = Data()
+                let stdoutFd = stdoutHandle.fileDescriptor
+                var buffer = Data()
 
-            // Step 1: Send initialize request
-            let initRequest: [String: Any] = [
-                "id": 1,
-                "method": "initialize",
-                "params": [
-                    "clientInfo": [
-                        "name": "Loom",
-                        "version": "0.1.0"
-                    ],
-                    "capabilities": [
-                        "experimentalApi": false
+                // Step 1: Send initialize request
+                let initRequest: [String: Any] = [
+                    "id": 1,
+                    "method": "initialize",
+                    "params": [
+                        "clientInfo": [
+                            "name": "Loom",
+                            "version": "0.1.0"
+                        ],
+                        "capabilities": [
+                            "experimentalApi": false
+                        ]
                     ]
                 ]
-            ]
-            let initData = try JSONSerialization.data(withJSONObject: initRequest)
-            try stdinHandle.write(contentsOf: initData)
-            try stdinHandle.write(contentsOf: Data([0x0A])) // newline
+                let initData = try JSONSerialization.data(withJSONObject: initRequest)
+                try stdinHandle.write(contentsOf: initData)
+                try stdinHandle.write(contentsOf: Data([0x0A])) // newline
 
-            // Read lines until id 1 (initialize) response is received
-            var initializedSuccessfully = false
-            while !initializedSuccessfully {
-                try Task.checkCancellation()
-                guard let line = try readNextLine(fd: stdoutFd, buffer: &buffer, controller: controller) else {
+                // Read lines until id 1 (initialize) response is received
+                var initializedSuccessfully = false
+                while !initializedSuccessfully {
                     try Task.checkCancellation()
-                    if controller.isTerminatedOrCancelled {
-                        throw CancellationError()
+                    guard let line = try readNextLine(fd: stdoutFd, buffer: &buffer, controller: controller) else {
+                        try Task.checkCancellation()
+                        if controller.isTerminatedOrCancelled {
+                            throw CancellationError()
+                        }
+                        throw CodexUsageError.processFailed("Process terminated before initialize response")
                     }
-                    throw CodexUsageError.processFailed("Process terminated before initialize response")
+
+                    if let json = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                       let id = json["id"] as? Int, id == 1 {
+                        if json["error"] != nil {
+                            throw CodexUsageError.processFailed("Codex app-server rejected initialize")
+                        }
+                        initializedSuccessfully = true
+                    }
                 }
 
-                if let json = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
-                   let id = json["id"] as? Int, id == 1 {
-                    if json["error"] != nil {
-                        throw CodexUsageError.processFailed("Codex app-server rejected initialize")
-                    }
-                    initializedSuccessfully = true
-                }
-            }
+                // Step 2: Send initialized notification
+                let initializedNotif: [String: Any] = ["method": "initialized"]
+                let notifData = try JSONSerialization.data(withJSONObject: initializedNotif)
+                try stdinHandle.write(contentsOf: notifData)
+                try stdinHandle.write(contentsOf: Data([0x0A]))
 
-            // Step 2: Send initialized notification
-            let initializedNotif: [String: Any] = ["method": "initialized"]
-            let notifData = try JSONSerialization.data(withJSONObject: initializedNotif)
-            try stdinHandle.write(contentsOf: notifData)
-            try stdinHandle.write(contentsOf: Data([0x0A]))
+                // Step 3: Send rateLimits request
+                let rateLimitsRequest: [String: Any] = [
+                    "id": 2,
+                    "method": "account/rateLimits/read"
+                ]
+                let rateData = try JSONSerialization.data(withJSONObject: rateLimitsRequest)
+                try stdinHandle.write(contentsOf: rateData)
+                try stdinHandle.write(contentsOf: Data([0x0A]))
 
-            // Step 3: Send rateLimits request
-            let rateLimitsRequest: [String: Any] = [
-                "id": 2,
-                "method": "account/rateLimits/read"
-            ]
-            let rateData = try JSONSerialization.data(withJSONObject: rateLimitsRequest)
-            try stdinHandle.write(contentsOf: rateData)
-            try stdinHandle.write(contentsOf: Data([0x0A]))
-
-            // Read lines until id 2 (rateLimits) response is received
-            while true {
-                try Task.checkCancellation()
-                guard let line = try readNextLine(fd: stdoutFd, buffer: &buffer, controller: controller) else {
+                // Read lines until id 2 (rateLimits) response is received
+                while true {
                     try Task.checkCancellation()
-                    if controller.isTerminatedOrCancelled {
-                        throw CancellationError()
+                    guard let line = try readNextLine(fd: stdoutFd, buffer: &buffer, controller: controller) else {
+                        try Task.checkCancellation()
+                        if controller.isTerminatedOrCancelled {
+                            throw CancellationError()
+                        }
+                        throw CodexUsageError.malformedResponse
                     }
-                    throw CodexUsageError.malformedResponse
-                }
 
-                if let json = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
-                   let id = json["id"] as? Int, id == 2 {
-                    if let errorObj = json["error"] as? [String: Any], let msg = errorObj["message"] as? String {
-                        throw CodexUsageError.processFailed(msg)
+                    if let json = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                       let id = json["id"] as? Int, id == 2 {
+                        if let errorObj = json["error"] as? [String: Any], let msg = errorObj["message"] as? String {
+                            throw CodexUsageError.processFailed(msg)
+                        }
+                        return CodexUsageParser.parseRateLimits(from: json)
                     }
-                    return CodexUsageParser.parseRateLimits(from: json)
                 }
+            } catch {
+                if Task.isCancelled {
+                    throw CancellationError()
+                }
+                throw error
             }
         } onCancel: {
-            controller.terminateAndReap()
+            controller.cancel()
         }
     }
 

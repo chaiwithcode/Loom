@@ -894,6 +894,123 @@ final class UsageEngineTests: XCTestCase {
         }
         XCTAssertLessThan(elapsed, 2.0, "SIGTERM-resistant child should be killed by SIGKILL and reaped quickly on cancellation")
     }
+
+    func testDefaultCodexAppServerTransportRepeatedSigtermResistantCancellation() async throws {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("loom-sigterm-rep-cancel-\(UUID().uuidString).sh")
+        let scriptContent = "#!/bin/sh\ntrap '' TERM\nexec sleep 60\n"
+        try scriptContent.write(to: tempURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tempURL.path)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let transport = DefaultCodexAppServerTransport()
+
+        for iteration in 1...5 {
+            let task = Task {
+                try await transport.execute(executableURL: tempURL, timeoutSeconds: 10.0)
+            }
+
+            try await Task.sleep(nanoseconds: 50_000_000)
+            task.cancel()
+
+            let result = await task.result
+            switch result {
+            case .success:
+                XCTFail("Iteration \(iteration): Expected cancellation")
+            case .failure(let error):
+                XCTAssertTrue(error is CancellationError, "Iteration \(iteration): Expected CancellationError, got \(error)")
+            }
+        }
+    }
+
+    func testDefaultCodexAppServerTransportRepeatedTimeoutsAndExitsWithRealSubprocess() async throws {
+        // Test repeated timeout real subprocess regression across 5+ iterations,
+        // including immediate exit and normal error exits.
+        let transport = DefaultCodexAppServerTransport()
+
+        // 1. Five repeated timeout iterations: assert timeout error and child process is reaped
+        for iteration in 1...5 {
+            let pidFile = FileManager.default.temporaryDirectory.appendingPathComponent("loom-timeout-pid-\(UUID().uuidString).txt")
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("loom-timeout-rep-\(iteration)-\(UUID().uuidString).sh")
+            let scriptContent = """
+            #!/bin/sh
+            echo $$ > "\(pidFile.path)"
+            exec sleep 30
+            """
+            try scriptContent.write(to: tempURL, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tempURL.path)
+            defer {
+                try? FileManager.default.removeItem(at: tempURL)
+                try? FileManager.default.removeItem(at: pidFile)
+            }
+
+            let start = Date()
+            do {
+                _ = try await transport.execute(executableURL: tempURL, timeoutSeconds: 1.0)
+                XCTFail("Iteration \(iteration): Expected timeout")
+            } catch let err as CodexUsageError {
+                if case .timeout = err {
+                    // Correct expected error
+                } else {
+                    XCTFail("Iteration \(iteration): Expected .timeout, got \(err)")
+                }
+            } catch {
+                XCTFail("Iteration \(iteration): Expected CodexUsageError.timeout, got \(error)")
+            }
+            let elapsed = Date().timeIntervalSince(start)
+            XCTAssertLessThan(elapsed, 2.0, "Iteration \(iteration): Timeout should complete promptly")
+
+            // Read child PID and assert it no longer exists
+            let pidData = try XCTUnwrap(FileManager.default.contents(atPath: pidFile.path), "Iteration \(iteration): PID file must exist")
+            let pidStr = try XCTUnwrap(String(data: pidData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), "Iteration \(iteration): PID file content must be valid string")
+            let childPid = try XCTUnwrap(Int32(pidStr), "Iteration \(iteration): PID string '\(pidStr)' must parse as Int32")
+            let exists = (kill(childPid, 0) == 0)
+            XCTAssertFalse(exists, "Iteration \(iteration): Subprocess PID \(childPid) must no longer exist after execute")
+        }
+
+        // 2. Immediate exit normal error (exit 1 before init)
+        let immediateExitURL = FileManager.default.temporaryDirectory.appendingPathComponent("loom-imm-exit-\(UUID().uuidString).sh")
+        let immediateScript = "#!/bin/sh\nexit 1\n"
+        try immediateScript.write(to: immediateExitURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: immediateExitURL.path)
+        defer { try? FileManager.default.removeItem(at: immediateExitURL) }
+
+        do {
+            _ = try await transport.execute(executableURL: immediateExitURL, timeoutSeconds: 2.0)
+            XCTFail("Expected failure on immediate exit")
+        } catch let err as CodexUsageError {
+            if case .processFailed = err {
+                // Correct expected error
+            } else {
+                XCTFail("Expected .processFailed, got \(err)")
+            }
+        } catch {
+            XCTFail("Expected CodexUsageError.processFailed, got \(error)")
+        }
+
+        // 3. Normal rejection error (json error response)
+        let rejectExitURL = FileManager.default.temporaryDirectory.appendingPathComponent("loom-reject-exit-\(UUID().uuidString).sh")
+        let rejectScript = """
+        #!/bin/sh
+        read line
+        echo '{"id":1,"error":{"code":-32600,"message":"Invalid Request"}}'
+        """
+        try rejectScript.write(to: rejectExitURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: rejectExitURL.path)
+        defer { try? FileManager.default.removeItem(at: rejectExitURL) }
+
+        do {
+            _ = try await transport.execute(executableURL: rejectExitURL, timeoutSeconds: 2.0)
+            XCTFail("Expected failure on rejected init")
+        } catch let err as CodexUsageError {
+            if case .processFailed = err {
+                // Correct expected error
+            } else {
+                XCTFail("Expected .processFailed, got \(err)")
+            }
+        } catch {
+            XCTFail("Expected CodexUsageError.processFailed, got \(error)")
+        }
+    }
 }
 
 // MARK: - Mock Transports & Test Doubles
