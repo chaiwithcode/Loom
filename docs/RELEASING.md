@@ -20,7 +20,10 @@ The local packaging script (`scripts/build-app.sh`) builds and packages `.build/
 - **Architecture**: The default build script compiles for the host architecture only (currently Apple Silicon `arm64`).
 - **Gatekeeper**: Local ad-hoc trust is valid for execution on the local development machine without Developer ID, but if an ad-hoc signed build is downloaded from the internet, macOS Gatekeeper will block execution as an untrusted application from an unidentified developer.
 
-**Status**: Loom is currently distributed as **source-only**. Public binary releases cannot be published until a Developer ID Application certificate is obtained and the notarization workflow described below is completed.
+**Status & Strategy**:
+- **CI Development Artifacts vs. Public Releases**: Automated CI workflows build development bundles (`Loom-development-<arch>.zip`) with ad-hoc signing for build verification, automated testing, and developer inspection. These CI artifacts are **untrusted development builds**: Gatekeeper will block them on unconfigured machines because they lack Developer ID signatures and Apple notarization.
+- **Candidate Release Preparation**: The release candidate pipeline packages the application bundle and validates portable integrity, but public binary publication is deferred until official Developer ID signing and Apple notarization credentials are fully in place.
+- **Distribution Mode**: Loom remains source-distributed until Developer ID signing and notarization workflows are executed and validated on a clean macOS environment.
 
 ### Mac App Store Considerations & Distribution Route
 

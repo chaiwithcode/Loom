@@ -3,6 +3,7 @@ name: macOS checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,3 +20,21 @@ jobs:
       # Keep test in source; this job does not claim live-database coverage.
       - name: Portable tests (live Antigravity discovery excluded)
         run: swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest'
+      - name: Package development artifact
+        run: |
+          set -euo pipefail
+          ARCH="$(uname -m)"
+          mkdir -p .build/artifacts
+          ZIP_NAME="Loom-development-${ARCH}.zip"
+          ZIP_PATH=".build/artifacts/${ZIP_NAME}"
+          ditto -c -k --keepParent .build/Loom.app "${ZIP_PATH}"
+          (cd .build/artifacts && shasum -a 256 "${ZIP_NAME}" > "${ZIP_NAME}.sha256")
+      - name: Upload development build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Loom-development-macos-15-${{ runner.arch }}
+          path: |
+            .build/artifacts/*.zip
+            .build/artifacts/*.sha256
+          if-no-files-found: error
+          retention-days: 14
