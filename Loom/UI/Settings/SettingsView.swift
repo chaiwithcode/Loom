@@ -9,44 +9,60 @@
 import SwiftUI
 import LoomCore
 
+public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
+    case general = "General"
+    case providers = "Providers"
+    case sessions = "Sessions"
+    case privacy = "Privacy"
+    case about = "About"
+
+    public var id: String { rawValue }
+}
+
 public struct SettingsView: View {
     @Bindable var settings: LoomSettings
     var store: SessionStore?
+    @State private var selectedTab: SettingsTab
 
-    public init(settings: LoomSettings, store: SessionStore? = nil) {
+    public init(settings: LoomSettings, store: SessionStore? = nil, initialTab: SettingsTab = .general) {
         self.settings = settings
         self.store = store
+        self._selectedTab = State(initialValue: initialTab)
     }
 
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             GeneralSettingsTab(settings: settings)
                 .tabItem {
                     Label("General", systemImage: "gearshape")
                 }
+                .tag(SettingsTab.general)
 
             ProvidersSettingsTab(settings: settings, store: store)
                 .tabItem {
                     Label("Providers", systemImage: "cpu")
                 }
+                .tag(SettingsTab.providers)
 
             SessionsSettingsTab(settings: settings)
                 .tabItem {
                     Label("Sessions", systemImage: "clock")
                 }
+                .tag(SettingsTab.sessions)
 
             PrivacySettingsTab(settings: settings)
                 .tabItem {
                     Label("Privacy", systemImage: "hand.raised")
                 }
+                .tag(SettingsTab.privacy)
 
             AboutSettingsTab()
                 .tabItem {
                     Label("About", systemImage: "info.circle")
                 }
+                .tag(SettingsTab.about)
         }
-        .frame(width: 480, height: 350)
-        .padding()
+        .frame(minWidth: 480, idealWidth: 520, maxWidth: 640, minHeight: 360, idealHeight: 420, maxHeight: 600)
     }
 }
 
@@ -77,112 +93,158 @@ private struct GeneralSettingsTab: View {
                     Text("Every 5 minutes").tag(300)
                 }
                 .pickerStyle(.menu)
+                .accessibilityIdentifier("picker-refresh-interval")
+                .accessibilityLabel("Refresh Interval")
                 .padding(.vertical, 4)
             }
 
-            Divider()
-                .padding(.vertical, 8)
-
-            HStack {
-                Spacer()
-                Button("Restore Defaults") {
-                    settings.resetToDefaults()
+            Section {
+                HStack {
+                    Spacer()
+                    Button("Restore Defaults") {
+                        settings.resetToDefaults()
+                    }
+                    .accessibilityIdentifier("button-restore-defaults")
+                    .accessibilityLabel("Restore Defaults")
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
                 }
-                .accessibilityIdentifier("button-restore-defaults")
-                .accessibilityLabel("Restore Defaults")
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
             }
         }
-        .padding(16)
+        .formStyle(.grouped)
     }
+}
+
+private struct ProviderRowItem: Identifiable {
+    let id: ProviderID
+    let displayName: String
+    let snapshot: ProviderSnapshot?
 }
 
 private struct ProvidersSettingsTab: View {
     @Bindable var settings: LoomSettings
     let store: SessionStore?
 
+    private var supportedProviders: [ProviderRowItem] {
+        let supported = LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })
+        return supported.map { id in
+            let snapshot = store?.providerSnapshots.first(where: { $0.providerID == id })
+            let displayName = snapshot?.displayName ?? id.displayName
+            return ProviderRowItem(id: id, displayName: displayName, snapshot: snapshot)
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Picker("Default Provider", selection: $settings.defaultProviderID) {
-                ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
-                    Text(id.displayName).tag(id)
+        Form {
+            Section {
+                Picker("Default Provider", selection: $settings.defaultProviderID) {
+                    ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
+                        Text(id.displayName).tag(id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("picker-default-provider")
+                .accessibilityLabel("Default Provider")
+            }
+
+            Section("Monitoring") {
+                ForEach(supportedProviders) { item in
+                    providerRow(item)
                 }
             }
-            .pickerStyle(.menu)
+        }
+        .formStyle(.grouped)
+    }
 
-            Text("Monitoring")
-                .font(.headline)
+    private func providerRow(_ item: ProviderRowItem) -> some View {
+        let isEnabled = settings.isProviderEnabled(item.id)
+        return HStack(alignment: .top, spacing: 10) {
+            Toggle("", isOn: Binding(
+                get: { isEnabled },
+                set: { settings.setProvider(item.id, enabled: $0) }
+            ))
+            .toggleStyle(.checkbox)
+            .labelsHidden()
+            .accessibilityLabel("Monitor \(item.displayName)")
+            .accessibilityIdentifier("toggle-monitor-\(item.id.rawValue)")
+            .padding(.top, 2)
 
-            let snapshots = store?.providerSnapshots ?? LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue }).map { id in
-                ProviderSnapshot(providerID: id, displayName: id.displayName)
-            }
-
-            List(snapshots) { snapshot in
-                let isEnabled = settings.isProviderEnabled(snapshot.providerID)
-                HStack(spacing: 10) {
-                    Toggle("", isOn: Binding(
-                        get: { isEnabled },
-                        set: { settings.setProvider(snapshot.providerID, enabled: $0) }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .accessibilityLabel("Monitor \(snapshot.displayName)")
-                    .accessibilityIdentifier("toggle-monitor-\(snapshot.providerID.rawValue)")
-
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
                     Circle()
-                        .fill(statusColor(for: snapshot, isEnabled: isEnabled))
+                        .fill(statusColor(for: item.snapshot, isEnabled: isEnabled))
                         .frame(width: 8, height: 8)
 
-                    Text(snapshot.displayName)
+                    Text(item.displayName)
                         .font(.body)
                         .fontWeight(.medium)
-
-                    Spacer()
-
-                    Text(statusLabel(for: snapshot, isEnabled: isEnabled))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 3)
+
+                Text(statusLabel(for: item.snapshot, isEnabled: isEnabled))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("label-status-\(item.id.rawValue)")
             }
-            .listStyle(.bordered)
+
+            Spacer(minLength: 0)
         }
-        .padding(16)
+        .padding(.vertical, 4)
     }
 
-    private func statusColor(for snapshot: ProviderSnapshot, isEnabled: Bool) -> Color {
+    private func statusColor(for snapshot: ProviderSnapshot?, isEnabled: Bool) -> Color {
         guard isEnabled else { return .secondary }
+        guard let snapshot else { return .secondary }
         if snapshot.isRefreshing { return .secondary }
         if snapshot.errorMessage != nil { return .red }
-        if snapshot.availability.isAvailable { return .green }
-        if snapshot.availability == .unknown { return .secondary }
-        return .orange
+        switch snapshot.availability {
+        case .available:
+            return .green
+        case .degraded:
+            return .orange
+        case .error:
+            return .red
+        case .unavailable:
+            return .orange
+        case .unknown:
+            return .secondary
+        }
     }
 
-    private func statusLabel(for snapshot: ProviderSnapshot, isEnabled: Bool) -> String {
+    private func statusLabel(for snapshot: ProviderSnapshot?, isEnabled: Bool) -> String {
         guard isEnabled else { return "Monitoring disabled" }
+        guard let snapshot else {
+            return store == nil ? "Not checked yet" : "Not registered"
+        }
         if snapshot.isRefreshing { return "Checking…" }
         if let err = snapshot.errorMessage {
             if settings.hideProjectPaths && (err.contains("/") || err.contains("~")) {
                 return "Error (details hidden by privacy setting)"
             }
-            return "Error: \(err)"
+            return err.hasPrefix("Error") ? err : "Error: \(err)"
         }
-        if snapshot.availability.isAvailable {
+        switch snapshot.availability {
+        case .available:
             let count = snapshot.sessions.count
             return "\(count) \(count == 1 ? "session" : "sessions")"
-        }
-        if snapshot.availability == .unknown {
-            return "Not checked yet"
-        }
-        if let reason = snapshot.availability.unavailabilityReason {
+        case .degraded(let reason):
+            if settings.hideProjectPaths && (reason.contains("/") || reason.contains("~")) {
+                return "Degraded (details hidden by privacy setting)"
+            }
+            return reason.hasPrefix("Degraded") ? reason : "Degraded: \(reason)"
+        case .error(let reason):
+            if settings.hideProjectPaths && (reason.contains("/") || reason.contains("~")) {
+                return "Error (details hidden by privacy setting)"
+            }
+            return reason.hasPrefix("Error") ? reason : "Error: \(reason)"
+        case .unavailable(let reason):
             if settings.hideProjectPaths && (reason.contains("/") || reason.contains("~")) {
                 return "Unavailable"
             }
             return reason
+        case .unknown:
+            return "Not checked yet"
         }
-        return "Unavailable"
     }
 }
 
@@ -212,11 +274,13 @@ private struct SessionsSettingsTab: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .accessibilityIdentifier("picker-hide-finished-after")
+                .accessibilityLabel("Hide finished after")
                 .padding(.vertical, 4)
                 .disabled(!settings.includeRecentSessions)
             }
         }
-        .padding(16)
+        .formStyle(.grouped)
     }
 }
 
@@ -247,39 +311,56 @@ private struct PrivacySettingsTab: View {
                     .padding(.top, 4)
             }
         }
-        .padding(16)
+        .formStyle(.grouped)
     }
 }
 
 private struct AboutSettingsTab: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 64, height: 64)
-                .accessibilityHidden(true)
-
-            Text("Loom")
-                .font(.title2)
-                .fontWeight(.bold)
-
-            Text("Version 0.1.0")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text("Native macOS control surface for local AI coding agents.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-
-            Spacer()
-
-            Text("© 2026 Deepak Sharma (ChaiWithCode). MIT License.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+    private var versionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+        if let version, !version.isEmpty {
+            if let build, !build.isEmpty, build != version {
+                return "Version \(version) (\(build))"
+            }
+            return "Version \(version)"
         }
-        .padding(16)
+        return "Version 0.1.0 (Dev)"
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
+                    .accessibilityHidden(true)
+
+                Text("Loom")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text(versionString)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("text-about-version")
+
+                Text("Lightweight macOS menu bar monitor for local AI coding agents.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 24)
+
+                Text("© 2026 Deepak Sharma (ChaiWithCode). MIT License.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(24)
+        }
     }
 }
