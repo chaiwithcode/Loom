@@ -201,7 +201,8 @@ public final class DefaultCodexStateStoreInspector: CodexStateStoreInspecting, S
     }
 
     private static func openDatabase(at url: URL) -> OpaquePointer? {
-        let uriPath = "\(url.standardizedFileURL.path)?mode=ro&immutable=1"
+        let baseURI = url.standardizedFileURL.absoluteString
+        let uriPath = baseURI.contains("?") ? "\(baseURI)&mode=ro&immutable=1" : "\(baseURI)?mode=ro&immutable=1"
         var db: OpaquePointer?
 
         let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_URI

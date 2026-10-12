@@ -44,23 +44,39 @@ public final class DefaultAntigravityStoreInspector: AntigravityStoreInspecting,
                 return []
             }
 
-            // 1. Try direct read-only query (best for observing live WAL updates)
-            if let directRecords = Self.tryQuery(url: standardizedURL, querySuffix: nil) {
-                return directRecords
-            }
+            let walURL = URL(fileURLWithPath: path + "-wal")
+            let hasWAL = FileManager.default.fileExists(atPath: walURL.path)
 
-            // 2. If direct query failed (e.g. SQLite CANTOPEN 14 on -shm), try with immutable=1
-            if let immutableRecords = Self.tryQuery(url: standardizedURL, querySuffix: "?immutable=1&mode=ro") {
-                return immutableRecords
-            }
+            if hasWAL {
+                // 1. WAL is present: read directly with live WAL attachment so uncheckpointed WAL updates
+                // are immediately visible and session state never becomes stale.
+                if let directRecords = Self.tryQuery(url: standardizedURL, querySuffix: nil) {
+                    return directRecords
+                }
 
-            // 3. If immutable failed, try safe snapshot copy to temporary directory
-            if let snapshotRecords = Self.readRecordsFromTemporarySnapshot(sourceURL: standardizedURL) {
-                return snapshotRecords
-            }
+                // 2. If direct query failed (e.g. SQLite lock contention/CANTOPEN on shared memory),
+                // copy both DB and -wal to a temporary snapshot to inspect uncheckpointed WAL data.
+                if let snapshotRecords = Self.readRecordsFromTemporarySnapshot(sourceURL: standardizedURL) {
+                    return snapshotRecords
+                }
 
-            // 4. If all fail, execute directly to throw the real error for diagnostics
-            return try Self.executeQuery(url: standardizedURL, querySuffix: nil)
+                // 3. Fallback to direct execution to throw diagnostic error if all attempts fail
+                return try Self.executeQuery(url: standardizedURL, querySuffix: nil)
+            } else {
+                // Absence of -wal is a normal, valid SQLite state (cleanly checkpointed or idle).
+                // Use immutable=1 mode=ro to inspect the main database normally without triggering
+                // SQLite's attempt to create/recover a missing -wal file in read-only mode (which causes CANTOPEN 14).
+                if let directRecords = Self.tryQuery(url: standardizedURL, querySuffix: "?mode=ro&immutable=1") {
+                    return directRecords
+                }
+
+                // Fallback to snapshot copy if needed
+                if let snapshotRecords = Self.readRecordsFromTemporarySnapshot(sourceURL: standardizedURL) {
+                    return snapshotRecords
+                }
+
+                return try Self.executeQuery(url: standardizedURL, querySuffix: "?mode=ro&immutable=1")
+            }
         }.value
     }
 
@@ -116,9 +132,12 @@ public final class DefaultAntigravityStoreInspector: AntigravityStoreInspecting,
             return nil
         }
 
+        let hasSnapshotWAL = FileManager.default.fileExists(atPath: tempWALURL.path)
         var db: OpaquePointer?
         let openFlags = SQLITE_OPEN_READONLY | SQLITE_OPEN_URI
-        let uri = "\(tempDBURL.standardizedFileURL.absoluteString)?immutable=1&mode=ro"
+        let uri = hasSnapshotWAL
+            ? tempDBURL.standardizedFileURL.absoluteString
+            : "\(tempDBURL.standardizedFileURL.absoluteString)?mode=ro&immutable=1"
         let status = sqlite3_open_v2(uri, &db, openFlags, nil)
         guard status == SQLITE_OK, let validDb = db else {
             if let db = db { sqlite3_close(db) }

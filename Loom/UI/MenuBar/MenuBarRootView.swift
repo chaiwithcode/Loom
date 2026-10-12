@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AppKit
+@preconcurrency import ObjectiveC
 import LoomCore
 
 public struct MenuBarRootView: View {
@@ -478,23 +479,24 @@ private struct MenuScreenHeightReader: NSViewRepresentable {
 
     final class ScreenView: NSView {
         var onChange: ((CGFloat) -> Void)?
-        private var observers: [NSObjectProtocol] = []
+        private var notificationTokens: ScreenNotificationTokens?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            observers.forEach(NotificationCenter.default.removeObserver)
-            observers.removeAll()
+            notificationTokens = nil
             guard let window else { return }
+            var tokens: [NSObjectProtocol] = []
             for (name, object) in [
                 (NSWindow.didChangeScreenNotification, window as AnyObject?),
                 (NSApplication.didChangeScreenParametersNotification, nil)
             ] {
-                observers.append(NotificationCenter.default.addObserver(
+                tokens.append(NotificationCenter.default.addObserver(
                     forName: name, object: object, queue: .main
                 ) { [weak self] _ in
                     MainActor.assumeIsolated { self?.reportHeight() }
                 })
             }
+            notificationTokens = ScreenNotificationTokens(tokens: tokens)
             reportHeight()
         }
 
@@ -504,9 +506,21 @@ private struct MenuScreenHeightReader: NSViewRepresentable {
             let height = max(1, screen.visibleFrame.height - 16)
             DispatchQueue.main.async { [weak self] in self?.onChange?(height) }
         }
+    }
+}
 
-        deinit {
-            observers.forEach(NotificationCenter.default.removeObserver)
+private final class ScreenNotificationTokens {
+    private let center: NotificationCenter
+    private let tokens: [NSObjectProtocol]
+
+    init(center: NotificationCenter = .default, tokens: [NSObjectProtocol]) {
+        self.center = center
+        self.tokens = tokens
+    }
+
+    deinit {
+        for token in tokens {
+            center.removeObserver(token)
         }
     }
 }
