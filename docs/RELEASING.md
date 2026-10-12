@@ -126,22 +126,52 @@ Each verification tool reports distinct diagnostics:
 - `spctl` evaluates Gatekeeper policy and must report `accepted` with `source=Notarized Developer ID`.
 - `xcrun stapler validate` confirms the ticket is properly stapled (`The validate action worked!`).
 
-### Step 5.7: Repackage Stapled Distribution Archive
-Create the final distributable zip archive from the **stapled** `.app` bundle:
+### Step 5.7: Package and Code Sign Distributable DMG
+Package the stapled `.app` bundle into a polished, read-only DMG with an `/Applications` shortcut and native Finder layout using `scripts/package-dmg.sh`:
 ```bash
-ditto -c -k --keepParent .build/Loom.app Loom-0.1.0-beta.zip
+SIGNING_IDENTITY="Developer ID Application: <Developer Name> (<TEAM_ID>)" \
+  bash scripts/package-dmg.sh .build/Loom.app
 ```
 
-### Step 5.8: Clean Mac Download Verification
-Before distribution, test the artifact on a separate clean Mac that has never built the project or installed development certificates. Download the archive through a real web browser (e.g. Safari) to ensure genuine quarantine extended attributes and Gatekeeper evaluation occur—synthetic `xattr` or local decompression is not equivalent to real distribution conditions. Extract the archive and verify that Loom launches cleanly without Gatekeeper warnings or developer trust blocks.
+The packager configures a native Finder installation surface:
+- **Geometry**: 640×420 pt content bounds (outer bounds `{200, 120, 840, 572}` accommodating 32 pt macOS titlebar), 96 pt icons centered at `{180, 235}` (`Loom.app`) and `{460, 235}` (`/Applications`).
+- **Background Artwork**: Minimal warm light-neutral canvas generated via native AppKit/CoreGraphics (`scripts/dmg/generate-background.swift`) with 1x/2x PNGs and multi-representation TIFF (`background.tiff`), featuring native system typography ("Loom" header at y62, "Monitor your local AI coding agents" tagline at y92, subtle directional arrow at y235, and "Drag Loom to Applications" at y340 clear of icon labels). Regenerate assets whenever geometry or renderer text is modified via `swift scripts/dmg/generate-background.swift scripts/dmg`.
+- **Safety**: Preserves the sealed `.app` bundle via `ditto` without modifying bundle contents or deleting internal `.DS_Store` files. Calculates staging disk image size dynamically from the payload plus slack. Configures native Finder layout metadata or stages verified template `.DS_Store`, verifies staged background asset SHA-256 hashes against source, runs `scripts/dmg/verify-ds-store.swift` for on-disk `icvp` bplist metadata sanity checking (while relying on active reopened Finder assertions and mounted visual inspection for definitive layout proof), pre-computes checksums, backs up existing distribution artifacts (`.dmg`, `.dmg.sha256`, `SHA256SUMS.txt`) to `dist/backups/`, and atomically replaces the disk image file alongside separately staged checksum files with automatic recovery on failure.
+
+This creates `dist/Loom-0.1.0.dmg`, signs the disk image, and generates `SHA256SUMS.txt`.
+
+### Step 5.8: Notarize and Staple the DMG
+Submit the DMG to Apple Notary Service so Gatekeeper assesses the disk image immediately on mount without requiring network lookup:
+```bash
+xcrun notarytool submit dist/Loom-0.1.0.dmg \
+  --keychain-profile "AC_PASSWORD" \
+  --wait
+
+xcrun stapler staple dist/Loom-0.1.0.dmg
+xcrun stapler validate dist/Loom-0.1.0.dmg
+```
+
+### Step 5.9: Gatekeeper & Clean Mac Download Verification
+Verify Gatekeeper policy acceptance on both the disk image and installed application:
+```bash
+# Gatekeeper disk image check:
+spctl --assess -vv --type open --context context:primary-signature dist/Loom-0.1.0.dmg
+
+# Mount and inspect app under Gatekeeper:
+hdiutil attach dist/Loom-0.1.0.dmg -mountpoint /Volumes/LoomStaging
+spctl --assess -vv --type execute /Volumes/LoomStaging/Loom.app
+hdiutil detach /Volumes/LoomStaging
+```
+
+Before distribution, test the artifact on a separate clean Mac that has never built the project or installed development certificates. Download the DMG through a real web browser to ensure genuine quarantine extended attributes (`com.apple.quarantine`) and Gatekeeper evaluation occur. Verify that Loom drags to Applications and launches cleanly without security prompts or developer trust blocks.
 
 > [!CAUTION]
 > Never provide security bypass instructions (such as `xattr -cr` or Gatekeeper overrides) to end users. If Gatekeeper blocks the app, resolve the code signing or notarization issue.
 
-### Step 5.9: Generate Checksums
-Generate SHA-256 checksums for distribution artifacts:
+### Step 5.10: Checksum Verification
+Confirm SHA-256 checksums in `dist/SHA256SUMS.txt`:
 ```bash
-shasum -a 256 Loom-0.1.0-beta.zip > Loom-0.1.0-beta.zip.sha256
+(cd dist && shasum -c SHA256SUMS.txt)
 ```
 
 ## 6. Manual Publication Policy

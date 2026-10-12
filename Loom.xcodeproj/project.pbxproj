@@ -14,35 +14,35 @@
 		A00000000000000000000074 /* AgentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000028 /* AgentProvider.swift */; };
 		A00000000000000000000075 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000029 /* SessionStore.swift */; };
 		A00000000000000000000076 /* MockAgentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002A /* MockAgentProvider.swift */; };
+		A00000000000000000000077 /* AgentUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002C /* AgentUsage.swift */; };
+		A00000000000000000000080 /* LoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* LoomApp.swift */; };
+		A00000000000000000000081 /* MenuBarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* MenuBarRootView.swift */; };
+		A00000000000000000000082 /* ProviderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ProviderSectionView.swift */; };
+		A00000000000000000000083 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* SessionRowView.swift */; };
+		A00000000000000000000084 /* LoomIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002F /* LoomIcon.swift */; };
+		A00000000000000000000085 /* UsageBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002E /* UsageBarView.swift */; };
+		A00000000000000000000086 /* Loom.icns in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002D /* Loom.icns */; };
+		A00000000000000000000088 /* SessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002B /* SessionStoreTests.swift */; };
+		A00000000000000000000090 /* LoomCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; };
+		A00000000000000000000091 /* LoomCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000092 /* LoomCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; };
 		A000000000000000000000A1 /* CodexProcessInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C1 /* CodexProcessInspector.swift */; };
 		A000000000000000000000A2 /* CodexParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C2 /* CodexParser.swift */; };
 		A000000000000000000000A3 /* GitRepositoryResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C3 /* GitRepositoryResolver.swift */; };
 		A000000000000000000000A4 /* DefaultCodexProcessDiscoverer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */; };
 		A000000000000000000000A5 /* CodexProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C5 /* CodexProvider.swift */; };
 		A000000000000000000000A6 /* CodexProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C6 /* CodexProviderTests.swift */; };
+		A000000000000000000000A7 /* CodexUsageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C7 /* CodexUsageParser.swift */; };
+		A000000000000000000000A8 /* CodexUsageFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C8 /* CodexUsageFetcher.swift */; };
+		A000000000000000000000A9 /* UsageEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C9 /* UsageEngineTests.swift */; };
 		A000000000000000000000B1 /* AntigravityProcessInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E1 /* AntigravityProcessInspector.swift */; };
 		A000000000000000000000B2 /* AntigravityParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E2 /* AntigravityParser.swift */; };
 		A000000000000000000000B3 /* DefaultAntigravityProcessDiscoverer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */; };
 		A000000000000000000000B4 /* DefaultAntigravityStoreInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E4 /* DefaultAntigravityStoreInspector.swift */; };
 		A000000000000000000000B5 /* AntigravityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E5 /* AntigravityProvider.swift */; };
 		A000000000000000000000B6 /* AntigravityProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E6 /* AntigravityProviderTests.swift */; };
-		A00000000000000000000080 /* LoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* LoomApp.swift */; };
-		A00000000000000000000081 /* MenuBarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* MenuBarRootView.swift */; };
-		A00000000000000000000082 /* ProviderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ProviderSectionView.swift */; };
-		A00000000000000000000083 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* SessionRowView.swift */; };
-		A00000000000000000000084 /* LoomIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002F /* LoomIcon.swift */; };
-		A00000000000000000000088 /* SessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002B /* SessionStoreTests.swift */; };
-		A00000000000000000000090 /* LoomCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; };
-		A00000000000000000000091 /* LoomCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		A00000000000000000000092 /* LoomCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; };
-		A00000000000000000000077 /* AgentUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002C /* AgentUsage.swift */; };
-		A000000000000000000000A7 /* CodexUsageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C7 /* CodexUsageParser.swift */; };
-		A000000000000000000000A8 /* CodexUsageFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C8 /* CodexUsageFetcher.swift */; };
 		A000000000000000000000B7 /* AntigravityUsageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E7 /* AntigravityUsageParser.swift */; };
 		A000000000000000000000B8 /* AntigravityUsageFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E8 /* AntigravityUsageFetcher.swift */; };
-		A00000000000000000000085 /* UsageBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002E /* UsageBarView.swift */; };
-		A00000000000000000000086 /* Loom.icns in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002D /* Loom.icns */; };
-		A000000000000000000000A9 /* UsageEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000C9 /* UsageEngineTests.swift */; };
 		A000000000000000000000F2 /* LoomSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F1 /* LoomSettings.swift */; };
 		A000000000000000000000F4 /* DockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F3 /* DockController.swift */; };
 		A000000000000000000000F6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000F5 /* SettingsView.swift */; };
@@ -103,7 +103,6 @@
 		A00000000000000000000021 /* MenuBarRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarRootView.swift; sourceTree = "<group>"; };
 		A00000000000000000000022 /* ProviderSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSectionView.swift; sourceTree = "<group>"; };
 		A00000000000000000000023 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
-		A0000000000000000000002F /* LoomIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomIcon.swift; sourceTree = "<group>"; };
 		A00000000000000000000024 /* AgentState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentState.swift; sourceTree = "<group>"; };
 		A00000000000000000000025 /* AgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSession.swift; sourceTree = "<group>"; };
 		A00000000000000000000026 /* ProviderID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderID.swift; sourceTree = "<group>"; };
@@ -111,30 +110,31 @@
 		A00000000000000000000028 /* AgentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentProvider.swift; sourceTree = "<group>"; };
 		A00000000000000000000029 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		A0000000000000000000002A /* MockAgentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAgentProvider.swift; sourceTree = "<group>"; };
+		A0000000000000000000002B /* SessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStoreTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000002C /* AgentUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentUsage.swift; sourceTree = "<group>"; };
+		A0000000000000000000002D /* Loom.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Loom.icns; sourceTree = "<group>"; };
+		A0000000000000000000002E /* UsageBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageBarView.swift; sourceTree = "<group>"; };
+		A0000000000000000000002F /* LoomIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomIcon.swift; sourceTree = "<group>"; };
+		A00000000000000000000030 /* LoomCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LoomCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000031 /* Loom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Loom.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000032 /* LoomCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LoomCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A000000000000000000000C1 /* CodexProcessInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProcessInspector.swift; sourceTree = "<group>"; };
 		A000000000000000000000C2 /* CodexParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexParser.swift; sourceTree = "<group>"; };
 		A000000000000000000000C3 /* GitRepositoryResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitRepositoryResolver.swift; sourceTree = "<group>"; };
 		A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultCodexProcessDiscoverer.swift; sourceTree = "<group>"; };
 		A000000000000000000000C5 /* CodexProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProvider.swift; sourceTree = "<group>"; };
 		A000000000000000000000C6 /* CodexProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexProviderTests.swift; sourceTree = "<group>"; };
+		A000000000000000000000C7 /* CodexUsageParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageParser.swift; sourceTree = "<group>"; };
+		A000000000000000000000C8 /* CodexUsageFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageFetcher.swift; sourceTree = "<group>"; };
+		A000000000000000000000C9 /* UsageEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageEngineTests.swift; sourceTree = "<group>"; };
 		A000000000000000000000E1 /* AntigravityProcessInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityProcessInspector.swift; sourceTree = "<group>"; };
 		A000000000000000000000E2 /* AntigravityParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityParser.swift; sourceTree = "<group>"; };
 		A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultAntigravityProcessDiscoverer.swift; sourceTree = "<group>"; };
 		A000000000000000000000E4 /* DefaultAntigravityStoreInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultAntigravityStoreInspector.swift; sourceTree = "<group>"; };
 		A000000000000000000000E5 /* AntigravityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityProvider.swift; sourceTree = "<group>"; };
 		A000000000000000000000E6 /* AntigravityProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityProviderTests.swift; sourceTree = "<group>"; };
-		A0000000000000000000002B /* SessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStoreTests.swift; sourceTree = "<group>"; };
-		A00000000000000000000030 /* LoomCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LoomCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		A00000000000000000000031 /* Loom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Loom.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A00000000000000000000032 /* LoomCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LoomCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A0000000000000000000002C /* AgentUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentUsage.swift; sourceTree = "<group>"; };
-		A000000000000000000000C7 /* CodexUsageParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageParser.swift; sourceTree = "<group>"; };
-		A000000000000000000000C8 /* CodexUsageFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexUsageFetcher.swift; sourceTree = "<group>"; };
 		A000000000000000000000E7 /* AntigravityUsageParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsageParser.swift; sourceTree = "<group>"; };
 		A000000000000000000000E8 /* AntigravityUsageFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityUsageFetcher.swift; sourceTree = "<group>"; };
-		A0000000000000000000002E /* UsageBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageBarView.swift; sourceTree = "<group>"; };
-		A0000000000000000000002D /* Loom.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Loom.icns; sourceTree = "<group>"; };
-		A000000000000000000000C9 /* UsageEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageEngineTests.swift; sourceTree = "<group>"; };
 		A000000000000000000000F1 /* LoomSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomSettings.swift; sourceTree = "<group>"; };
 		A000000000000000000000F3 /* DockController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockController.swift; sourceTree = "<group>"; };
 		A000000000000000000000F5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -186,7 +186,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A00000000000000000000002 /* MainGroup */ = {
+		A00000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000010 /* Loom */,
@@ -194,14 +194,6 @@
 				A0000000000000000000001C /* Resources */,
 				A00000000000000000000003 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		A0000000000000000000001C /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				A0000000000000000000002D /* Loom.icns */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000003 /* Products */ = {
@@ -222,7 +214,6 @@
 				A00000000000000000000014 /* Core */,
 				A00000000000000000000018 /* Providers */,
 			);
-			name = Loom;
 			path = Loom;
 			sourceTree = "<group>";
 		};
@@ -242,14 +233,6 @@
 				A000000000000000000000FB /* Settings */,
 			);
 			path = UI;
-			sourceTree = "<group>";
-		};
-		A000000000000000000000FB /* Settings */ = {
-			isa = PBXGroup;
-			children = (
-				A000000000000000000000F5 /* SettingsView.swift */,
-			);
-			path = Settings;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000013 /* MenuBar */ = {
@@ -273,17 +256,6 @@
 				A0000000000000000000010D /* Discovery */,
 			);
 			path = Core;
-			sourceTree = "<group>";
-		};
-		A0000000000000000000010D /* Discovery */ = {
-			isa = PBXGroup;
-			children = (
-				A00000000000000000000105 /* ProcessTree.swift */,
-				A00000000000000000000107 /* WorkspaceResolver.swift */,
-				A00000000000000000000109 /* SessionCorrelationEngine.swift */,
-				A00000000000000000000117 /* SessionLifecycleReconciler.swift */,
-			);
-			path = Discovery;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000015 /* Models */ = {
@@ -328,47 +300,6 @@
 			path = Providers;
 			sourceTree = "<group>";
 		};
-		A0000000000000000000012A /* Claude */ = {
-			isa = PBXGroup;
-			children = (
-				A00000000000000000000121 /* ClaudeProcessInspector.swift */,
-				A00000000000000000000123 /* ClaudeParser.swift */,
-				A00000000000000000000125 /* ClaudeTranscriptInspector.swift */,
-				A00000000000000000000127 /* ClaudeProvider.swift */,
-			);
-			path = Claude;
-			sourceTree = "<group>";
-		};
-		A000000000000000000000E0 /* Antigravity */ = {
-			isa = PBXGroup;
-			children = (
-				A000000000000000000000E1 /* AntigravityProcessInspector.swift */,
-				A000000000000000000000E2 /* AntigravityParser.swift */,
-				A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */,
-				A000000000000000000000E4 /* DefaultAntigravityStoreInspector.swift */,
-				A000000000000000000000E5 /* AntigravityProvider.swift */,
-				A000000000000000000000E7 /* AntigravityUsageParser.swift */,
-				A000000000000000000000E8 /* AntigravityUsageFetcher.swift */,
-			);
-			path = Antigravity;
-			sourceTree = "<group>";
-		};
-		A000000000000000000000D0 /* Codex */ = {
-			isa = PBXGroup;
-			children = (
-				A000000000000000000000C1 /* CodexProcessInspector.swift */,
-				A000000000000000000000C2 /* CodexParser.swift */,
-				A000000000000000000000C3 /* GitRepositoryResolver.swift */,
-				A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */,
-				A000000000000000000000C5 /* CodexProvider.swift */,
-				A000000000000000000000C7 /* CodexUsageParser.swift */,
-				A000000000000000000000C8 /* CodexUsageFetcher.swift */,
-				A00000000000000000000111 /* CodexStateStoreInspector.swift */,
-				A00000000000000000000113 /* CodexWorkspaceEvidenceProvider.swift */,
-			);
-			path = Codex;
-			sourceTree = "<group>";
-		};
 		A00000000000000000000019 /* Mock */ = {
 			isa = PBXGroup;
 			children = (
@@ -401,6 +332,74 @@
 				A00000000000000000000129 /* ClaudeProviderTests.swift */,
 			);
 			path = LoomCoreTests;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000001C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A0000000000000000000002D /* Loom.icns */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A000000000000000000000D0 /* Codex */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000C1 /* CodexProcessInspector.swift */,
+				A000000000000000000000C2 /* CodexParser.swift */,
+				A000000000000000000000C3 /* GitRepositoryResolver.swift */,
+				A000000000000000000000C4 /* DefaultCodexProcessDiscoverer.swift */,
+				A000000000000000000000C5 /* CodexProvider.swift */,
+				A000000000000000000000C7 /* CodexUsageParser.swift */,
+				A000000000000000000000C8 /* CodexUsageFetcher.swift */,
+				A00000000000000000000111 /* CodexStateStoreInspector.swift */,
+				A00000000000000000000113 /* CodexWorkspaceEvidenceProvider.swift */,
+			);
+			path = Codex;
+			sourceTree = "<group>";
+		};
+		A000000000000000000000E0 /* Antigravity */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000E1 /* AntigravityProcessInspector.swift */,
+				A000000000000000000000E2 /* AntigravityParser.swift */,
+				A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */,
+				A000000000000000000000E4 /* DefaultAntigravityStoreInspector.swift */,
+				A000000000000000000000E5 /* AntigravityProvider.swift */,
+				A000000000000000000000E7 /* AntigravityUsageParser.swift */,
+				A000000000000000000000E8 /* AntigravityUsageFetcher.swift */,
+			);
+			path = Antigravity;
+			sourceTree = "<group>";
+		};
+		A000000000000000000000FB /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A000000000000000000000F5 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000010D /* Discovery */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000105 /* ProcessTree.swift */,
+				A00000000000000000000107 /* WorkspaceResolver.swift */,
+				A00000000000000000000109 /* SessionCorrelationEngine.swift */,
+				A00000000000000000000117 /* SessionLifecycleReconciler.swift */,
+			);
+			path = Discovery;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000012A /* Claude */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000121 /* ClaudeProcessInspector.swift */,
+				A00000000000000000000123 /* ClaudeParser.swift */,
+				A00000000000000000000125 /* ClaudeTranscriptInspector.swift */,
+				A00000000000000000000127 /* ClaudeProvider.swift */,
+			);
+			path = Claude;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -477,7 +476,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					A00000000000000000000040 = {
 						CreatedOnToolsVersion = 16.0;
@@ -499,7 +498,7 @@
 				en,
 				Base,
 			);
-			mainGroup = A00000000000000000000002 /* MainGroup */;
+			mainGroup = A00000000000000000000002;
 			productRefGroup = A00000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -649,8 +648,10 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -671,6 +672,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -713,6 +715,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -729,6 +732,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -740,10 +744,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_TESTABILITY = YES;
 				FRAMEWORK_VERSION = A;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -753,6 +759,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = com.loom.LoomCore;
 				PRODUCT_NAME = LoomCore;
 				SKIP_INSTALL = YES;
@@ -763,10 +770,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
 				FRAMEWORK_VERSION = A;
 				GENERATE_INFOPLIST_FILE = YES;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
@@ -775,6 +784,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = com.loom.LoomCore;
 				PRODUCT_NAME = LoomCore;
 				SKIP_INSTALL = YES;
@@ -785,8 +795,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = K9UNF256S9;
 				ENABLE_HARDENED_RUNTIME = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -803,8 +817,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.loom.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwithcode.loom;
 				PRODUCT_NAME = Loom;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 			};
 			name = Debug;
 		};
@@ -812,9 +827,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_HARDENED_RUNTIME = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = K9UNF256S9;
+				ENABLE_HARDENED_RUNTIME = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(BUILT_PRODUCTS_DIR)",
@@ -830,8 +849,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.loom.mac;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwithcode.loom;
 				PRODUCT_NAME = Loom;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 			};
 			name = Release;
 		};
@@ -839,6 +859,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -859,6 +880,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

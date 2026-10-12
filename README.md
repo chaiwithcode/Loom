@@ -41,6 +41,13 @@ Loom provides local, persisted settings to customize monitoring and protect deve
 - **Privacy mode**: The **Hide project paths** toggle conceals filesystem paths and path evidence in the menu UI and session inspector to prevent inadvertent exposure during screen sharing. The **Reveal in Finder** action still points to the actual project path on disk so local workflows remain unaffected.
 - **General**: Toggle Dock icon visibility and choose background refresh intervals (30s, 60s, 2m, or 5m). **Restore Defaults** resets all settings immediately and updates the active scheduler, registered providers, and UI in real time.
 
+## Installation
+
+1. Download `Loom-0.1.0.dmg` from [GitHub Releases](https://github.com/chaiwithcode/loom/releases).
+2. Open the disk image.
+3. Drag **Loom** to **Applications**.
+4. Launch **Loom** from Applications or Spotlight.
+
 ## Build and run
 
 Requires **macOS 14+** and **Swift 5.9+ / Xcode 15+**. Install the coding tools you want to monitor separately. From the repository root:

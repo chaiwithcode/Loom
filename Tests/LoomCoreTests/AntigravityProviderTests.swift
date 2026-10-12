@@ -884,6 +884,48 @@ final class AntigravityProviderTests: XCTestCase {
         XCTAssertEqual(wal2?.title, "Second WAL task", "Reader must observe newly committed row in uncheckpointed WAL")
     }
 
+    func testDefaultAntigravityStoreInspectorWALAbsentReadsMainDatabaseWithoutErrors() async throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        let dbURL = tempDir.appendingPathComponent("conversation_summaries.db")
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(dbURL.path, &db), SQLITE_OK)
+        XCTAssertEqual(sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nil, nil, nil), SQLITE_OK)
+        let schema = """
+        CREATE TABLE conversation_summaries (
+            conversation_id text PRIMARY KEY,
+            title text NOT NULL DEFAULT "",
+            workspace_uris text NOT NULL,
+            status text NOT NULL DEFAULT "",
+            not_fully_idle numeric NOT NULL DEFAULT false,
+            killed numeric NOT NULL DEFAULT false,
+            last_user_input_time datetime NOT NULL,
+            last_modified_time datetime NOT NULL
+        );
+        INSERT INTO conversation_summaries VALUES
+        ('conv-main-1', 'Main DB Task', '["file:///Users/developer/Desktop/Projects/oss/Loom"]', 'CASCADE_RUN_STATUS_RUNNING', 1, 0, '2026-10-04 10:00:00.000000+00:00', '2026-10-04 10:10:00.000000+00:00');
+        """
+        XCTAssertEqual(sqlite3_exec(db, schema, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+
+        // Ensure WAL file is absent to represent clean checkpoint / idle state
+        let walURL = URL(fileURLWithPath: dbURL.path + "-wal")
+        if FileManager.default.fileExists(atPath: walURL.path) {
+            try? FileManager.default.removeItem(at: walURL)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: walURL.path))
+
+        let inspector = DefaultAntigravityStoreInspector(databaseURL: dbURL)
+        let records = try await inspector.fetchActiveSessions()
+        XCTAssertEqual(records.count, 1)
+        XCTAssertEqual(records.first?.conversationId, "conv-main-1")
+        XCTAssertEqual(records.first?.title, "Main DB Task")
+    }
+
     func testDefaultAntigravityStoreInspectorPropagatesPrepareAndStepErrors() async throws {
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)

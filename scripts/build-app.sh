@@ -50,7 +50,7 @@ cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
     <key>CFBundleIconFile</key>
     <string>Loom</string>
     <key>CFBundleIdentifier</key>
-    <string>com.loom.mac</string>
+    <string>com.chaiwithcode.loom</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -74,8 +74,14 @@ EOF
 echo "==> Validating Info.plist..."
 plutil -lint "${CONTENTS_DIR}/Info.plist"
 
-echo "==> Code signing bundle (ad-hoc)..."
-codesign --force --sign - "${APP_BUNDLE}"
+SIGNING_IDENTITY="${SIGNING_IDENTITY:-}"
+if [[ -n "${SIGNING_IDENTITY}" ]]; then
+    echo "==> Code signing bundle with identity: ${SIGNING_IDENTITY} (Hardened Runtime)..."
+    codesign --force --options runtime --timestamp --sign "${SIGNING_IDENTITY}" "${APP_BUNDLE}"
+else
+    echo "==> Code signing bundle (ad-hoc with Hardened Runtime)..."
+    codesign --force --options runtime --sign - "${APP_BUNDLE}"
+fi
 
 echo "==> Verifying signature..."
 codesign --verify --deep --strict --verbose=2 "${APP_BUNDLE}"

@@ -2,8 +2,14 @@
 
 # Build products & caches
 .build/
+build/
+dist/
 DerivedData/
 .swiftpm/
+*.xcarchive
+*.dmg
+*.sha256
+SHA256SUMS.txt
 __pycache__/
 *.pyc
 

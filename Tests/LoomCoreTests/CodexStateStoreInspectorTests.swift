@@ -148,4 +148,26 @@ final class CodexStateStoreInspectorTests: XCTestCase {
 
         XCTAssertEqual(resolved?.lastPathComponent, "state_5.sqlite")
     }
+
+    func testDatabaseInPathWithSpacesAndSpecialCharactersOpensCleanly() async throws {
+        let spacedDir = tempDir.appendingPathComponent("Path With Spaces & Special", isDirectory: true)
+        try FileManager.default.createDirectory(at: spacedDir, withIntermediateDirectories: true)
+        let spacedDBURL = spacedDir.appendingPathComponent("state_5.sqlite")
+
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open_v2(spacedDBURL.path, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, nil), SQLITE_OK)
+        let schema = """
+        CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, metadata TEXT NOT NULL DEFAULT '{}');
+        CREATE TABLE project_roots (project_id TEXT NOT NULL, position INTEGER NOT NULL, path TEXT NOT NULL, PRIMARY KEY (project_id, position));
+        INSERT INTO projects (id, name) VALUES ('proj-special', 'Special App');
+        INSERT INTO project_roots (project_id, position, path) VALUES ('proj-special', 0, '/Users/developer/Special App');
+        """
+        XCTAssertEqual(sqlite3_exec(db, schema, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+
+        let inspector = DefaultCodexStateStoreInspector(databaseURL: spacedDBURL)
+        let roots = await inspector.loadProjectRoots()
+        XCTAssertEqual(roots.count, 1)
+        XCTAssertEqual(roots.first?.projectName, "Special App")
+    }
 }

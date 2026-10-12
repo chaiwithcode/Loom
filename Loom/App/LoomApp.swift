@@ -60,11 +60,17 @@ struct LoomApp: App {
             MenuBarRootView(store: store, settings: settings)
         } label: {
             Image(nsImage: LoomIcon.menuBarImage)
+                .renderingMode(.template)
+                .accessibilityLabel("Loom")
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView(settings: settings, store: store)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    DockController.shared.showSettings(store: store)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }
