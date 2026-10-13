@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2026-10-13
 
 ### Fixed
-- **Sparkle Update Delivery**: Embed release notes directly in `appcast.xml` via `--embed-release-notes` and link version history directly to GitHub Releases via `sparkle:fullReleaseNotesLink`.
-- **Release Automation**: Guard against broken Pages markdown release-notes links in generated feeds and make release publishing idempotent for canonical assets.
+- **Software Update Experience**: Embed release notes directly in the Sparkle update dialog and link version history directly to GitHub Releases.
+- **Update Feed Generation**: Improved update-feed generation and validation, guarding against broken release-notes links.
 
 ## [0.1.0] - 2026-10-12
 
