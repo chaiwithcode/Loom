@@ -582,7 +582,7 @@ struct OCRResult {
         dumpObservations(tab4Results, label: "Check 11: Tab 4 (About)")
         let joinedTab4 = normalizeAndJoinReadingOrder(tab4Results)
         assert(containsToken("Loom", in: joinedTab4))
-        assert(containsToken("Version 0.1.0", in: joinedTab4) || containsToken("Version", in: joinedTab4))
+        assert(containsToken("Version 0.1.1", in: joinedTab4) || containsToken("Version", in: joinedTab4))
         assert(containsToken("Lightweight", in: joinedTab4) &&
                containsToken("macOS menu bar monitor", in: joinedTab4) &&
                containsToken("coding agents", in: joinedTab4),

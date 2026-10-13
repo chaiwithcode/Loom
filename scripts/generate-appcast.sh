@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$("${ROOT_DIR}/scripts/fetch-sparkle-tools.sh")"
 
-VERSION="${1:-${VERSION:-0.1.0}}"
+VERSION="${1:-${VERSION:-0.1.1}}"
 DIST_DIR="${2:-${DIST_DIR:-${ROOT_DIR}/dist}}"
 OUTPUT_APPCAST="${3:-${OUTPUT_APPCAST:-${DIST_DIR}/appcast.xml}}"
 BASE_URL="https://github.com/chaiwithcode/Loom/releases/download/v${VERSION}/"
@@ -28,6 +28,8 @@ cp -p "${CANONICAL_ZIP}" "${STAGING_DIR}/"
 # Include release notes if available (Sparkle attaches matching .md/.html notes)
 if [[ -f "${DIST_DIR}/RELEASE_NOTES_v${VERSION}.md" ]]; then
     cp -p "${DIST_DIR}/RELEASE_NOTES_v${VERSION}.md" "${STAGING_DIR}/Loom-${VERSION}-macOS.md"
+elif [[ -f "${ROOT_DIR}/docs/RELEASE_NOTES_v${VERSION}.md" ]]; then
+    cp -p "${ROOT_DIR}/docs/RELEASE_NOTES_v${VERSION}.md" "${STAGING_DIR}/Loom-${VERSION}-macOS.md"
 fi
 
 # Clean any legacy sparkle:releaseNotesLink elements from existing appcast
