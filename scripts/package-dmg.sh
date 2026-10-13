@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_BUNDLE="${1:-${ROOT_DIR}/.build/Loom.app}"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 DIST_DIR="${ROOT_DIR}/dist"
 DMG_NAME="Loom-${VERSION}.dmg"
 DMG_PATH="${DIST_DIR}/${DMG_NAME}"

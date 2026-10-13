@@ -5,6 +5,12 @@ All notable changes to Loom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-10-13
+
+### Fixed
+- **Sparkle Update Delivery**: Embed release notes directly in `appcast.xml` via `--embed-release-notes` and link version history directly to GitHub Releases via `sparkle:fullReleaseNotesLink`.
+- **Release Automation**: Guard against broken Pages markdown release-notes links in generated feeds and make release publishing idempotent for canonical assets.
+
 ## [0.1.0] - 2026-10-12
 
 ### Added

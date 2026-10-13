@@ -14,7 +14,7 @@ if [[ -f "${ROOT_DIR}/.release.local" ]]; then
     source "${ROOT_DIR}/.release.local"
 fi
 
-VERSION="${1:-${VERSION:-0.1.0}}"
+VERSION="${1:-${VERSION:-0.1.1}}"
 SKIP_NOTARIZATION="${SKIP_NOTARIZATION:-0}"
 for arg in "$@"; do
     if [[ "${arg}" == "--skip-notarization" ]]; then
@@ -30,6 +30,10 @@ SUMS_FILE="${DIST_DIR}/SHA256SUMS.txt"
 APPCAST_FILE="${DIST_DIR}/appcast.xml"
 
 mkdir -p "${DIST_DIR}"
+
+if [[ ! -f "${DIST_DIR}/RELEASE_NOTES_v${VERSION}.md" && -f "${ROOT_DIR}/docs/RELEASE_NOTES_v${VERSION}.md" ]]; then
+    cp -p "${ROOT_DIR}/docs/RELEASE_NOTES_v${VERSION}.md" "${DIST_DIR}/RELEASE_NOTES_v${VERSION}.md"
+fi
 
 echo "=========================================================="
 echo "Loom Release Packaging Pipeline — Version ${VERSION}"
