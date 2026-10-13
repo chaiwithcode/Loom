@@ -25,6 +25,7 @@ Loom.xcodeproj/project.xcworkspace/xcuserdata/
 # Environment & secrets
 .env
 .env*
+.release.local
 
 # Signing private material
 *.p12
@@ -33,6 +34,7 @@ Loom.xcodeproj/project.xcworkspace/xcuserdata/
 *.pem
 *.mobileprovision
 *.provisionprofile
+*.p8
 AuthKey_*.p8
 *.keychain
 *.keychain-db

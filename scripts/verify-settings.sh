@@ -19,7 +19,9 @@ done
 
 echo "==> Linking SettingsProbe..."
 swiftc -parse-as-library -module-cache-path "$probe_dir/cache" \
-    -I .build/debug/Modules Tests/SettingsProbe.swift "${objects[@]}" \
+    -I .build/debug/Modules -F .build/debug -framework Sparkle \
+    -Xlinker -rpath -Xlinker .build/debug \
+    Tests/SettingsProbe.swift "${objects[@]}" \
     -o "$probe_dir/probe"
 
 echo "==> Executing SettingsProbe..."

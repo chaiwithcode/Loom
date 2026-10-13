@@ -4,5 +4,11 @@
 <dict>
 	<key>CFBundleIconFile</key>
 	<string>Loom</string>
+	<key>SUFeedURL</key>
+	<string>https://chaiwithcode.github.io/Loom/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>jFxPCf9cSvpmuEc6U4EdjWlYwMzMVlTd6M8wPlvLZsE=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 </dict>
 </plist>

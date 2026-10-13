@@ -98,6 +98,8 @@ private struct GeneralSettingsTab: View {
                 .padding(.vertical, 4)
             }
 
+            SoftwareUpdatesSettingsSection()
+
             Section {
                 HStack {
                     Spacer()
@@ -345,6 +347,11 @@ private struct AboutSettingsTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("text-about-version")
+
+                CheckForUpdatesView()
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .accessibilityIdentifier("button-about-check-updates")
 
                 Text("Lightweight macOS menu bar monitor for local AI coding agents.")
                     .font(.body)
