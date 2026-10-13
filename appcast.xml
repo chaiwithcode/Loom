@@ -4,12 +4,63 @@
         <title>Loom</title>
         <item>
             <title>0.1.0</title>
-            <pubDate>Tue, 13 Oct 2026 12:44:35 +0100</pubDate>
+            <pubDate>Tue, 13 Oct 2026 22:26:30 +0100</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/chaiwithcode/Loom/releases</sparkle:fullReleaseNotesLink>
             <sparkle:version>1</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <sparkle:releaseNotesLink>https://chaiwithcode.github.io/Loom/Loom-0.1.0-macOS.md</sparkle:releaseNotesLink>
+            <description sparkle:format="markdown"><![CDATA[## Loom v0.1.0
+
+Local AI coding agents, one native macOS menu bar. Loom monitors your active coding sessions and usage limits across OpenAI Codex, Anthropic Claude Code, and Google Antigravity—without switching between terminals or browser tabs.
+
+### What's New
+
+- **Native macOS Menu Bar App**: Built with Swift 5.9+ and SwiftUI for macOS 14+, utilizing `MenuBarExtra` for lightweight status monitoring.
+- **Multi-Provider Session Discovery**: Local, read-only discovery of active coding sessions across OpenAI Codex, Anthropic Claude Code, and Google Antigravity.
+- **Process Tree Correlation**: Groups parent processes, language servers, subagents, and child workers into a single logical session per repository task.
+- **Truthful Lifecycle States**: Clear state categorization (`starting`, `working`, `waiting`, `finished`, `failed`, `idle`, `unknown`) without synthetic state guessing.
+- **Usage & Quotas Dashboard**: Polling snapshot tracking of remaining quota, reset timestamps, and model limits across supported providers.
+- **Fixed Provider Navigation**: Fixed provider selector below the Sessions view showing live counts and guaranteeing direct reachability.
+- **Settings Management**: Persisted preferences for enabling/disabling provider monitoring, default provider selection, session retention (active only vs keep recent), Dock visibility, and background refresh intervals.
+- **Privacy Controls**: "Hide project paths" toggle masks filesystem paths and evidence in the menu UI and inspector while preserving the "Reveal in Finder" disk action.
+- **Sparkle 2 Updates**: Seamless, cryptographically verified updates via Sparkle 2 (EdDSA Ed25519 signatures, Apple notarization, GitHub Pages appcast feed).
+- **Homebrew Cask**: Install and upgrade via official tap `chaiwithcode/tap/chaiwithcode-loom`.
+- **Local-First Architecture**: Strictly local operation with zero cloud backend, user accounts, analytics SDKs, or third-party tracking.
+
+### Installation
+
+#### Homebrew (Recommended)
+
+```bash
+brew install --cask chaiwithcode/tap/chaiwithcode-loom
+```
+
+#### Direct Download
+
+1. Download `Loom-0.1.0-macOS.zip` below.
+2. Uncompress and move **Loom.app** to `/Applications`.
+3. Launch **Loom** from Applications or Spotlight.
+
+### Requirements
+
+- macOS 14.0 Sonoma or later
+- Apple Silicon (arm64)
+- Hardened Runtime enabled, Developer ID signed, and notarized by Apple
+
+### Verification
+
+Verify the downloaded release artifact matches the canonical SHA-256 checksum:
+
+```bash
+shasum -a 256 Loom-0.1.0-macOS.zip
+```
+
+**SHA-256 Checksum:**
+```text
+d467fbfe2b7d1be651728f9d86f041e3f76688b7136ec465ed5633c5e75b7aa5  Loom-0.1.0-macOS.zip
+```
+]]></description>
             <enclosure url="https://github.com/chaiwithcode/Loom/releases/download/v0.1.0/Loom-0.1.0-macOS.zip" length="3855209" type="application/octet-stream" sparkle:edSignature="2d0+DjOLKQzP7mQ6Q4So6Cob0wfhsp3r4toq9jPYqoMOPA5EJw4vBHUs/L/fAj4Q5xV2+u+nP6mPo2niKjWOAw=="/>
         </item>
     </channel>
