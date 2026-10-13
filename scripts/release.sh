@@ -395,17 +395,98 @@ run_publish() {
     echo "==> Step 4: Updating Homebrew tap chaiwithcode/homebrew-tap..."
     bash "${ROOT_DIR}/scripts/update-homebrew-tap.sh" "${version}" "${computed_sha}" --sync
 
-    # Step 5: Trigger GitHub Pages appcast update
-    echo "==> Step 5: Triggering Sparkle Appcast update on GitHub Pages..."
-    if gh workflow view pages.yml >/dev/null 2>&1; then
-        gh workflow run pages.yml || true
+    # Step 5: Deploy Sparkle Appcast update on GitHub Pages
+    echo "==> Step 5: Triggering and verifying Sparkle Appcast update on GitHub Pages..."
+    local pages_failed=0
+    local pages_workflow="pages.yml"
+
+    if ! gh workflow view "${pages_workflow}" >/dev/null 2>&1; then
+        echo "ERROR: Workflow '${pages_workflow}' not found or inaccessible in GitHub Actions." >&2
+        pages_failed=1
+    else
+        # Verify workflow supports manual dispatch (workflow_dispatch)
+        if ! gh workflow view "${pages_workflow}" --yaml 2>/dev/null | grep -q "workflow_dispatch"; then
+            echo "ERROR: Workflow '${pages_workflow}' does not configure 'workflow_dispatch' trigger." >&2
+            pages_failed=1
+        else
+            local existing_status
+            existing_status="$(gh run list --workflow "${pages_workflow}" --limit 1 --json status -q '.[0].status' 2>/dev/null || true)"
+            local run_id=""
+
+            if [[ "${existing_status}" == "queued" || "${existing_status}" == "in_progress" ]]; then
+                run_id="$(gh run list --workflow "${pages_workflow}" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+                echo "    Detected running Pages workflow (ID: ${run_id}). Watching..."
+            else
+                echo "    Dispatching GitHub Pages workflow '${pages_workflow}'..."
+                if ! gh workflow run "${pages_workflow}"; then
+                    echo "ERROR: Failed to dispatch '${pages_workflow}' via gh CLI." >&2
+                    pages_failed=1
+                else
+                    echo "    Waiting for workflow run to start..."
+                    sleep 5
+                    run_id="$(gh run list --workflow "${pages_workflow}" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+                fi
+            fi
+
+            if [[ -n "${run_id}" && "${pages_failed}" -eq 0 ]]; then
+                echo "    Watching Pages deployment run ${run_id}..."
+                if ! gh run watch "${run_id}" --exit-status; then
+                    echo "ERROR: Pages workflow run ${run_id} failed!" >&2
+                    pages_failed=1
+                fi
+            fi
+        fi
+    fi
+
+    # Step 6: Verify public Sparkle Appcast feed
+    local appcast_url="https://chaiwithcode.github.io/Loom/appcast.xml"
+    echo "==> Step 6: Verifying public Sparkle Appcast feed at ${appcast_url}..."
+    local feed_verified=0
+    local max_attempts=12
+    local attempt=1
+
+    while [[ "${attempt}" -le "${max_attempts}" ]]; do
+        echo "    Checking public feed (attempt ${attempt}/${max_attempts})..."
+        local feed_content
+        feed_content="$(curl -sSL --max-time 10 "${appcast_url}" 2>/dev/null || true)"
+        if [[ -n "${feed_content}" ]] && \
+           echo "${feed_content}" | grep -q "<sparkle:shortVersionString>${version}</sparkle:shortVersionString>" && \
+           echo "${feed_content}" | grep -q "https://github.com/chaiwithcode/Loom/releases/download/v${version}/Loom-${version}-macOS.zip"; then
+            feed_verified=1
+            echo "==> Public Sparkle feed successfully verified for v${version}."
+            break
+        fi
+        sleep 5
+        ((attempt++))
+    done
+
+    if [[ "${feed_verified}" -eq 0 ]]; then
+        echo "ERROR: Public Sparkle feed did not advertise v${version} within timeout." >&2
+        pages_failed=1
+    fi
+
+    # Report final publish outcome
+    if [[ "${pages_failed}" -ne 0 ]]; then
+        echo ""
+        echo "=========================================================="
+        echo "PARTIAL FAILURE: Release v${version} partially published!"
+        echo "  • GitHub Release: SUCCESS (https://github.com/chaiwithcode/Loom/releases/tag/v${version})"
+        echo "  • Homebrew Tap:   SUCCESS (chaiwithcode/homebrew-tap)"
+        echo "  • Sparkle Pages:  FAILED (Update feed did not update or failed verification)"
+        echo ""
+        echo "Recovery Steps:"
+        echo "  1. Inspect workflow:   gh run list --workflow ${pages_workflow}"
+        echo "  2. Manually trigger:   gh workflow run ${pages_workflow}"
+        echo "  3. Verify public feed: curl -sSL ${appcast_url} | grep '${version}'"
+        echo "=========================================================="
+        exit 1
     fi
 
     echo ""
     echo "=========================================================="
     echo "SUCCESS: Loom v${version} successfully published!"
     echo "Release:   https://github.com/chaiwithcode/Loom/releases/tag/v${version}"
-    echo "Appcast:   https://chaiwithcode.github.io/Loom/appcast.xml"
+    echo "Appcast:   ${appcast_url}"
     echo "Homebrew:  brew install --cask chaiwithcode/tap/chaiwithcode-loom"
     echo "=========================================================="
 }
