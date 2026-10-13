@@ -117,6 +117,11 @@ public final class DockController: NSObject, NSApplicationDelegate {
         refreshItem.target = self
         menu.addItem(refreshItem)
 
+        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromDock), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.isEnabled = UpdateController.shared.canCheckForUpdates
+        menu.addItem(updateItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(title: "Quit Loom", action: #selector(quitFromDock), keyEquivalent: "q")
@@ -132,6 +137,10 @@ public final class DockController: NSObject, NSApplicationDelegate {
 
     @objc private func refreshFromDock() {
         refreshAction?()
+    }
+
+    @objc private func checkForUpdatesFromDock() {
+        UpdateController.shared.checkForUpdates()
     }
 
     @objc private func quitFromDock() {

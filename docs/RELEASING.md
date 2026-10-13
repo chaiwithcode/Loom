@@ -1,186 +1,189 @@
 # Loom Release and Distribution Guide
 
-This document describes the requirements, current build status, and official macOS signing and notarization workflow required before publishing public Loom binary releases.
+This document describes the production-grade direct distribution pipeline for **Loom**:
 
-## 1. System & Toolchain Requirements
-
-- **Deployment Target**: macOS 14.0 or newer.
-- **Build Toolchain**: Xcode 15+ / Swift 5.9+.
-- **Architectures**: Apple Silicon (`arm64`) verified locally. Intel (`x86_64`) and universal binary packaging remain unverified and require dedicated build and runtime testing.
-
-## 2. Current Development State & Honest Readiness
-
-The local packaging script (`scripts/build-app.sh`) builds and packages `.build/Loom.app` for **local development only**. It does **not** produce a trusted public distribution artifact:
-
-- **Ad-Hoc Signing**: Inspecting the packaged application (`codesign -dvv .build/Loom.app`) reveals:
-  - `Signature=adhoc` (bundle ad-hoc signed with sealed `Info.plist` and resources, no longer linker-only).
-  - `TeamIdentifier` is not set.
-  - `flags=0x2(adhoc)` (Hardened Runtime is **disabled**).
-- **Identity Inventory**: Running `security find-identity -p codesigning -v` on the primary development machine confirms that only **Apple Development** certificates are present. **No Developer ID Application identity** is installed.
-- **Architecture**: The default build script compiles for the host architecture only (currently Apple Silicon `arm64`).
-- **Gatekeeper**: Local ad-hoc trust is valid for execution on the local development machine without Developer ID, but if an ad-hoc signed build is downloaded from the internet, macOS Gatekeeper will block execution as an untrusted application from an unidentified developer.
-
-**Status & Strategy**:
-- **CI Development Artifacts vs. Public Releases**: Automated CI workflows build development bundles (`Loom-development-<arch>.zip`) with ad-hoc signing for build verification, automated testing, and developer inspection. These CI artifacts are **untrusted development builds**: Gatekeeper will block them on unconfigured machines because they lack Developer ID signatures and Apple notarization.
-- **Candidate Release Preparation**: The release candidate pipeline packages the application bundle and validates portable integrity, but public binary publication is deferred until official Developer ID signing and Apple notarization credentials are fully in place.
-- **Distribution Mode**: Loom remains source-distributed until Developer ID signing and notarization workflows are executed and validated on a clean macOS environment.
-
-### Mac App Store Considerations & Distribution Route
-
-Distributing via the Mac App Store is a fundamentally separate route from direct Developer ID distribution:
-- **App Sandbox Requirement**: Mac App Store submission strictly requires the macOS App Sandbox.
-- **Unverified Sandbox Compatibility**: Loom's current architecture relies on local agent discovery via process listing (`/bin/ps`), open file descriptor inspection (`lsof`), local provider CLI invocations, and reading external agent databases/transcripts (e.g. SQLite databases in `~/.gemini/` or session logs). These external process and data inspection capabilities have **not been verified** within the macOS App Sandbox, and standard sandbox containers typically restrict cross-process inspection and arbitrary filesystem access.
-- **No Readiness Promise**: There is no promise of Mac App Store readiness at this time.
-- **Recommended Path**: A direct Developer ID-signed, notarized beta release outside the App Store is recommended first. No personal signing identities, team IDs, or Apple account values should ever be committed to the repository.
-
-## 3. Architecture Considerations
-
-`scripts/build-app.sh` invokes `swift build -c release` for the host machine. Currently, only **`arm64`** (Apple Silicon) execution has been verified. Loom does not yet claim verified universal or Intel support.
-
-To build a universal macOS binary using SwiftPM, the standard command pattern is:
-
-```bash
-# Unrun / unverified example (requires testing on Intel / Rosetta):
-swift build -c release --arch arm64 --arch x86_64
+```text
+macOS Keychain
+├── Developer ID certificate (K9UNF256S9)
+├── Sparkle EdDSA private key (ed25519)
+├── Apple notarization profile (AC_PASSWORD)
+└── GitHub CLI credentials (gh)
+        │
+        ▼
+scripts/release.sh
+        │
+        ├── --check     (Non-destructive prerequisite preflight audit)
+        │
+        ├── --prepare   (Build .build/Loom.app -> Sign -> Notarize -> Staple ->
+        │                Gatekeeper verify -> Package canonical ZIP ->
+        │                Compute SHA-256 -> Generate Sparkle appcast.xml ->
+        │                Stage Homebrew cask -> Pre-publish summary)
+        │
+        └── --publish   (Confirm -> Push Git tag vX.Y.Z -> Create GitHub Release ->
+                         Verify uploaded checksum -> Synchronize Homebrew tap ->
+                         Deploy Sparkle update feed to GitHub Pages)
 ```
 
-Universal packaging and Intel compatibility remain unverified and require thorough build, test, and runtime verification before any claim of multi-architecture support.
+---
 
-## 4. Prerequisites for Public Distribution
+## 1. Release Architecture & Immutability Contract
 
-Before creating a public release build:
+Loom enforces a strict release invariant:
 
-1. **Apple Developer Account**: Active Apple Developer Program enrollment.
-2. **Developer ID Application Certificate**: Obtain a valid **Developer ID Application** certificate and private key via Apple Developer account / Xcode Settings > Accounts, installed in the macOS Keychain.
-3. **Hardened Runtime**: Mandatory for Apple notarization (`--options runtime`).
-4. **Entitlements**: Start without additional entitlements and validate actual application subprocess execution and loopback communication behavior under Hardened Runtime before asserting that standard defaults are sufficient. Do not invent or add speculative entitlements without observed runtime failures.
-5. **Notarization Profile**: Store Apple Notary credentials locally in the macOS Keychain using `notarytool`, omitting the `--password` flag so credentials are submitted securely via an interactive prompt rather than exposed in shell history:
+> **Exactly one canonical signed and notarized ZIP (`Loom-X.Y.Z-macOS.zip`) is created per version.**
+> That exact archive is shared across **GitHub Releases**, **Sparkle 2 appcasts**, and **Homebrew Cask**.
+> Re-building or mutating a published release archive is strictly prohibited, as it invalidates SHA-256 checksums and Sparkle EdDSA signatures.
+
+### Versioning Contract
+
+| Component | Format | Example |
+| :--- | :--- | :--- |
+| **Git Tag** | `vX.Y.Z` | `v0.1.0` |
+| **Marketing Version** (`CFBundleShortVersionString`) | `X.Y.Z` | `0.1.0` |
+| **Bundle Version** (`CFBundleVersion`) | Monotonically increasing integer | `1`, `2`, `3` |
+| **Release Artifact** | `Loom-X.Y.Z-macOS.zip` | `Loom-0.1.0-macOS.zip` |
+| **Homebrew Cask Token** | `chaiwithcode-loom` | `Casks/chaiwithcode-loom.rb` |
+| **Sparkle Feed URL** | Stable HTTPS GitHub Pages | `https://chaiwithcode.github.io/Loom/appcast.xml` |
+
+---
+
+## 2. Security Model: Keychain-Backed Local Release
+
+To ensure maximum security and simplicity, **sensitive signing and notarization credentials never live in GitHub repository secrets**. Production builds, signing, and notarization are performed locally on the maintainer's trusted Mac.
+
+### Credentials Summary
+
+| Credential | Local Storage | Tool Usage |
+| :--- | :--- | :--- |
+| **Developer ID Application** | macOS login Keychain | `codesign --sign "Developer ID Application: ..."` (Auto-detected) |
+| **Apple Notary Credentials** | Keychain profile `AC_PASSWORD` | `xcrun notarytool submit --keychain-profile "$NOTARY_PROFILE"` |
+| **Sparkle EdDSA Private Key** | macOS Keychain account `ed25519` | `generate_appcast` (Auto-extracted from Keychain) |
+| **GitHub Authentication** | GitHub CLI (`gh`) | `gh release create`, `gh repo ...` |
+
+### Keychain Verification on Release Machine
+
+1. **Apple Developer ID Certificate**:
+   Ensure your Developer ID Application certificate and private key are installed in Keychain Access (auto-detected by release scripts).
+
+2. **Apple Notary Profile**:
+   The release pipeline uses the existing Keychain profile `AC_PASSWORD` by default (configurable via `NOTARY_PROFILE`).
+   Validate it anytime with:
    ```bash
-   xcrun notarytool store-credentials "AC_PASSWORD" \
-     --apple-id "<your-apple-id>" \
-     --team-id "<team-id>"
+   xcrun notarytool history --keychain-profile "$NOTARY_PROFILE"
    ```
-   > [!IMPORTANT]
-   > Never commit signing certificates, private keys, app-specific passwords, or keychain profiles to this repository or CI workflows.
 
-## 5. Step-by-Step Signing and Notarization Workflow
+3. **Authenticate GitHub CLI**:
+   Ensure `gh` is authenticated with repo write permissions:
+   ```bash
+   gh auth status
+   ```
 
-When a public release is prepared, follow this sequential procedure:
+4. **Verify Sparkle Key**:
+   The private EdDSA key is managed by Sparkle CLI tools in Keychain (service `https://sparkle-project.org`, account `ed25519`). Verify with:
+   ```bash
+   ./scripts/release.sh --check
+   ```
 
-### Step 5.1: Package App Bundle
-Compile the release binary and package the `.build/Loom.app` bundle with valid `Info.plist` and icon assets.
+---
 
-### Step 5.2: Code Sign with Hardened Runtime
-Sign the application bundle directly with your Developer ID Application identity and a secure timestamp. **Do not use `--deep` for code signing**:
+## 3. Sparkle 2 Integration & Security
+
+Loom integrates official **Sparkle 2.10.0** via Swift Package Manager.
+
+### Isolation & Lifecycle
+- Sparkle APIs are isolated under `Loom/Update/` (`UpdateController.swift`, `CheckForUpdatesView.swift`).
+- A single long-lived `@MainActor` singleton (`UpdateController.shared`) manages the `SPUStandardUpdaterController` lifecycle across the full app run.
+- Update checks respect `updater.canCheckForUpdates` to prevent invalid states.
+
+### EdDSA Keypair Management
+Sparkle archive validation uses the **EdDSA (Ed25519)** algorithm.
+- **Public Key**: Embedded in `Resources/Info.plist` and `scripts/build-app.sh`:
+  ```xml
+  <key>SUFeedURL</key>
+  <string>https://chaiwithcode.github.io/Loom/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>jFxPCf9cSvpmuEc6U4EdjWlYwMzMVlTd6M8wPlvLZsE=</string>
+  ```
+- **Private Key**: Kept exclusively in macOS Keychain. Never committed to Git or CI secrets.
+
+---
+
+## 4. Local Release Execution Workflow
+
+The canonical entry point for all releases is `scripts/release.sh`.
+
+### Step 1: Preflight Audit
+Verify your system toolchain, Keychain credentials, and Git status:
 ```bash
-codesign --force --options runtime --timestamp \
-  --sign "Developer ID Application: <Developer Name> (<TEAM_ID>)" \
-  .build/Loom.app
+./scripts/release.sh --check
 ```
 
-> [!NOTE]
-> Apple guidelines advise against `--deep` when signing. Because `.build/Loom.app` currently contains no nested frameworks or plugins, signing the bundle root directly is correct. If nested code (frameworks, helpers, or dylibs) is introduced later, each nested item must be signed individually from inside out before signing the outer application bundle.
-
-### Step 5.3: Archive for Notarization Submission
-Package the signed application into a zip archive using `ditto` to preserve code signing attributes and resource forks:
+### Step 2: Prepare Release
+Compiles release binary, signs inside-out with Developer ID and Hardened Runtime, submits for Apple notarization, staples the ticket, packages the canonical ZIP, generates SHA-256 checksums, signs `appcast.xml`, and stages the Homebrew cask:
 ```bash
-ditto -c -k --keepParent .build/Loom.app Loom-submission.zip
+./scripts/release.sh 0.2.0 --prepare
+```
+*(For local testing without Apple notarization credentials, append `--skip-notarization`)*.
+
+### Step 3: Publish Release
+Reviews artifact hashes, prompts for confirmation, creates & pushes git tag `v0.2.0`, uploads assets to GitHub Releases, verifies remote checksum, synchronizes `chaiwithcode/homebrew-tap`, and deploys the Sparkle feed to GitHub Pages:
+```bash
+./scripts/release.sh 0.2.0 --publish
 ```
 
-### Step 5.4: Submit to Apple Notary Service
-Submit the archive to the Apple Notary Service and wait for processing:
-```bash
-xcrun notarytool submit Loom-submission.zip \
-  --keychain-profile "AC_PASSWORD" \
-  --wait
+---
+
+## 5. GitHub Workflows Architecture
+
+Loom uses a clean, zero-secret CI/CD model:
+
+1. **`.github/workflows/ci.yml`**:
+   - Runs tests and builds on pull requests and pushes to `main`.
+   - Never touches release credentials or distribution pipelines.
+
+2. **`.github/workflows/pages.yml`**:
+   - Deploys `appcast.xml` to GitHub Pages (`https://chaiwithcode.github.io/Loom/appcast.xml`).
+   - Automatically triggered when a GitHub Release is published (`release: [published]`).
+   - Uses standard `GITHUB_TOKEN` (`permissions: pages: write`). **Zero secrets required**.
+
+---
+
+## 6. Homebrew Tap Maintenance
+
+### Cask Specification
+The official cask token is:
+```text
+chaiwithcode-loom
 ```
 
-Review the submission outcome. When processing completes, examine the acceptance log:
+### Installation Command
 ```bash
-xcrun notarytool log <submission-id> --keychain-profile "AC_PASSWORD"
+brew install --cask chaiwithcode/tap/chaiwithcode-loom
 ```
 
-### Step 5.5: Staple the Notarization Ticket to the App
-> [!IMPORTANT]
-> The notarization ticket must be stapled directly to the `.app` bundle, **not** to the zip archive:
+### Automated Updates
+The release orchestrator automatically updates `chaiwithcode/homebrew-tap` with the exact version and canonical SHA-256 during the `--publish` step:
 ```bash
-xcrun stapler staple .build/Loom.app
+./scripts/release.sh <version> --publish
+```
+Or independently via:
+```bash
+./scripts/update-homebrew-tap.sh <version> [sha256] --sync
 ```
 
-### Step 5.6: Verify Strict Code Signing, Stapling, and Gatekeeper
-Validate the stapled app bundle using strict verification commands:
+---
 
-```bash
-# 1. Strict signature verification with deep traversal
-codesign --verify --deep --strict --verbose=2 .build/Loom.app
+## 7. Verification Tooling & Regression Checks
 
-# 2. Gatekeeper policy assessment (verifies policy acceptance)
-spctl --assess -vv --type execute .build/Loom.app
+Loom includes automated scripts to test each phase of the distribution pipeline:
 
-# 3. Stapler ticket validation
-xcrun stapler validate .build/Loom.app
-```
-
-Each verification tool reports distinct diagnostics:
-- `codesign` verifies the seal is valid on disk and satisfies its Designated Requirement (`valid on disk`, `satisfies its Designated Requirement`).
-- `spctl` evaluates Gatekeeper policy and must report `accepted` with `source=Notarized Developer ID`.
-- `xcrun stapler validate` confirms the ticket is properly stapled (`The validate action worked!`).
-
-### Step 5.7: Package and Code Sign Distributable DMG
-Package the stapled `.app` bundle into a polished, read-only DMG with an `/Applications` shortcut and native Finder layout using `scripts/package-dmg.sh`:
-```bash
-SIGNING_IDENTITY="Developer ID Application: <Developer Name> (<TEAM_ID>)" \
-  bash scripts/package-dmg.sh .build/Loom.app
-```
-
-The packager configures a native Finder installation surface:
-- **Geometry**: 640×420 pt content bounds (outer bounds `{200, 120, 840, 572}` accommodating 32 pt macOS titlebar), 96 pt icons centered at `{180, 235}` (`Loom.app`) and `{460, 235}` (`/Applications`).
-- **Background Artwork**: Minimal warm light-neutral canvas generated via native AppKit/CoreGraphics (`scripts/dmg/generate-background.swift`) with 1x/2x PNGs and multi-representation TIFF (`background.tiff`), featuring native system typography ("Loom" header at y62, "Monitor your local AI coding agents" tagline at y92, subtle directional arrow at y235, and "Drag Loom to Applications" at y340 clear of icon labels). Regenerate assets whenever geometry or renderer text is modified via `swift scripts/dmg/generate-background.swift scripts/dmg`.
-- **Safety**: Preserves the sealed `.app` bundle via `ditto` without modifying bundle contents or deleting internal `.DS_Store` files. Calculates staging disk image size dynamically from the payload plus slack. Configures native Finder layout metadata or stages verified template `.DS_Store`, verifies staged background asset SHA-256 hashes against source, runs `scripts/dmg/verify-ds-store.swift` for on-disk `icvp` bplist metadata sanity checking (while relying on active reopened Finder assertions and mounted visual inspection for definitive layout proof), pre-computes checksums, backs up existing distribution artifacts (`.dmg`, `.dmg.sha256`, `SHA256SUMS.txt`) to `dist/backups/`, and atomically replaces the disk image file alongside separately staged checksum files with automatic recovery on failure.
-
-This creates `dist/Loom-0.1.0.dmg`, signs the disk image, and generates `SHA256SUMS.txt`.
-
-### Step 5.8: Notarize and Staple the DMG
-Submit the DMG to Apple Notary Service so Gatekeeper assesses the disk image immediately on mount without requiring network lookup:
-```bash
-xcrun notarytool submit dist/Loom-0.1.0.dmg \
-  --keychain-profile "AC_PASSWORD" \
-  --wait
-
-xcrun stapler staple dist/Loom-0.1.0.dmg
-xcrun stapler validate dist/Loom-0.1.0.dmg
-```
-
-### Step 5.9: Gatekeeper & Clean Mac Download Verification
-Verify Gatekeeper policy acceptance on both the disk image and installed application:
-```bash
-# Gatekeeper disk image check:
-spctl --assess -vv --type open --context context:primary-signature dist/Loom-0.1.0.dmg
-
-# Mount and inspect app under Gatekeeper:
-hdiutil attach dist/Loom-0.1.0.dmg -mountpoint /Volumes/LoomStaging
-spctl --assess -vv --type execute /Volumes/LoomStaging/Loom.app
-hdiutil detach /Volumes/LoomStaging
-```
-
-Before distribution, test the artifact on a separate clean Mac that has never built the project or installed development certificates. Download the DMG through a real web browser to ensure genuine quarantine extended attributes (`com.apple.quarantine`) and Gatekeeper evaluation occur. Verify that Loom drags to Applications and launches cleanly without security prompts or developer trust blocks.
-
-> [!CAUTION]
-> Never provide security bypass instructions (such as `xattr -cr` or Gatekeeper overrides) to end users. If Gatekeeper blocks the app, resolve the code signing or notarization issue.
-
-### Step 5.10: Checksum Verification
-Confirm SHA-256 checksums in `dist/SHA256SUMS.txt`:
-```bash
-(cd dist && shasum -c SHA256SUMS.txt)
-```
-
-## 6. Manual Publication Policy
-
-- **No Automated Publishing**: Release tagging and binary asset publication are intentionally manual actions executed by the repository owner after local verification.
-- **Release Verification**: Do not tag a release in Git or attach binary archives to GitHub Releases until Developer ID signing, notarization, stapling, and clean-Mac testing are fully confirmed.
-
-## 7. Official Apple Documentation References
-
-- [Notarizing macOS Software Before Distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
-- [Customizing the Notarization Workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)
-- [Developer ID Overview](https://developer.apple.com/developer-id/)
+| Script | Purpose |
+| :--- | :--- |
+| `scripts/release.sh --check` | Preflight audit of Keychain, tools, versions, and git hygiene. |
+| `scripts/fetch-sparkle-tools.sh` | Downloads and verifies pinned Sparkle CLI tools (`generate_appcast`, `generate_keys`). |
+| `scripts/generate-appcast.sh` | Generates and cryptographically validates `appcast.xml` item attributes. |
+| `scripts/test-sparkle-upgrade.sh` | **End-to-end upgrade test**: spins up local HTTP server, tests update discovery, verifies EdDSA signature, downloads and extracts payload, and asserts tampered payload rejection. |
+| `scripts/update-homebrew-tap.sh` | Generates verified Homebrew Cask ruby file and handles tap synchronization. |
+| `scripts/verify-settings.sh` | Standalone probe verifying Settings UI, General/About tabs, and Sparkle update controls. |
+| `scripts/verify-menu-sizing.sh` | Standalone probe verifying native menu sizing and layout constraints. |
+| `swift test` | Full test suite across providers, models, UI state, and transport isolation. |

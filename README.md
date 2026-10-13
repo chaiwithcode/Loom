@@ -43,10 +43,29 @@ Loom provides local, persisted settings to customize monitoring and protect deve
 
 ## Installation
 
-1. Download `Loom-0.1.0.dmg` from [GitHub Releases](https://github.com/chaiwithcode/loom/releases).
-2. Open the disk image.
-3. Drag **Loom** to **Applications**.
+### Homebrew (Recommended)
+
+Install Loom via the official [ChaiWithCode Homebrew Tap](https://github.com/chaiwithcode/homebrew-tap):
+
+```bash
+brew install --cask chaiwithcode/tap/chaiwithcode-loom
+```
+
+### Direct Download
+
+1. Download the canonical signed and notarized archive `Loom-0.1.0-macOS.zip` from [GitHub Releases](https://github.com/chaiwithcode/Loom/releases).
+2. Uncompress the archive.
+3. Drag **Loom.app** to `/Applications`.
 4. Launch **Loom** from Applications or Spotlight.
+
+### Software Updates
+
+Loom integrates native software updates powered by **Sparkle 2**. Updates are delivered securely over HTTPS from the official [GitHub Pages appcast feed](https://chaiwithcode.github.io/Loom/appcast.xml), cryptographically signed with EdDSA (Ed25519), and notarized by Apple.
+
+You can check for updates anytime:
+- Via **Check for Updates…** in the Loom menu or Dock menu
+- In **Settings** (`⌘,`) under the **General** tab
+- Under the application menu in the macOS menu bar
 
 ## Build and run
 

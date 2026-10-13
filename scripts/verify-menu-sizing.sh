@@ -9,6 +9,8 @@ for object in .build/debug/Loom.build/*.swift.o; do
     [[ "$object" == */LoomApp.swift.o ]] || objects+=("$object")
 done
 swiftc -parse-as-library -module-cache-path "$probe_dir/cache" \
-    -I .build/debug/Modules Tests/MenuSizingProbe.swift "${objects[@]}" \
+    -I .build/debug/Modules -F .build/debug -framework Sparkle \
+    -Xlinker -rpath -Xlinker .build/debug \
+    Tests/MenuSizingProbe.swift "${objects[@]}" \
     -o "$probe_dir/probe"
 "$probe_dir/probe"
