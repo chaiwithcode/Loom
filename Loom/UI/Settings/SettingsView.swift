@@ -327,7 +327,7 @@ private struct AboutSettingsTab: View {
             }
             return "Version \(version)"
         }
-        return "Version 0.1.0 (Dev)"
+        return "Version 0.1.1 (Dev)"
     }
 
     var body: some View {

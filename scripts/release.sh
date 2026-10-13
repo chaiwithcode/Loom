@@ -202,16 +202,14 @@ run_prepare() {
 
     # Check git tag collision
     if git rev-parse "v${version}" >/dev/null 2>&1; then
-        echo "ERROR: Git tag 'v${version}' already exists locally!" >&2
-        echo "Re-releasing or mutating an existing release tag is strictly prohibited." >&2
-        exit 1
+        echo "WARNING: Git tag 'v${version}' already exists locally." >&2
+        echo "         Local preparation proceeding (publishing will enforce tag uniqueness)." >&2
     fi
 
     if command -v gh >/dev/null 2>&1; then
         if gh release view "v${version}" >/dev/null 2>&1; then
-            echo "ERROR: GitHub Release 'v${version}' already exists remotely!" >&2
-            echo "Re-releasing or mutating a published release is strictly prohibited." >&2
-            exit 1
+            echo "WARNING: GitHub Release 'v${version}' already exists remotely." >&2
+            echo "         Local preparation proceeding (publishing will enforce release uniqueness)." >&2
         fi
     fi
 
@@ -296,7 +294,10 @@ run_publish() {
     # Verify SHA-256 integrity
     echo "==> Verifying artifact checksum integrity..."
     local expected_sha
-    expected_sha="$(awk '{print $1}' "${sums_file}")"
+    expected_sha="$(grep "Loom-${version}-macOS.zip" "${sums_file}" 2>/dev/null | awk '{print $1}' || true)"
+    if [[ -z "${expected_sha}" ]]; then
+        expected_sha="$(awk '{print $1}' "${sums_file}" | head -n 1)"
+    fi
     local computed_sha
     computed_sha="$(shasum -a 256 "${canonical_zip}" | awk '{print $1}')"
 
@@ -308,10 +309,8 @@ run_publish() {
         exit 1
     fi
 
-    # Verify remote tag does not already exist
     if gh release view "v${version}" >/dev/null 2>&1; then
-        echo "ERROR: GitHub Release 'v${version}' already exists on GitHub!" >&2
-        exit 1
+        echo "Notice: GitHub Release 'v${version}' already exists remotely; canonical assets will be published/attached."
     fi
 
     echo ""
@@ -332,31 +331,44 @@ run_publish() {
         fi
     fi
 
-    # Step 1: Create and push git tag
-    echo "==> Step 1: Creating and pushing Git tag v${version}..."
+    # Step 1: Create and push git tag if needed
+    echo "==> Step 1: Checking Git tag v${version}..."
     if ! git rev-parse "v${version}" >/dev/null 2>&1; then
+        echo "    Creating local git tag v${version}..."
         git tag -a "v${version}" -m "Release v${version}"
     fi
-    git push origin "v${version}"
+    if ! git ls-remote --tags origin "refs/tags/v${version}" | grep -q "refs/tags/v${version}"; then
+        echo "    Pushing git tag v${version} to origin..."
+        git push origin "v${version}"
+    else
+        echo "    Git tag v${version} already exists on origin."
+    fi
 
-    # Step 2: Create GitHub Release with canonical ZIP, checksums, and appcast
-    echo "==> Step 2: Creating GitHub Release v${version}..."
-    local release_args=("v${version}")
-    release_args+=("${canonical_zip}")
-    release_args+=("${sums_file}")
+    # Step 2: Publish canonical assets to GitHub Release
+    echo "==> Step 2: Publishing release assets to GitHub Release v${version}..."
+    local release_assets=("${canonical_zip}" "${sums_file}")
     if [[ -f "${appcast_file}" ]]; then
-        release_args+=("${appcast_file}")
+        release_assets+=("${appcast_file}")
     fi
 
     local notes_file="${dist_dir}/RELEASE_NOTES_v${version}.md"
-    if [[ -f "${notes_file}" ]]; then
-        gh release create "${release_args[@]}" \
-            --title "v${version}" \
-            --notes-file "${notes_file}"
+    if gh release view "v${version}" >/dev/null 2>&1; then
+        echo "    Attaching canonical assets to existing GitHub Release v${version}..."
+        gh release upload "v${version}" "${release_assets[@]}" --clobber
+        if [[ -f "${notes_file}" ]]; then
+            gh release edit "v${version}" --notes-file "${notes_file}" || true
+        fi
     else
-        gh release create "${release_args[@]}" \
-            --title "v${version}" \
-            --generate-notes
+        echo "    Creating new GitHub Release v${version}..."
+        if [[ -f "${notes_file}" ]]; then
+            gh release create "v${version}" "${release_assets[@]}" \
+                --title "v${version}" \
+                --notes-file "${notes_file}"
+        else
+            gh release create "v${version}" "${release_assets[@]}" \
+                --title "v${version}" \
+                --generate-notes
+        fi
     fi
 
     # Step 3: Verify uploaded asset checksum

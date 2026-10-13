@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$("${ROOT_DIR}/scripts/fetch-sparkle-tools.sh")"
 
-VERSION="${1:-${VERSION:-0.1.0}}"
+VERSION="${1:-${VERSION:-0.1.1}}"
 DIST_DIR="${2:-${DIST_DIR:-${ROOT_DIR}/dist}}"
 OUTPUT_APPCAST="${3:-${OUTPUT_APPCAST:-${DIST_DIR}/appcast.xml}}"
 BASE_URL="https://github.com/chaiwithcode/Loom/releases/download/v${VERSION}/"
@@ -28,6 +28,30 @@ cp -p "${CANONICAL_ZIP}" "${STAGING_DIR}/"
 # Include release notes if available (Sparkle attaches matching .md/.html notes)
 if [[ -f "${DIST_DIR}/RELEASE_NOTES_v${VERSION}.md" ]]; then
     cp -p "${DIST_DIR}/RELEASE_NOTES_v${VERSION}.md" "${STAGING_DIR}/Loom-${VERSION}-macOS.md"
+elif [[ -f "${ROOT_DIR}/docs/RELEASE_NOTES_v${VERSION}.md" ]]; then
+    cp -p "${ROOT_DIR}/docs/RELEASE_NOTES_v${VERSION}.md" "${STAGING_DIR}/Loom-${VERSION}-macOS.md"
+fi
+
+# Clean any legacy sparkle:releaseNotesLink elements from existing appcast
+if [[ -f "${OUTPUT_APPCAST}" ]]; then
+    python3 - "${OUTPUT_APPCAST}" <<'EOF'
+import sys
+import xml.etree.ElementTree as ET
+
+path = sys.argv[1]
+try:
+    tree = ET.parse(path)
+    root = tree.getroot()
+    changed = False
+    for item in root.findall(".//item"):
+        for elem in item.findall("{http://www.andymatuschak.org/xml-namespaces/sparkle}releaseNotesLink"):
+            item.remove(elem)
+            changed = True
+    if changed:
+        tree.write(path, encoding="utf-8", xml_declaration=True)
+except Exception:
+    pass
+EOF
 fi
 
 echo "==> Generating Sparkle appcast for version ${VERSION}..."
@@ -37,12 +61,16 @@ if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
     printf '%s' "${SPARKLE_PRIVATE_KEY}" | "${BIN_DIR}/generate_appcast" \
         --ed-key-file - \
         --download-url-prefix "${BASE_URL}" \
+        --full-release-notes-url "https://github.com/chaiwithcode/Loom/releases" \
+        --embed-release-notes \
         -o "${OUTPUT_APPCAST}" \
         "${STAGING_DIR}"
 else
     echo "==> Signing appcast with private EdDSA key from Keychain..."
     "${BIN_DIR}/generate_appcast" \
         --download-url-prefix "${BASE_URL}" \
+        --full-release-notes-url "https://github.com/chaiwithcode/Loom/releases" \
+        --embed-release-notes \
         -o "${OUTPUT_APPCAST}" \
         "${STAGING_DIR}"
 fi
@@ -69,9 +97,7 @@ items = channel.findall("item")
 if not items:
     sys.exit("ERROR: No <item> entries found in appcast.xml")
 
-namespaces = {
-    "sparkle": "http://www.andymatuschak.org/xml-namespaces/sparkle"
-}
+sparkle_ns = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 
 found = False
 for item in items:
@@ -81,9 +107,9 @@ for item in items:
 
     url = enclosure.get("url", "")
     length = enclosure.get("length", "")
-    ed_sig = enclosure.get("{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature", "")
-    short_ver = enclosure.get("{http://www.andymatuschak.org/xml-namespaces/sparkle}shortVersionString", "")
-    ver = enclosure.get("{http://www.andymatuschak.org/xml-namespaces/sparkle}version", "")
+    ed_sig = enclosure.get(f"{{{sparkle_ns}}}edSignature", "")
+    short_ver = enclosure.get(f"{{{sparkle_ns}}}shortVersionString", "")
+    ver = enclosure.get(f"{{{sparkle_ns}}}version", "")
 
     if not url.startswith("https://github.com/chaiwithcode/Loom/releases/download/"):
         sys.exit(f"ERROR: Enclosure URL does not match release pattern: {url}")
@@ -95,11 +121,31 @@ for item in items:
     if not length or int(length) <= 0:
         sys.exit(f"ERROR: Invalid enclosure length: {length}")
 
+    # Verify no broken releaseNotesLink pointing to Pages markdown
+    rel_notes_link = item.find(f"{{{sparkle_ns}}}releaseNotesLink")
+    if rel_notes_link is not None and rel_notes_link.text:
+        sys.exit(f"ERROR: Disallowed sparkle:releaseNotesLink found: {rel_notes_link.text}")
+
+    # Verify fullReleaseNotesLink points to GitHub Releases
+    full_notes_link = item.find(f"{{{sparkle_ns}}}fullReleaseNotesLink")
+    if full_notes_link is None or full_notes_link.text != "https://github.com/chaiwithcode/Loom/releases":
+        sys.exit(f"ERROR: Missing or invalid sparkle:fullReleaseNotesLink (expected https://github.com/chaiwithcode/Loom/releases)")
+
+    # Verify embedded description is present with markdown format
+    desc = item.find("description")
+    if desc is None or not (desc.text and desc.text.strip()):
+        sys.exit("ERROR: Missing embedded <description> in appcast item")
+    desc_format = desc.get(f"{{{sparkle_ns}}}format", "")
+    if desc_format != "markdown":
+        sys.exit(f"ERROR: Expected description format='markdown', found '{desc_format}'")
+
     found = True
     print(f"  Verified appcast item: version={short_ver or ver} (build={ver})")
     print(f"  Enclosure URL: {url}")
     print(f"  Length: {length} bytes")
     print(f"  EdDSA Signature: {ed_sig[:16]}... (present)")
+    print(f"  Full Release Notes Link: {full_notes_link.text}")
+    print(f"  Embedded Description: {len(desc.text)} characters (markdown)")
     break
 
 if not found:

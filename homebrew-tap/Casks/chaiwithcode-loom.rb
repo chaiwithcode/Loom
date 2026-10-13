@@ -1,6 +1,6 @@
 cask "chaiwithcode-loom" do
   version "0.1.0"
-  sha256 "5ac01b3e1bf673d25fd433c314a4365dcb4efea9f18d1257b632017ddf677595"
+  sha256 "d467fbfe2b7d1be651728f9d86f041e3f76688b7136ec465ed5633c5e75b7aa5"
 
   url "https://github.com/chaiwithcode/Loom/releases/download/v#{version}/Loom-#{version}-macOS.zip"
   name "Loom"
