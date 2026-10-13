@@ -102,10 +102,13 @@ echo "==> Step 5: Packaging and signing upgrade archive..."
 mv "${TEST_DIR}/Loom-0.1.1.app" "${TEST_DIR}/Loom.app"
 ditto -c -k --keepParent "${TEST_DIR}/Loom.app" "${FEED_DIR}/Loom-0.1.1-macOS.zip"
 
+echo "### What's New in v0.1.1\n- Automated Sparkle upgrade test verification payload" > "${FEED_DIR}/Loom-0.1.1-macOS.md"
 BIN_DIR="$("${ROOT_DIR}/scripts/fetch-sparkle-tools.sh")"
 printf '%s' "${TEST_PRIV}" | "${BIN_DIR}/generate_appcast" \
     --ed-key-file - \
     --download-url-prefix "http://127.0.0.1:${TEST_PORT}/" \
+    --full-release-notes-url "https://github.com/chaiwithcode/Loom/releases" \
+    --embed-release-notes \
     -o "${FEED_DIR}/appcast.xml" \
     "${FEED_DIR}"
 
