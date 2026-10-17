@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_BUNDLE="${1:-${ROOT_DIR}/.build/Loom.app}"
-VERSION="${VERSION:-1.0}"
+VERSION="${2:-${VERSION:-1.0}}"
 DIST_DIR="${ROOT_DIR}/dist"
 DMG_NAME="Loom-${VERSION}.dmg"
 DMG_PATH="${DIST_DIR}/${DMG_NAME}"
@@ -234,6 +234,13 @@ echo "==> Verifying disk image structure..."
 hdiutil verify "${FINAL_TEMP_DMG}" >/dev/null
 
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-}"
+if [[ -z "${SIGNING_IDENTITY}" ]]; then
+    SIGNING_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | grep "Developer ID Application:" | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)"
+    if [[ -n "${SIGNING_IDENTITY}" ]]; then
+        echo "==> Auto-detected Developer ID identity: ${SIGNING_IDENTITY}"
+    fi
+fi
+
 if [[ -n "${SIGNING_IDENTITY}" ]]; then
     echo "==> Code signing DMG with identity: ${SIGNING_IDENTITY}..."
     codesign --force --timestamp --sign "${SIGNING_IDENTITY}" "${FINAL_TEMP_DMG}"
@@ -271,7 +278,6 @@ TEMP_SHA256_FILE="${DIST_DIR}/.Loom-${VERSION}-$$.sha256"
 TEMP_SUMS_FILE="${DIST_DIR}/.SHA256SUMS-$$.txt"
 STAGE_HASH=$(shasum -a 256 "${FINAL_TEMP_DMG}" | cut -d ' ' -f 1)
 echo "${STAGE_HASH}  ${DMG_NAME}" > "${TEMP_SHA256_FILE}"
-echo "${STAGE_HASH}  ${DMG_NAME}" > "${TEMP_SUMS_FILE}"
 
 # Verify checksum against temporary stage before publishing
 (
@@ -282,7 +288,21 @@ echo "${STAGE_HASH}  ${DMG_NAME}" > "${TEMP_SUMS_FILE}"
 echo "==> Atomically publishing verified DMG and checksum files..."
 mv -f "${FINAL_TEMP_DMG}" "${DMG_PATH}"
 mv -f "${TEMP_SHA256_FILE}" "${DMG_PATH}.sha256"
-mv -f "${TEMP_SUMS_FILE}" "${DIST_DIR}/SHA256SUMS.txt"
+
+if [[ "${UPDATE_SUMS:-1}" == "1" ]]; then
+    if [[ -f "${DIST_DIR}/Loom-${VERSION}-macOS.zip" ]]; then
+        ZIP_HASH=$(shasum -a 256 "${DIST_DIR}/Loom-${VERSION}-macOS.zip" | awk '{print $1}')
+        {
+            echo "${ZIP_HASH}  Loom-${VERSION}-macOS.zip"
+            echo "${STAGE_HASH}  ${DMG_NAME}"
+        } > "${TEMP_SUMS_FILE}"
+    else
+        echo "${STAGE_HASH}  ${DMG_NAME}" > "${TEMP_SUMS_FILE}"
+    fi
+    mv -f "${TEMP_SUMS_FILE}" "${DIST_DIR}/SHA256SUMS.txt"
+else
+    rm -f "${TEMP_SUMS_FILE}"
+fi
 PUBLISHED=1
 
 echo "==> Successfully packaged and published DMG: ${DMG_PATH}"

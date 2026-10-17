@@ -226,19 +226,30 @@ run_prepare() {
     bash "${ROOT_DIR}/scripts/release-package.sh" "${pkg_args[@]}"
 
     local canonical_zip="${ROOT_DIR}/dist/Loom-${version}-macOS.zip"
+    local canonical_dmg="${ROOT_DIR}/dist/Loom-${version}.dmg"
     local sums_file="${ROOT_DIR}/dist/SHA256SUMS.txt"
     local appcast_file="${ROOT_DIR}/dist/appcast.xml"
     local cask_file="${ROOT_DIR}/dist/chaiwithcode-loom.rb"
 
-    if [[ ! -f "${canonical_zip}" || ! -f "${sums_file}" ]]; then
-        echo "ERROR: Packaging failed to produce canonical release artifacts!" >&2
+    if [[ ! -f "${canonical_zip}" || ! -f "${canonical_dmg}" || ! -f "${sums_file}" ]]; then
+        echo "ERROR: Packaging failed to produce canonical release artifacts (ZIP, DMG, or SHA256SUMS.txt)!" >&2
         exit 1
     fi
 
-    local actual_sha
-    actual_sha="$(awk '{print $1}' "${sums_file}")"
+    local zip_sha
+    zip_sha="$(grep "Loom-${version}-macOS.zip" "${sums_file}" 2>/dev/null | awk '{print $1}' || true)"
+    local dmg_sha
+    dmg_sha="$(grep "Loom-${version}.dmg" "${sums_file}" 2>/dev/null | awk '{print $1}' || true)"
+
+    if [[ -z "${zip_sha}" || -z "${dmg_sha}" ]]; then
+        echo "ERROR: SHA256SUMS.txt missing ZIP or DMG entry for version ${version}!" >&2
+        exit 1
+    fi
+
     local zip_size
     zip_size="$(wc -c < "${canonical_zip}" | tr -d ' ')"
+    local dmg_size
+    dmg_size="$(wc -c < "${canonical_dmg}" | tr -d ' ')"
 
     echo ""
     echo "=========================================================="
@@ -248,7 +259,10 @@ run_prepare() {
     echo "Tag to create:   v${version}"
     echo "Canonical ZIP:   ${canonical_zip}"
     echo "ZIP Size:        ${zip_size} bytes"
-    echo "Canonical SHA:   ${actual_sha}"
+    echo "ZIP SHA:         ${zip_sha}"
+    echo "Canonical DMG:   ${canonical_dmg}"
+    echo "DMG Size:        ${dmg_size} bytes"
+    echo "DMG SHA:         ${dmg_sha}"
     if [[ -f "${appcast_file}" ]]; then
         echo "Sparkle Appcast: ${appcast_file} (signed)"
     fi
@@ -281,30 +295,42 @@ run_publish() {
 
     local dist_dir="${ROOT_DIR}/dist"
     local canonical_zip="${dist_dir}/Loom-${version}-macOS.zip"
+    local canonical_dmg="${dist_dir}/Loom-${version}.dmg"
     local sums_file="${dist_dir}/SHA256SUMS.txt"
     local appcast_file="${dist_dir}/appcast.xml"
 
     # Verify artifacts exist
-    if [[ ! -f "${canonical_zip}" || ! -f "${sums_file}" ]]; then
+    if [[ ! -f "${canonical_zip}" || ! -f "${canonical_dmg}" || ! -f "${sums_file}" ]]; then
         echo "ERROR: Prepared release artifacts not found for version ${version}!" >&2
+        echo "Required: ${canonical_zip}, ${canonical_dmg}, and ${sums_file}" >&2
         echo "Please run './scripts/release.sh ${version} --prepare' first." >&2
         exit 1
     fi
 
-    # Verify SHA-256 integrity
+    # Verify SHA-256 integrity for BOTH ZIP and DMG
     echo "==> Verifying artifact checksum integrity..."
-    local expected_sha
-    expected_sha="$(grep "Loom-${version}-macOS.zip" "${sums_file}" 2>/dev/null | awk '{print $1}' || true)"
-    if [[ -z "${expected_sha}" ]]; then
-        expected_sha="$(awk '{print $1}' "${sums_file}" | head -n 1)"
-    fi
-    local computed_sha
-    computed_sha="$(shasum -a 256 "${canonical_zip}" | awk '{print $1}')"
+    local expected_zip_sha
+    expected_zip_sha="$(grep "Loom-${version}-macOS.zip" "${sums_file}" 2>/dev/null | awk '{print $1}' || true)"
+    local computed_zip_sha
+    computed_zip_sha="$(shasum -a 256 "${canonical_zip}" | awk '{print $1}')"
 
-    if [[ "${expected_sha}" != "${computed_sha}" ]]; then
+    if [[ -z "${expected_zip_sha}" || "${expected_zip_sha}" != "${computed_zip_sha}" ]]; then
         echo "FATAL: Checksum mismatch for ${canonical_zip}!" >&2
-        echo "Expected: ${expected_sha}" >&2
-        echo "Actual:   ${computed_sha}" >&2
+        echo "Expected: ${expected_zip_sha}" >&2
+        echo "Actual:   ${computed_zip_sha}" >&2
+        echo "Artifact may have been corrupted or rebuilt. Aborting publish!" >&2
+        exit 1
+    fi
+
+    local expected_dmg_sha
+    expected_dmg_sha="$(grep "Loom-${version}.dmg" "${sums_file}" 2>/dev/null | awk '{print $1}' || true)"
+    local computed_dmg_sha
+    computed_dmg_sha="$(shasum -a 256 "${canonical_dmg}" | awk '{print $1}')"
+
+    if [[ -z "${expected_dmg_sha}" || "${expected_dmg_sha}" != "${computed_dmg_sha}" ]]; then
+        echo "FATAL: Checksum mismatch for ${canonical_dmg}!" >&2
+        echo "Expected: ${expected_dmg_sha}" >&2
+        echo "Actual:   ${computed_dmg_sha}" >&2
         echo "Artifact may have been corrupted or rebuilt. Aborting publish!" >&2
         exit 1
     fi
@@ -316,8 +342,10 @@ run_publish() {
     echo ""
     echo "----------------------------------------------------------"
     echo "Target Release:   v${version}"
-    echo "Artifact:         ${canonical_zip}"
-    echo "Canonical SHA:    ${computed_sha}"
+    echo "Artifact (ZIP):   ${canonical_zip}"
+    echo "ZIP SHA:          ${computed_zip_sha}"
+    echo "Artifact (DMG):   ${canonical_dmg}"
+    echo "DMG SHA:          ${computed_dmg_sha}"
     echo "Destination:      GitHub Releases, Sparkle Pages, Homebrew Tap"
     echo "----------------------------------------------------------"
     echo ""
@@ -346,7 +374,7 @@ run_publish() {
 
     # Step 2: Publish canonical assets to GitHub Release
     echo "==> Step 2: Publishing release assets to GitHub Release v${version}..."
-    local release_assets=("${canonical_zip}" "${sums_file}")
+    local release_assets=("${canonical_zip}" "${canonical_dmg}" "${sums_file}")
     if [[ -f "${appcast_file}" ]]; then
         release_assets+=("${appcast_file}")
     fi
@@ -371,29 +399,46 @@ run_publish() {
         fi
     fi
 
-    # Step 3: Verify uploaded asset checksum
-    echo "==> Step 3: Verifying uploaded asset on GitHub..."
-    local download_url="https://github.com/chaiwithcode/Loom/releases/download/v${version}/Loom-${version}-macOS.zip"
-    local verify_tmp
-    verify_tmp="$(mktemp "${TMPDIR:-/tmp}/loom-verify-upload.XXXXXX.zip")"
-    trap 'rm -f "${verify_tmp}"' EXIT INT TERM
-    curl -fsSL "${download_url}" -o "${verify_tmp}"
-    local uploaded_sha
-    uploaded_sha="$(shasum -a 256 "${verify_tmp}" | awk '{print $1}')"
-    rm -f "${verify_tmp}"
-    trap - EXIT INT TERM
+    # Step 3: Verify uploaded assets on GitHub
+    echo "==> Step 3: Verifying uploaded assets on GitHub..."
+    local zip_download_url="https://github.com/chaiwithcode/Loom/releases/download/v${version}/Loom-${version}-macOS.zip"
+    local dmg_download_url="https://github.com/chaiwithcode/Loom/releases/download/v${version}/Loom-${version}.dmg"
+    local verify_zip_tmp
+    verify_zip_tmp="$(mktemp "${TMPDIR:-/tmp}/loom-verify-zip.XXXXXX.zip")"
+    local verify_dmg_tmp
+    verify_dmg_tmp="$(mktemp "${TMPDIR:-/tmp}/loom-verify-dmg.XXXXXX.dmg")"
+    trap 'rm -f "${verify_zip_tmp}" "${verify_dmg_tmp}"' EXIT INT TERM
 
-    if [[ "${uploaded_sha}" != "${computed_sha}" ]]; then
-        echo "FATAL: Uploaded asset SHA-256 does not match canonical SHA-256!" >&2
-        echo "Canonical: ${computed_sha}" >&2
-        echo "Uploaded:  ${uploaded_sha}" >&2
+    echo "    Downloading and verifying ZIP asset..."
+    curl -fsSL "${zip_download_url}" -o "${verify_zip_tmp}"
+    local uploaded_zip_sha
+    uploaded_zip_sha="$(shasum -a 256 "${verify_zip_tmp}" | awk '{print $1}')"
+    if [[ "${uploaded_zip_sha}" != "${computed_zip_sha}" ]]; then
+        echo "FATAL: Uploaded ZIP SHA-256 does not match canonical ZIP SHA-256!" >&2
+        echo "Canonical: ${computed_zip_sha}" >&2
+        echo "Uploaded:  ${uploaded_zip_sha}" >&2
         exit 1
     fi
-    echo "==> Verified uploaded artifact checksum: ${uploaded_sha} (MATCH)"
+    echo "==> Verified uploaded ZIP artifact checksum: ${uploaded_zip_sha} (MATCH)"
 
-    # Step 4: Synchronize Homebrew Tap
+    echo "    Downloading and verifying DMG asset..."
+    curl -fsSL "${dmg_download_url}" -o "${verify_dmg_tmp}"
+    local uploaded_dmg_sha
+    uploaded_dmg_sha="$(shasum -a 256 "${verify_dmg_tmp}" | awk '{print $1}')"
+    if [[ "${uploaded_dmg_sha}" != "${computed_dmg_sha}" ]]; then
+        echo "FATAL: Uploaded DMG SHA-256 does not match canonical DMG SHA-256!" >&2
+        echo "Canonical: ${computed_dmg_sha}" >&2
+        echo "Uploaded:  ${uploaded_dmg_sha}" >&2
+        exit 1
+    fi
+    echo "==> Verified uploaded DMG artifact checksum: ${uploaded_dmg_sha} (MATCH)"
+
+    rm -f "${verify_zip_tmp}" "${verify_dmg_tmp}"
+    trap - EXIT INT TERM
+
+    # Step 4: Synchronize Homebrew Tap (strictly with ZIP SHA)
     echo "==> Step 4: Updating Homebrew tap chaiwithcode/homebrew-tap..."
-    bash "${ROOT_DIR}/scripts/update-homebrew-tap.sh" "${version}" "${computed_sha}" --sync
+    bash "${ROOT_DIR}/scripts/update-homebrew-tap.sh" "${version}" "${computed_zip_sha}" --sync
 
     # Step 5: Deploy Sparkle Appcast update on GitHub Pages
     echo "==> Step 5: Triggering and verifying Sparkle Appcast update on GitHub Pages..."
