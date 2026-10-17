@@ -57,8 +57,8 @@ brew install --cask chaiwithcode/tap/chaiwithcode-loom
 
 ### Direct Download
 
-1. Download the canonical signed and notarized archive `Loom-0.1.0-macOS.zip` from [GitHub Releases](https://github.com/chaiwithcode/Loom/releases).
-2. Uncompress the archive.
+1. Download `Loom-1.0.dmg` (or the latest release disk image) from [GitHub Releases](https://github.com/chaiwithcode/Loom/releases).
+2. Open the disk image.
 3. Drag **Loom.app** to `/Applications`.
 4. Launch **Loom** from Applications or Spotlight.
 

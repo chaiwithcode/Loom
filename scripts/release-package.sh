@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Loom — Canonical Release Packager & Verification Pipeline
-# Produces exactly one canonical signed + notarized Loom-X.Y.Z-macOS.zip per release.
+# Produces canonical signed + notarized Loom-X.Y-macOS.zip and Loom-X.Y.dmg per release.
 # Used by: GitHub Releases, Sparkle 2 appcast, and Homebrew Cask.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,6 +26,8 @@ DIST_DIR="${ROOT_DIR}/dist"
 APP_BUNDLE="${ROOT_DIR}/.build/Loom.app"
 CANONICAL_ZIP="${DIST_DIR}/Loom-${VERSION}-macOS.zip"
 CANONICAL_SHA="${CANONICAL_ZIP}.sha256"
+CANONICAL_DMG="${DIST_DIR}/Loom-${VERSION}.dmg"
+DMG_SHA_FILE="${CANONICAL_DMG}.sha256"
 SUMS_FILE="${DIST_DIR}/SHA256SUMS.txt"
 APPCAST_FILE="${DIST_DIR}/appcast.xml"
 
@@ -121,30 +123,77 @@ TMP_FINAL_ZIP="$(mktemp "${DIST_DIR}/.Loom-${VERSION}-macOS-$$.tmp.zip")"
 ditto -c -k --keepParent "${APP_BUNDLE}" "${TMP_FINAL_ZIP}"
 mv -f "${TMP_FINAL_ZIP}" "${CANONICAL_ZIP}"
 
-# Step 6: Compute immutable SHA-256 checksums
-echo "==> Step 6: Calculating canonical SHA-256 checksum..."
-ACTUAL_SHA=$(shasum -a 256 "${CANONICAL_ZIP}" | awk '{print $1}')
-echo "${ACTUAL_SHA}  Loom-${VERSION}-macOS.zip" > "${CANONICAL_SHA}"
-echo "${ACTUAL_SHA}  Loom-${VERSION}-macOS.zip" > "${SUMS_FILE}"
+ZIP_SHA=$(shasum -a 256 "${CANONICAL_ZIP}" | awk '{print $1}')
+echo "${ZIP_SHA}  Loom-${VERSION}-macOS.zip" > "${CANONICAL_SHA}"
+echo "    Canonical ZIP SHA-256: ${ZIP_SHA}"
 
-echo "    Canonical ZIP SHA-256: ${ACTUAL_SHA}"
+# Step 6: Package polished DMG using the same stapled app
+echo "==> Step 6: Creating polished DMG release artifact: ${CANONICAL_DMG}..."
+VERSION="${VERSION}" SIGNING_IDENTITY="${SIGNING_IDENTITY}" UPDATE_SUMS=0 \
+    bash "${ROOT_DIR}/scripts/package-dmg.sh" "${APP_BUNDLE}" "${VERSION}"
 
-# Step 7: Sparkle appcast generation & EdDSA signing
-echo "==> Step 7: Generating signed Sparkle appcast..."
+# Step 7: Notarize and staple DMG (if notarization credentials provided)
+if [[ -n "${NOTARY_PROFILE}" ]] || [[ -n "${NOTARY_KEY_ID}" && -n "${NOTARY_ISSUER_ID}" && -n "${NOTARY_KEY_FILE}" ]]; then
+    echo "==> Step 7: Submitting DMG to Apple Notary Service..."
+    if [[ -n "${NOTARY_PROFILE}" ]]; then
+        xcrun notarytool submit "${CANONICAL_DMG}" \
+            --keychain-profile "${NOTARY_PROFILE}" \
+            --wait
+    else
+        xcrun notarytool submit "${CANONICAL_DMG}" \
+            --key "${NOTARY_KEY_FILE}" \
+            --key-id "${NOTARY_KEY_ID}" \
+            --issuer "${NOTARY_ISSUER_ID}" \
+            --wait
+    fi
+
+    echo "==> Step 7.1: Stapling notarization ticket to ${CANONICAL_DMG}..."
+    xcrun stapler staple "${CANONICAL_DMG}"
+
+    echo "==> Step 7.2: Validating stapled DMG ticket..."
+    xcrun stapler validate "${CANONICAL_DMG}"
+else
+    echo "==> Step 7: Apple notarization credentials not provided (skipping online DMG notarization submit)."
+fi
+
+# Step 8: Strict validation of final DMG
+echo "==> Step 8: Validating final disk image structure and signature..."
+hdiutil verify "${CANONICAL_DMG}"
+if [[ -n "${SIGNING_IDENTITY}" ]]; then
+    codesign --verify --verbose=2 "${CANONICAL_DMG}"
+fi
+
+# Step 9: Compute post-stapling immutable SHA-256 checksums
+echo "==> Step 9: Calculating canonical SHA-256 checksums for ZIP and DMG..."
+DMG_SHA=$(shasum -a 256 "${CANONICAL_DMG}" | awk '{print $1}')
+echo "${DMG_SHA}  Loom-${VERSION}.dmg" > "${DMG_SHA_FILE}"
+
+{
+    echo "${ZIP_SHA}  Loom-${VERSION}-macOS.zip"
+    echo "${DMG_SHA}  Loom-${VERSION}.dmg"
+} > "${SUMS_FILE}"
+
+echo "    Canonical ZIP SHA-256: ${ZIP_SHA}"
+echo "    Canonical DMG SHA-256: ${DMG_SHA}"
+
+# Step 10: Sparkle appcast generation & EdDSA signing (ZIP-based)
+echo "==> Step 10: Generating signed Sparkle appcast (ZIP-based)..."
 if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]] || security find-generic-password -s "https://sparkle-project.org" -a "ed25519" >/dev/null 2>&1; then
     bash "${ROOT_DIR}/scripts/generate-appcast.sh" "${VERSION}" "${DIST_DIR}" "${APPCAST_FILE}"
 else
     echo "    WARNING: SPARKLE_PRIVATE_KEY not available. Run scripts/generate-appcast.sh once credentials are set."
 fi
 
-# Step 8: Stage Homebrew Cask with canonical SHA-256
-echo "==> Step 8: Staging Homebrew Cask..."
-bash "${ROOT_DIR}/scripts/update-homebrew-tap.sh" "${VERSION}" "${ACTUAL_SHA}"
+# Step 11: Stage Homebrew Cask with canonical ZIP SHA-256
+echo "==> Step 11: Staging Homebrew Cask (ZIP-based)..."
+bash "${ROOT_DIR}/scripts/update-homebrew-tap.sh" "${VERSION}" "${ZIP_SHA}"
 
 echo "=========================================================="
 echo "Release Packaging Complete!"
-echo "Artifact:  ${CANONICAL_ZIP}"
-echo "SHA-256:   ${ACTUAL_SHA}"
+echo "ZIP:       ${CANONICAL_ZIP}"
+echo "ZIP SHA:   ${ZIP_SHA}"
+echo "DMG:       ${CANONICAL_DMG}"
+echo "DMG SHA:   ${DMG_SHA}"
 echo "Checksums: ${SUMS_FILE}"
 if [[ -f "${APPCAST_FILE}" ]]; then
     echo "Appcast:   ${APPCAST_FILE}"

@@ -16,11 +16,13 @@ scripts/release.sh
         │
         ├── --prepare   (Build .build/Loom.app -> Sign -> Notarize -> Staple ->
         │                Gatekeeper verify -> Package canonical ZIP ->
-        │                Compute SHA-256 -> Generate Sparkle appcast.xml ->
+        │                Package & Notarize & Staple DMG ->
+        │                Compute SHA-256 (ZIP + DMG) -> Generate Sparkle appcast.xml ->
         │                Stage Homebrew cask -> Pre-publish summary)
         │
-        └── --publish   (Confirm -> Push Git tag vX.Y.Z -> Create GitHub Release ->
-                         Verify uploaded checksum -> Synchronize Homebrew tap ->
+        └── --publish   (Confirm -> Push Git tag vX.Y -> Create GitHub Release ->
+                         Upload ZIP, DMG, SHA256SUMS, appcast ->
+                         Verify uploaded checksums -> Synchronize Homebrew tap ->
                          Deploy Sparkle update feed to GitHub Pages)
 ```
 
@@ -28,20 +30,24 @@ scripts/release.sh
 
 ## 1. Release Architecture & Immutability Contract
 
-Loom enforces a strict release invariant:
+Loom enforces a strict release distribution model:
 
-> **Exactly one canonical signed and notarized ZIP (`Loom-X.Y.Z-macOS.zip`) is created per version.**
-> That exact archive is shared across **GitHub Releases**, **Sparkle 2 appcasts**, and **Homebrew Cask**.
+> **Dual Artifact Distribution**:
+> - **`Loom-X.Y.dmg`**: The human-friendly disk image container published to GitHub Releases for direct installation. Signed, notarized, and stapled with custom Finder background and geometry.
+> - **`Loom-X.Y-macOS.zip`**: The canonical machine/update payload used by **Sparkle 2 appcasts** and **Homebrew Cask**.
+> - **`SHA256SUMS.txt`**: Deterministic SHA-256 checksums verifying both the ZIP and DMG artifacts.
+>
 > Re-building or mutating a published release archive is strictly prohibited, as it invalidates SHA-256 checksums and Sparkle EdDSA signatures.
 
 ### Versioning Contract
 
 | Component | Format | Example |
 | :--- | :--- | :--- |
-| **Git Tag** | `vX.Y.Z` | `v0.1.0` |
-| **Marketing Version** (`CFBundleShortVersionString`) | `X.Y.Z` | `0.1.0` |
-| **Bundle Version** (`CFBundleVersion`) | Monotonically increasing integer | `1`, `2`, `3` |
-| **Release Artifact** | `Loom-X.Y.Z-macOS.zip` | `Loom-0.1.0-macOS.zip` |
+| **Git Tag** | `vX.Y` or `vX.Y.Z` | `v1.0` |
+| **Marketing Version** (`CFBundleShortVersionString`) | `X.Y` or `X.Y.Z` | `1.0` |
+| **Bundle Version** (`CFBundleVersion`) | Monotonically increasing integer | `1`, `2`, `3`, `4` |
+| **Manual Install Artifact** | `Loom-X.Y.dmg` | `Loom-1.0.dmg` |
+| **Update / Machine Artifact** | `Loom-X.Y-macOS.zip` | `Loom-1.0-macOS.zip` |
 | **Homebrew Cask Token** | `chaiwithcode-loom` | `Casks/chaiwithcode-loom.rb` |
 | **Sparkle Feed URL** | Stable HTTPS GitHub Pages | `https://chaiwithcode.github.io/Loom/appcast.xml` |
 
@@ -119,16 +125,16 @@ Verify your system toolchain, Keychain credentials, and Git status:
 ```
 
 ### Step 2: Prepare Release
-Compiles release binary, signs inside-out with Developer ID and Hardened Runtime, submits for Apple notarization, staples the ticket, packages the canonical ZIP, generates SHA-256 checksums, signs `appcast.xml`, and stages the Homebrew cask:
+Compiles release binary, signs inside-out with Developer ID and Hardened Runtime, submits for Apple notarization, staples the ticket, packages the canonical ZIP, packages and notarizes the DMG, generates dual SHA-256 checksums, signs `appcast.xml`, and stages the Homebrew cask:
 ```bash
-./scripts/release.sh 0.2.0 --prepare
+./scripts/release.sh 1.0 --prepare
 ```
 *(For local testing without Apple notarization credentials, append `--skip-notarization`)*.
 
 ### Step 3: Publish Release
-Reviews artifact hashes, prompts for confirmation, creates & pushes git tag `v0.2.0`, uploads assets to GitHub Releases, verifies remote checksum, synchronizes `chaiwithcode/homebrew-tap`, and deploys the Sparkle feed to GitHub Pages:
+Reviews artifact hashes, prompts for confirmation, creates & pushes git tag `v1.0`, uploads canonical ZIP, DMG, `SHA256SUMS.txt`, and `appcast.xml` to GitHub Releases, verifies remote checksums for both assets, synchronizes `chaiwithcode/homebrew-tap`, and deploys the Sparkle feed to GitHub Pages:
 ```bash
-./scripts/release.sh 0.2.0 --publish
+./scripts/release.sh 1.0 --publish
 ```
 
 ---
