@@ -13,6 +13,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     case general = "General"
     case providers = "Providers"
     case sessions = "Sessions"
+    case storage = "Storage"
     case privacy = "Privacy"
     case about = "About"
 
@@ -24,45 +25,82 @@ public struct SettingsView: View {
     var store: SessionStore?
     @State private var selectedTab: SettingsTab
 
-    public init(settings: LoomSettings, store: SessionStore? = nil, initialTab: SettingsTab = .general) {
+    public init(
+        settings: LoomSettings,
+        store: SessionStore? = nil,
+        initialTab: SettingsTab = .general,
+        initialProviderID: ProviderID? = nil
+    ) {
         self.settings = settings
         self.store = store
-        self._selectedTab = State(initialValue: initialTab)
+        self._selectedTab = State(initialValue: initialProviderID == nil ? initialTab : .providers)
+        self.initialProviderID = initialProviderID
     }
 
+    private let initialProviderID: ProviderID?
+
     public var body: some View {
-        TabView(selection: $selectedTab) {
-            GeneralSettingsTab(settings: settings)
-                .tabItem {
-                    Label("General", systemImage: "gearshape")
+        VStack(spacing: 0) {
+            Picker("Settings Section", selection: $selectedTab) {
+                ForEach(SettingsTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
                 }
-                .tag(SettingsTab.general)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .accessibilityIdentifier("picker-settings-tabs")
 
-            ProvidersSettingsTab(settings: settings, store: store)
-                .tabItem {
-                    Label("Providers", systemImage: "cpu")
-                }
-                .tag(SettingsTab.providers)
+            Divider()
 
-            SessionsSettingsTab(settings: settings)
-                .tabItem {
-                    Label("Sessions", systemImage: "clock")
+            Group {
+                switch selectedTab {
+                case .general:
+                    GeneralSettingsTab(settings: settings)
+                case .providers:
+                    ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
+                case .sessions:
+                    SessionsSettingsTab(settings: settings)
+                case .storage:
+                    StorageSettingsTab(hidePaths: settings.hideProjectPaths)
+                case .privacy:
+                    PrivacySettingsTab(settings: settings)
+                case .about:
+                    AboutSettingsTab()
                 }
-                .tag(SettingsTab.sessions)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            PrivacySettingsTab(settings: settings)
-                .tabItem {
-                    Label("Privacy", systemImage: "hand.raised")
-                }
-                .tag(SettingsTab.privacy)
+            Divider()
 
-            AboutSettingsTab()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
-                .tag(SettingsTab.about)
+            SettingsFooterView()
         }
-        .frame(minWidth: 480, idealWidth: 520, maxWidth: 640, minHeight: 360, idealHeight: 420, maxHeight: 600)
+        .frame(minWidth: 480, idealWidth: 520, maxWidth: 640, minHeight: 360, idealHeight: 460, maxHeight: 600)
+    }
+}
+
+public struct SettingsFooterView: View {
+    public init() {}
+
+    public var body: some View {
+        HStack(spacing: 4) {
+            Text("Made with")
+            Image(systemName: "heart.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.red.opacity(0.85))
+                .accessibilityHidden(true)
+            Text("by Deepak (ChaiWithCode)")
+        }
+        .font(.system(size: 11, weight: .regular))
+        .foregroundStyle(.secondary)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Made with love by Deepak (ChaiWithCode)")
+        .accessibilityIdentifier("footer-made-with-love")
     }
 }
 
@@ -70,50 +108,52 @@ private struct GeneralSettingsTab: View {
     @Bindable var settings: LoomSettings
 
     var body: some View {
-        Form {
-            Section {
-                Toggle(isOn: $settings.showInDock) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Show Loom in Dock")
-                            .font(.body)
-                        Text("Keep Loom in the macOS Dock and Command-Tab application switcher.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+        ScrollView {
+            Form {
+                Section {
+                    Toggle(isOn: $settings.showInDock) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Show Loom in Dock")
+                                .font(.body)
+                            Text("Keep Loom in the macOS Dock and Command-Tab application switcher.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier("toggle-show-in-dock")
+                    .accessibilityLabel("Show Loom in Dock")
+                    .padding(.vertical, 4)
+
+                    Picker("Refresh Interval", selection: $settings.refreshIntervalSeconds) {
+                        Text("Every 30 seconds").tag(30)
+                        Text("Every minute (default)").tag(60)
+                        Text("Every 2 minutes").tag(120)
+                        Text("Every 5 minutes").tag(300)
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("picker-refresh-interval")
+                    .accessibilityLabel("Refresh Interval")
+                    .padding(.vertical, 4)
+                }
+
+                SoftwareUpdatesSettingsSection()
+
+                Section {
+                    HStack {
+                        Spacer()
+                        Button("Restore Defaults") {
+                            settings.resetToDefaults()
+                        }
+                        .accessibilityIdentifier("button-restore-defaults")
+                        .accessibilityLabel("Restore Defaults")
+                        .buttonStyle(.bordered)
+                        .controlSize(.regular)
                     }
                 }
-                .toggleStyle(.checkbox)
-                .accessibilityIdentifier("toggle-show-in-dock")
-                .accessibilityLabel("Show Loom in Dock")
-                .padding(.vertical, 4)
-
-                Picker("Refresh Interval", selection: $settings.refreshIntervalSeconds) {
-                    Text("Every 30 seconds").tag(30)
-                    Text("Every minute (default)").tag(60)
-                    Text("Every 2 minutes").tag(120)
-                    Text("Every 5 minutes").tag(300)
-                }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("picker-refresh-interval")
-                .accessibilityLabel("Refresh Interval")
-                .padding(.vertical, 4)
             }
-
-            SoftwareUpdatesSettingsSection()
-
-            Section {
-                HStack {
-                    Spacer()
-                    Button("Restore Defaults") {
-                        settings.resetToDefaults()
-                    }
-                    .accessibilityIdentifier("button-restore-defaults")
-                    .accessibilityLabel("Restore Defaults")
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                }
-            }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
     }
 }
 
@@ -126,6 +166,7 @@ private struct ProviderRowItem: Identifiable {
 private struct ProvidersSettingsTab: View {
     @Bindable var settings: LoomSettings
     let store: SessionStore?
+    let focusedProviderID: ProviderID?
 
     private var supportedProviders: [ProviderRowItem] {
         let supported = LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })
@@ -192,6 +233,14 @@ private struct ProvidersSettingsTab: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .background {
+            if focusedProviderID == item.id {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.accentColor.opacity(0.12))
+            }
+        }
+        .accessibilityIdentifier("provider-row-\(item.id.rawValue)")
     }
 
     private func statusColor(for snapshot: ProviderSnapshot?, isEnabled: Bool) -> Color {
@@ -319,15 +368,7 @@ private struct PrivacySettingsTab: View {
 
 private struct AboutSettingsTab: View {
     private var versionString: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
-        if let version, !version.isEmpty {
-            if let build, !build.isEmpty, build != version {
-                return "Version \(version) (\(build))"
-            }
-            return "Version \(version)"
-        }
-        return "Version 0.1.1 (Dev)"
+        AppVersion.current.aboutString
     }
 
     var body: some View {

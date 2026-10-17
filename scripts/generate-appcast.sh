@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$("${ROOT_DIR}/scripts/fetch-sparkle-tools.sh")"
 
-VERSION="${1:-${VERSION:-0.1.1}}"
+VERSION="${1:-${VERSION:-1.0}}"
 DIST_DIR="${2:-${DIST_DIR:-${ROOT_DIR}/dist}}"
 OUTPUT_APPCAST="${3:-${OUTPUT_APPCAST:-${DIST_DIR}/appcast.xml}}"
 BASE_URL="https://github.com/chaiwithcode/Loom/releases/download/v${VERSION}/"

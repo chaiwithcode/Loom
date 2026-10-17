@@ -21,6 +21,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         DockController.shared.buildDockMenu()
     }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        DockController.shared.applicationShouldHandleReopen(sender, hasVisibleWindows: flag)
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            DockController.shared.handleOpenURL(url)
+        }
+    }
 }
 
 @main
@@ -59,9 +69,11 @@ struct LoomApp: App {
         MenuBarExtra {
             MenuBarRootView(store: store, settings: settings)
         } label: {
-            Image(nsImage: LoomIcon.menuBarImage)
-                .renderingMode(.template)
-                .accessibilityLabel("Loom")
+            HStack(spacing: 4) {
+                Image(nsImage: LoomIcon.menuBarImage)
+                    .renderingMode(.template)
+            }
+            .accessibilityLabel("Loom")
         }
         .menuBarExtraStyle(.window)
         .commands {

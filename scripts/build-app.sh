@@ -24,8 +24,11 @@ MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 FRAMEWORKS_DIR="${CONTENTS_DIR}/Frameworks"
 
+PLUGINS_DIR="${CONTENTS_DIR}/PlugIns"
+WIDGET_APPEX="${PLUGINS_DIR}/LoomWidgetExtension.appex"
+
 echo "==> Packaging ${APP_BUNDLE}..."
-mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}" "${FRAMEWORKS_DIR}"
+mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}" "${FRAMEWORKS_DIR}" "${PLUGINS_DIR}"
 
 # Atomically stage binary to avoid overwriting running inodes
 TMP_BIN="$(mktemp "${MACOS_DIR}/Loom.tmp.XXXXXX")"
@@ -48,9 +51,37 @@ if [[ -d "${BIN_PATH}/Sparkle.framework" ]]; then
     cp -R "${BIN_PATH}/Sparkle.framework" "${FRAMEWORKS_DIR}/Sparkle.framework"
 fi
 
+# Build and stage LoomWidgetExtension using Xcode native target
+echo "==> Building LoomWidgetExtension using Xcode native target..."
+XCODE_BUILD_DIR="${ROOT_DIR}/.build/xcode"
+mkdir -p "${XCODE_BUILD_DIR}"
+xcodebuild build \
+    -project "${ROOT_DIR}/Loom.xcodeproj" \
+    -scheme LoomWidgetExtension \
+    -destination 'platform=macOS' \
+    -configuration Release \
+    CODE_SIGNING_ALLOWED=NO \
+    -derivedDataPath "${XCODE_BUILD_DIR}"
+
+WIDGET_BUILD_APPEX="${XCODE_BUILD_DIR}/Build/Products/Release/LoomWidgetExtension.appex"
+if [[ ! -d "${WIDGET_BUILD_APPEX}" ]]; then
+    echo "Error: LoomWidgetExtension.appex not found at ${WIDGET_BUILD_APPEX}" >&2
+    exit 1
+fi
+
+echo "==> Staging LoomWidgetExtension into Contents/PlugIns..."
+rm -rf "${WIDGET_APPEX}"
+cp -R "${WIDGET_BUILD_APPEX}" "${WIDGET_APPEX}"
+
 if [[ -f "${ROOT_DIR}/Resources/Loom.icns" ]]; then
     cp "${ROOT_DIR}/Resources/Loom.icns" "${RESOURCES_DIR}/Loom.icns"
 fi
+
+for asset in "${ROOT_DIR}/Resources/provider-"*.png; do
+    if [[ -f "${asset}" ]]; then
+        cp "${asset}" "${RESOURCES_DIR}/"
+    fi
+done
 
 cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -72,9 +103,9 @@ cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.1</string>
+    <string>1.0</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>4</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>
@@ -87,6 +118,17 @@ cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
     <string>jFxPCf9cSvpmuEc6U4EdjWlYwMzMVlTd6M8wPlvLZsE=</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.chaiwithcode.loom</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>loom</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>
 EOF
@@ -95,14 +137,30 @@ echo "==> Validating Info.plist..."
 plutil -lint "${CONTENTS_DIR}/Info.plist"
 
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-}"
+if [[ -z "${SIGNING_IDENTITY}" ]]; then
+    DETECTED_ID="$(security find-identity -v -p codesigning 2>/dev/null | grep -o 'Developer ID Application: [^"]*' | head -n 1 || true)"
+    if [[ -z "${DETECTED_ID}" ]]; then
+        DETECTED_ID="$(security find-identity -v -p codesigning 2>/dev/null | grep -o 'Apple Development: [^"]*' | head -n 1 || true)"
+    fi
+    if [[ -n "${DETECTED_ID}" ]]; then
+        SIGNING_IDENTITY="${DETECTED_ID}"
+        echo "==> Auto-detected signing identity: ${SIGNING_IDENTITY}"
+    fi
+fi
 
 sign_component() {
     local target="$1"
-    if [[ -n "${SIGNING_IDENTITY}" ]]; then
-        codesign --force --options runtime --timestamp --sign "${SIGNING_IDENTITY}" "${target}"
-    else
-        codesign --force --sign - "${target}"
+    local entitlements="${2:-}"
+    local sign_cmd=(codesign --force)
+    if [[ -n "${entitlements}" && -f "${entitlements}" ]]; then
+        sign_cmd+=(--entitlements "${entitlements}")
     fi
+    if [[ -n "${SIGNING_IDENTITY}" ]]; then
+        sign_cmd+=(--options runtime --timestamp --sign "${SIGNING_IDENTITY}" "${target}")
+    else
+        sign_cmd+=(--sign - "${target}")
+    fi
+    "${sign_cmd[@]}"
 }
 
 # Sign nested components inside-out
@@ -124,12 +182,18 @@ if [[ -d "${SPARKLE_FW}" ]]; then
     sign_component "${SPARKLE_FW}"
 fi
 
+# Code sign embedded LoomWidgetExtension
+if [[ -d "${WIDGET_APPEX}" ]]; then
+    echo "==> Code signing LoomWidgetExtension.appex inside-out..."
+    sign_component "${WIDGET_APPEX}" "${ROOT_DIR}/LoomWidget/LoomWidget.entitlements"
+fi
+
 if [[ -n "${SIGNING_IDENTITY}" ]]; then
     echo "==> Code signing app bundle with identity: ${SIGNING_IDENTITY} (Hardened Runtime)..."
 else
     echo "==> Code signing app bundle (ad-hoc with Hardened Runtime)..."
 fi
-sign_component "${APP_BUNDLE}"
+sign_component "${APP_BUNDLE}" "${ROOT_DIR}/Loom.entitlements"
 
 echo "==> Verifying signature..."
 codesign --verify --deep --strict --verbose=2 "${APP_BUNDLE}"

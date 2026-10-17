@@ -34,6 +34,10 @@ Loom is independent and is not affiliated with or endorsed by these providers.
 
 ## Settings and privacy controls
 
+**Storage** in Settings shows measured disk space in known provider data and cache folders, with per-folder details and Finder reveal. Scans are read-only, run on demand, and distinguish partial measurements from missing or inaccessible folders. Application binaries and project files are excluded.
+
+Widgets offer **Loom Sessions** (Small/Medium) for local activity, **Loom Quotas** (Small) for a selected provider’s remaining quota and reset times, and **Loom Usage Overview** (Medium/Large) for multi-provider quota progress across all tools together. See [widget setup](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
+
 Loom provides local, persisted settings to customize monitoring and protect developer privacy:
 
 - **Providers**: Enable or disable monitoring individually for Codex, Claude Code, and Antigravity. Disabling a provider immediately stops new discovery and quota polling, applies cooperative cancellation to running provider tasks, and keeps the provider selectable in Settings. A preferred default provider can be configured with automatic fallback if disabled. The interface remains fully functional even if all providers are disabled.
@@ -124,6 +128,8 @@ xcodebuild build -project Loom.xcodeproj -scheme Loom -destination 'platform=mac
 ```
 
 See [CONTRIBUTING](CONTRIBUTING.md) for fixtures, review expectations and provider work.
+
+See [widget verification and troubleshooting](docs/WIDGETS.md) for local widget builds, installation, shared storage, and Notification Center checks.
 
 ## What comes next
 

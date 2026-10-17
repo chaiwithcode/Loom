@@ -93,3 +93,29 @@ public struct LoomIconView: View {
             .frame(width: size, height: size)
     }
 }
+
+extension View {
+    @ViewBuilder
+    func loomToolbarButtonStyle() -> some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.borderless)
+        }
+        #else
+        self.buttonStyle(.borderless)
+        #endif
+    }
+}
+
+struct LoomPanelMaterial: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        if reduceTransparency {
+            Color(nsColor: .windowBackgroundColor)
+        } else {
+            Rectangle().fill(.regularMaterial)
+        }
+    }
+}

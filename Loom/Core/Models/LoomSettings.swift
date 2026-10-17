@@ -46,6 +46,7 @@ public final class LoomSettings {
     public static let includeRecentSessionsKey = "com.loom.includeRecentSessions"
     public static let hideFinishedAfterKey = "com.loom.hideFinishedAfter"
     public static let hideProjectPathsKey = "com.loom.hideProjectPaths"
+    public static let showVersionInMenuBarKey = "com.loom.showVersionInMenuBar"
 
     public static let defaultShowInDock = false
     public static let defaultRefreshIntervalSeconds = 60
@@ -55,6 +56,7 @@ public final class LoomSettings {
     public static let defaultIncludeRecentSessions = true
     public static let defaultHideFinishedAfter: HideFinishedInterval = .never
     public static let defaultHideProjectPaths = false
+    public static let defaultShowVersionInMenuBar = false
 
     private let defaults: UserDefaults
 
@@ -65,6 +67,7 @@ public final class LoomSettings {
     public var onIncludeRecentSessionsChanged: (@MainActor (Bool) -> Void)?
     public var onHideFinishedAfterChanged: (@MainActor (HideFinishedInterval) -> Void)?
     public var onHideProjectPathsChanged: (@MainActor (Bool) -> Void)?
+    public var onShowVersionInMenuBarChanged: (@MainActor (Bool) -> Void)?
 
     @ObservationIgnored private var isNormalizingRefreshInterval = false
     @ObservationIgnored private var isNormalizingDefaultProvider = false
@@ -154,6 +157,15 @@ public final class LoomSettings {
         }
     }
 
+    public var showVersionInMenuBar: Bool {
+        didSet {
+            defaults.set(showVersionInMenuBar, forKey: Self.showVersionInMenuBarKey)
+            if showVersionInMenuBar != oldValue {
+                onShowVersionInMenuBarChanged?(showVersionInMenuBar)
+            }
+        }
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
@@ -227,6 +239,13 @@ public final class LoomSettings {
         } else {
             self.hideProjectPaths = Self.defaultHideProjectPaths
         }
+
+        // showVersionInMenuBar: validate boolean type, default false
+        if let num = defaults.object(forKey: Self.showVersionInMenuBarKey) as? NSNumber {
+            self.showVersionInMenuBar = num.boolValue
+        } else {
+            self.showVersionInMenuBar = Self.defaultShowVersionInMenuBar
+        }
     }
 
     public func isProviderEnabled(_ providerID: ProviderID) -> Bool {
@@ -260,6 +279,7 @@ public final class LoomSettings {
         includeRecentSessions = Self.defaultIncludeRecentSessions
         hideFinishedAfter = Self.defaultHideFinishedAfter
         hideProjectPaths = Self.defaultHideProjectPaths
+        showVersionInMenuBar = Self.defaultShowVersionInMenuBar
     }
 
     public static func isSessionActive(_ session: AgentSession) -> Bool {

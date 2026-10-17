@@ -194,9 +194,9 @@ run_prepare() {
     echo "==> Preparing release v${version}..."
     echo ""
 
-    # Validate version format (e.g. 0.2.0)
-    if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
-        echo "ERROR: Invalid semantic version format: '${version}' (expected X.Y.Z)" >&2
+    # Validate version format (e.g. 1.0 or 0.2.0)
+    if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.]+)?$ ]]; then
+        echo "ERROR: Invalid version format: '${version}' (expected X.Y or X.Y.Z)" >&2
         exit 1
     fi
 
