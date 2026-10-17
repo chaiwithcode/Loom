@@ -19,6 +19,7 @@ public struct CheckForUpdatesView: View {
             updateController.checkForUpdates()
         }
         .disabled(!updateController.canCheckForUpdates)
+        .help(updateController.canCheckForUpdates ? "Check for Loom updates" : "Updates are not available in development builds")
     }
 }
 
@@ -56,6 +57,7 @@ public struct SoftwareUpdatesSettingsSection: View {
                     updateController.checkForUpdates()
                 }
                 .disabled(!updateController.canCheckForUpdates)
+                .help(updateController.canCheckForUpdates ? "Check for Loom updates" : "Updates are not available in development builds")
                 .accessibilityIdentifier("button-check-updates")
             }
             .padding(.vertical, 4)

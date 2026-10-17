@@ -65,6 +65,30 @@
 		A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000125 /* ClaudeTranscriptInspector.swift */; };
 		A00000000000000000000126 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000127 /* ClaudeProvider.swift */; };
 		A00000000000000000000128 /* ClaudeProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000129 /* ClaudeProviderTests.swift */; };
+		A00000000000000000000132 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000131 /* AppVersion.swift */; };
+		A00000000000000000000134 /* AppVersionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* AppVersionTests.swift */; };
+		A00000000000000000000142 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000141 /* SharedAppGroup.swift */; };
+		A00000000000000000000144 /* LoomWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000143 /* LoomWidgetSnapshot.swift */; };
+		A00000000000000000000146 /* SessionStore+Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000145 /* SessionStore+Widget.swift */; };
+		A00000000000000000000148 /* SharedAppGroupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000147 /* SharedAppGroupTests.swift */; };
+		A00000000000000000000152 /* CheckForUpdatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000151 /* CheckForUpdatesView.swift */; };
+		A00000000000000000000154 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000153 /* UpdateController.swift */; };
+		A00000000000000000000165 /* LoomWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000161 /* LoomWidget.swift */; };
+		A00000000000000000000166 /* LoomWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000143 /* LoomWidgetSnapshot.swift */; };
+		A00000000000000000000167 /* SharedAppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000141 /* SharedAppGroup.swift */; };
+		A00000000000000000000168 /* LoomWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A00000000000000000000164 /* LoomWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C00000000000000000000000 /* Loom/Core/Models/ProviderIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000000 /* Loom/Core/Models/ProviderIssue.swift */; };
+		C00000000000000000000001 /* Loom/Core/Storage/StorageScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001 /* Loom/Core/Storage/StorageScanner.swift */; };
+		C00000000000000000000002 /* Loom/Providers/ProviderStorageLocations.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002 /* Loom/Providers/ProviderStorageLocations.swift */; };
+		C00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift */; };
+		C00000000000000000000004 /* LoomIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002F /* LoomIcon.swift */; };
+		C00000000000000000000005 /* Tests/LoomCoreTests/StorageAndRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* Tests/LoomCoreTests/StorageAndRefreshTests.swift */; };
+		A00000000000000000000182 /* ProviderPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000181 /* ProviderPresentation.swift */; };
+		A00000000000000000000184 /* ProviderIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000183 /* ProviderIconView.swift */; };
+		A00000000000000000000186 /* ProviderPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000185 /* ProviderPresentationTests.swift */; };
+		A00000000000000000000192 /* provider-codex.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000191 /* provider-codex.png */; };
+		A00000000000000000000194 /* provider-claude.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000193 /* provider-claude.png */; };
+		A00000000000000000000196 /* provider-antigravity.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000195 /* provider-antigravity.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +106,13 @@
 			remoteGlobalIDString = A00000000000000000000040;
 			remoteInfo = LoomCore;
 		};
+		A00000000000000000000177 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00000000000000000000170;
+			remoteInfo = LoomWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -94,6 +125,17 @@
 				A00000000000000000000091 /* LoomCore.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000178 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A00000000000000000000168 /* LoomWidgetExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -157,6 +199,29 @@
 		A00000000000000000000125 /* ClaudeTranscriptInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptInspector.swift; sourceTree = "<group>"; };
 		A00000000000000000000127 /* ClaudeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProvider.swift; sourceTree = "<group>"; };
 		A00000000000000000000129 /* ClaudeProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProviderTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000131 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
+		A00000000000000000000133 /* AppVersionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersionTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000141 /* SharedAppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAppGroup.swift; sourceTree = "<group>"; };
+		A00000000000000000000143 /* LoomWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomWidgetSnapshot.swift; sourceTree = "<group>"; };
+		A00000000000000000000145 /* SessionStore+Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionStore+Widget.swift"; sourceTree = "<group>"; };
+		A00000000000000000000147 /* SharedAppGroupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAppGroupTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000151 /* CheckForUpdatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForUpdatesView.swift; sourceTree = "<group>"; };
+		A00000000000000000000153 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
+		A00000000000000000000161 /* LoomWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomWidget.swift; sourceTree = "<group>"; };
+		A00000000000000000000162 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A00000000000000000000163 /* LoomWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LoomWidget.entitlements; sourceTree = "<group>"; };
+		A00000000000000000000164 /* LoomWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LoomWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B00000000000000000000000 /* Loom/Core/Models/ProviderIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loom/Core/Models/ProviderIssue.swift; sourceTree = SOURCE_ROOT; };
+		B00000000000000000000001 /* Loom/Core/Storage/StorageScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loom/Core/Storage/StorageScanner.swift; sourceTree = SOURCE_ROOT; };
+		B00000000000000000000002 /* Loom/Providers/ProviderStorageLocations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loom/Providers/ProviderStorageLocations.swift; sourceTree = SOURCE_ROOT; };
+		B00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loom/UI/Settings/StorageSettingsTab.swift; sourceTree = SOURCE_ROOT; };
+		B00000000000000000000005 /* Tests/LoomCoreTests/StorageAndRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/LoomCoreTests/StorageAndRefreshTests.swift; sourceTree = SOURCE_ROOT; };
+		A00000000000000000000181 /* ProviderPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderPresentation.swift; sourceTree = "<group>"; };
+		A00000000000000000000183 /* ProviderIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderIconView.swift; sourceTree = "<group>"; };
+		A00000000000000000000185 /* ProviderPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderPresentationTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000191 /* provider-codex.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-codex.png; sourceTree = "<group>"; };
+		A00000000000000000000193 /* provider-claude.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-claude.png; sourceTree = "<group>"; };
+		A00000000000000000000195 /* provider-antigravity.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-antigravity.png; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -183,6 +248,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A00000000000000000000175 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -190,6 +262,7 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000010 /* Loom */,
+				A00000000000000000000160 /* LoomWidget */,
 				A0000000000000000000001A /* Tests */,
 				A0000000000000000000001C /* Resources */,
 				A00000000000000000000003 /* Products */,
@@ -201,6 +274,7 @@
 			children = (
 				A00000000000000000000030 /* LoomCore.framework */,
 				A00000000000000000000031 /* Loom.app */,
+				A00000000000000000000164 /* LoomWidgetExtension.appex */,
 				A00000000000000000000032 /* LoomCoreTests.xctest */,
 			);
 			name = Products;
@@ -213,6 +287,7 @@
 				A00000000000000000000012 /* UI */,
 				A00000000000000000000014 /* Core */,
 				A00000000000000000000018 /* Providers */,
+				A00000000000000000000150 /* Update */,
 			);
 			path = Loom;
 			sourceTree = "<group>";
@@ -220,6 +295,7 @@
 		A00000000000000000000011 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				B00000000000000000000002 /* Loom/Providers/ProviderStorageLocations.swift */,
 				A00000000000000000000020 /* LoomApp.swift */,
 				A000000000000000000000F3 /* DockController.swift */,
 			);
@@ -243,6 +319,7 @@
 				A00000000000000000000023 /* SessionRowView.swift */,
 				A0000000000000000000002F /* LoomIcon.swift */,
 				A0000000000000000000002E /* UsageBarView.swift */,
+				A00000000000000000000183 /* ProviderIconView.swift */,
 			);
 			path = MenuBar;
 			sourceTree = "<group>";
@@ -254,6 +331,7 @@
 				A00000000000000000000016 /* Protocols */,
 				A00000000000000000000017 /* Store */,
 				A0000000000000000000010D /* Discovery */,
+				A00000000000000000000140 /* Storage */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -261,6 +339,8 @@
 		A00000000000000000000015 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				B00000000000000000000001 /* Loom/Core/Storage/StorageScanner.swift */,
+				B00000000000000000000000 /* Loom/Core/Models/ProviderIssue.swift */,
 				A00000000000000000000024 /* AgentState.swift */,
 				A00000000000000000000025 /* AgentSession.swift */,
 				A00000000000000000000026 /* ProviderID.swift */,
@@ -269,6 +349,9 @@
 				A000000000000000000000F1 /* LoomSettings.swift */,
 				A00000000000000000000101 /* AgentProcess.swift */,
 				A00000000000000000000103 /* ProviderDiscoveryDiagnostics.swift */,
+				A00000000000000000000131 /* AppVersion.swift */,
+				A00000000000000000000143 /* LoomWidgetSnapshot.swift */,
+				A00000000000000000000181 /* ProviderPresentation.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -285,6 +368,7 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000029 /* SessionStore.swift */,
+				A00000000000000000000145 /* SessionStore+Widget.swift */,
 			);
 			path = Store;
 			sourceTree = "<group>";
@@ -319,6 +403,7 @@
 		A0000000000000000000001B /* LoomCoreTests */ = {
 			isa = PBXGroup;
 			children = (
+				B00000000000000000000005 /* Tests/LoomCoreTests/StorageAndRefreshTests.swift */,
 				A0000000000000000000002B /* SessionStoreTests.swift */,
 				A000000000000000000000C6 /* CodexProviderTests.swift */,
 				A000000000000000000000E6 /* AntigravityProviderTests.swift */,
@@ -330,6 +415,9 @@
 				A00000000000000000000115 /* CodexStateStoreInspectorTests.swift */,
 				A00000000000000000000119 /* SessionLifecycleReconcilerTests.swift */,
 				A00000000000000000000129 /* ClaudeProviderTests.swift */,
+				A00000000000000000000133 /* AppVersionTests.swift */,
+				A00000000000000000000147 /* SharedAppGroupTests.swift */,
+				A00000000000000000000185 /* ProviderPresentationTests.swift */,
 			);
 			path = LoomCoreTests;
 			sourceTree = "<group>";
@@ -338,6 +426,9 @@
 			isa = PBXGroup;
 			children = (
 				A0000000000000000000002D /* Loom.icns */,
+				A00000000000000000000191 /* provider-codex.png */,
+				A00000000000000000000193 /* provider-claude.png */,
+				A00000000000000000000195 /* provider-antigravity.png */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -375,6 +466,7 @@
 		A000000000000000000000FB /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				B00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift */,
 				A000000000000000000000F5 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -400,6 +492,33 @@
 				A00000000000000000000127 /* ClaudeProvider.swift */,
 			);
 			path = Claude;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000140 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000141 /* SharedAppGroup.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000150 /* Update */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000151 /* CheckForUpdatesView.swift */,
+				A00000000000000000000153 /* UpdateController.swift */,
+			);
+			path = Update;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000160 /* LoomWidget */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000161 /* LoomWidget.swift */,
+				A00000000000000000000162 /* Info.plist */,
+				A00000000000000000000163 /* LoomWidget.entitlements */,
+			);
+			path = LoomWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -439,12 +558,14 @@
 				A00000000000000000000054 /* Sources */,
 				A00000000000000000000055 /* Frameworks */,
 				A00000000000000000000056 /* Embed Frameworks */,
+				A00000000000000000000178 /* Embed App Extensions */,
 				A00000000000000000000059 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				A00000000000000000000057 /* PBXTargetDependency */,
+				A00000000000000000000176 /* PBXTargetDependency */,
 			);
 			name = Loom;
 			productName = Loom;
@@ -468,6 +589,22 @@
 			productReference = A00000000000000000000032 /* LoomCoreTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		A00000000000000000000170 /* LoomWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000171 /* Build configuration list for PBXNativeTarget "LoomWidgetExtension" */;
+			buildPhases = (
+				A00000000000000000000174 /* Sources */,
+				A00000000000000000000175 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LoomWidgetExtension;
+			productName = LoomWidgetExtension;
+			productReference = A00000000000000000000164 /* LoomWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -488,6 +625,9 @@
 						CreatedOnToolsVersion = 16.0;
 						TestTargetID = A00000000000000000000040;
 					};
+					A00000000000000000000170 = {
+						CreatedOnToolsVersion = 16.0;
+					};
 				};
 			};
 			buildConfigurationList = A00000000000000000000004 /* Build configuration list for PBXProject "Loom" */;
@@ -505,6 +645,7 @@
 			targets = (
 				A00000000000000000000040 /* LoomCore */,
 				A00000000000000000000050 /* Loom */,
+				A00000000000000000000170 /* LoomWidgetExtension */,
 				A00000000000000000000060 /* LoomCoreTests */,
 			);
 		};
@@ -516,6 +657,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000086 /* Loom.icns in Resources */,
+				A00000000000000000000192 /* provider-codex.png in Resources */,
+				A00000000000000000000194 /* provider-claude.png in Resources */,
+				A00000000000000000000196 /* provider-antigravity.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -526,6 +670,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C00000000000000000000002 /* Loom/Providers/ProviderStorageLocations.swift in Sources */,
+				C00000000000000000000001 /* Loom/Core/Storage/StorageScanner.swift in Sources */,
+				C00000000000000000000000 /* Loom/Core/Models/ProviderIssue.swift in Sources */,
 				A00000000000000000000070 /* AgentState.swift in Sources */,
 				A00000000000000000000071 /* AgentSession.swift in Sources */,
 				A00000000000000000000072 /* ProviderID.swift in Sources */,
@@ -561,6 +708,11 @@
 				A00000000000000000000122 /* ClaudeParser.swift in Sources */,
 				A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */,
 				A00000000000000000000126 /* ClaudeProvider.swift in Sources */,
+				A00000000000000000000132 /* AppVersion.swift in Sources */,
+				A00000000000000000000142 /* SharedAppGroup.swift in Sources */,
+				A00000000000000000000144 /* LoomWidgetSnapshot.swift in Sources */,
+				A00000000000000000000146 /* SessionStore+Widget.swift in Sources */,
+				A00000000000000000000182 /* ProviderPresentation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -568,6 +720,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift in Sources */,
 				A00000000000000000000080 /* LoomApp.swift in Sources */,
 				A00000000000000000000081 /* MenuBarRootView.swift in Sources */,
 				A00000000000000000000082 /* ProviderSectionView.swift in Sources */,
@@ -576,6 +729,9 @@
 				A00000000000000000000085 /* UsageBarView.swift in Sources */,
 				A000000000000000000000F4 /* DockController.swift in Sources */,
 				A000000000000000000000F6 /* SettingsView.swift in Sources */,
+				A00000000000000000000152 /* CheckForUpdatesView.swift in Sources */,
+				A00000000000000000000154 /* UpdateController.swift in Sources */,
+				A00000000000000000000184 /* ProviderIconView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -583,6 +739,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C00000000000000000000005 /* Tests/LoomCoreTests/StorageAndRefreshTests.swift in Sources */,
 				A00000000000000000000088 /* SessionStoreTests.swift in Sources */,
 				A000000000000000000000A6 /* CodexProviderTests.swift in Sources */,
 				A000000000000000000000B6 /* AntigravityProviderTests.swift in Sources */,
@@ -594,6 +751,20 @@
 				A00000000000000000000114 /* CodexStateStoreInspectorTests.swift in Sources */,
 				A00000000000000000000118 /* SessionLifecycleReconcilerTests.swift in Sources */,
 				A00000000000000000000128 /* ClaudeProviderTests.swift in Sources */,
+				A00000000000000000000134 /* AppVersionTests.swift in Sources */,
+				A00000000000000000000148 /* SharedAppGroupTests.swift in Sources */,
+				A00000000000000000000186 /* ProviderPresentationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000174 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C00000000000000000000004 /* LoomIcon.swift in Sources */,
+				A00000000000000000000165 /* LoomWidget.swift in Sources */,
+				A00000000000000000000166 /* LoomWidgetSnapshot.swift in Sources */,
+				A00000000000000000000167 /* SharedAppGroup.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -609,6 +780,11 @@
 			isa = PBXTargetDependency;
 			target = A00000000000000000000040 /* LoomCore */;
 			targetProxy = A00000000000000000000067 /* PBXContainerItemProxy */;
+		};
+		A00000000000000000000176 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A00000000000000000000170 /* LoomWidgetExtension */;
+			targetProxy = A00000000000000000000177 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -795,10 +971,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = Loom.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = K9UNF256S9;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -816,7 +994,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwithcode.loom;
 				PRODUCT_NAME = Loom;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -827,10 +1005,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = Loom.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = K9UNF256S9;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -848,7 +1028,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwithcode.loom;
 				PRODUCT_NAME = Loom;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -897,6 +1077,72 @@
 			};
 			name = Release;
 		};
+		A00000000000000000000172 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LoomWidget/LoomWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 4;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = K9UNF256S9;
+				ENABLE_HARDENED_RUNTIME = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
+				);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LoomWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Loom;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwithcode.loom.widget;
+				PRODUCT_NAME = LoomWidgetExtension;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A00000000000000000000173 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LoomWidget/LoomWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 4;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = K9UNF256S9;
+				ENABLE_HARDENED_RUNTIME = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
+				);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LoomWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Loom;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chaiwithcode.loom.widget;
+				PRODUCT_NAME = LoomWidgetExtension;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -932,6 +1178,15 @@
 			buildConfigurations = (
 				A00000000000000000000062 /* Debug */,
 				A00000000000000000000063 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000171 /* Build configuration list for PBXNativeTarget "LoomWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000172 /* Debug */,
+				A00000000000000000000173 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

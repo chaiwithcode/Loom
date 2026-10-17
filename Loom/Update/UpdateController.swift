@@ -28,20 +28,25 @@ public final class UpdateController: NSObject, ObservableObject {
     public override init() {
         super.init()
         #if canImport(Sparkle)
-        let controller = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: self,
-            userDriverDelegate: nil
-        )
-        self.updaterController = controller
-        self.canCheckForUpdates = controller.updater.canCheckForUpdates
+        let isConfiguredBundle = Bundle.main.bundleIdentifier != nil && Bundle.main.infoDictionary?["SUFeedURL"] != nil
+        if isConfiguredBundle {
+            let controller = SPUStandardUpdaterController(
+                startingUpdater: true,
+                updaterDelegate: self,
+                userDriverDelegate: nil
+            )
+            self.updaterController = controller
+            self.canCheckForUpdates = controller.updater.canCheckForUpdates
 
-        controller.updater.addObserver(
-            self,
-            forKeyPath: "canCheckForUpdates",
-            options: [.new],
-            context: nil
-        )
+            controller.updater.addObserver(
+                self,
+                forKeyPath: "canCheckForUpdates",
+                options: [.new],
+                context: nil
+            )
+        } else {
+            self.canCheckForUpdates = false
+        }
         #else
         self.canCheckForUpdates = false
         #endif

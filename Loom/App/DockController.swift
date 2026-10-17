@@ -17,6 +17,7 @@ public final class DockController: NSObject, NSApplicationDelegate {
     public private(set) var settings: LoomSettings?
     public private(set) var isSettingsWindowPresented: Bool = false
     public private(set) var settingsWindow: NSWindow?
+    public private(set) var settingsProviderContextID: ProviderID?
     private weak var configuredStore: SessionStore?
     private weak var presentedStore: SessionStore?
     private var refreshAction: (@MainActor () -> Void)?
@@ -39,7 +40,12 @@ public final class DockController: NSObject, NSApplicationDelegate {
             let targetStore = store ?? configuredStore
             if settingsChanged || targetStore !== presentedStore {
                 self.presentedStore = targetStore
-                existing.contentView = NSHostingView(rootView: SettingsView(settings: settings, store: targetStore))
+                existing.contentView = NSHostingView(rootView: SettingsView(
+                    settings: settings,
+                    store: targetStore,
+                    initialTab: settingsProviderContextID != nil ? .providers : .general,
+                    initialProviderID: settingsProviderContextID
+                ))
             }
         }
 
@@ -64,17 +70,27 @@ public final class DockController: NSObject, NSApplicationDelegate {
         }
     }
 
-    public func showSettings(store: SessionStore? = nil) {
+    public func showSettings(store: SessionStore? = nil, tab: SettingsTab? = nil, providerID: ProviderID? = nil, resetTab: Bool = false) {
         guard let settings else { return }
+        if let providerID, !LoomSettings.defaultProviderIDs.contains(providerID) { return }
 
         let effectiveStore = store ?? configuredStore
+        let effectiveTab = providerID != nil ? SettingsTab.providers : (tab ?? .general)
+        let contextChanged = settingsProviderContextID != providerID || tab != nil || resetTab
+        settingsProviderContextID = providerID
         isSettingsWindowPresented = true
         updateActivationPolicy()
 
         if let existing = settingsWindow {
-            if let store, store !== presentedStore {
-                self.presentedStore = store
-                existing.contentView = NSHostingView(rootView: SettingsView(settings: settings, store: store))
+            let storeChanged = store != nil && store !== presentedStore
+            if contextChanged || storeChanged {
+                self.presentedStore = effectiveStore
+                existing.contentView = NSHostingView(rootView: SettingsView(
+                    settings: settings,
+                    store: effectiveStore,
+                    initialTab: effectiveTab,
+                    initialProviderID: providerID
+                ))
             }
             if existing.isMiniaturized {
                 existing.deminiaturize(nil)
@@ -85,10 +101,15 @@ public final class DockController: NSObject, NSApplicationDelegate {
         }
 
         self.presentedStore = effectiveStore
-        let contentView = SettingsView(settings: settings, store: effectiveStore)
+        let contentView = SettingsView(
+            settings: settings,
+            store: effectiveStore,
+            initialTab: effectiveTab,
+            initialProviderID: providerID
+        )
         let minContentSize = NSSize(width: 480, height: 360)
         let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: 520, height: 420)),
+            contentRect: NSRect(origin: .zero, size: NSSize(width: 520, height: 460)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -145,6 +166,47 @@ public final class DockController: NSObject, NSApplicationDelegate {
 
     @objc private func quitFromDock() {
         NSApp?.terminate(nil)
+    }
+
+    @discardableResult
+    public func handleReopen(hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            showSettings()
+        }
+        return true
+    }
+
+    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        handleReopen(hasVisibleWindows: flag)
+    }
+
+    public func handleOpenURL(_ url: URL) {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme?.lowercased() == "loom",
+              components.user == nil, components.password == nil, components.port == nil,
+              components.query == nil, components.fragment == nil else { return }
+        let host = components.host?.lowercased() ?? ""
+        switch host {
+        case "settings":
+            guard components.path.isEmpty else { return }
+            showSettings(resetTab: true)
+        case "provider":
+            let path = components.path
+            guard components.percentEncodedPath == path,
+                  path.hasPrefix("/"), path.count > 1,
+                  !path.dropFirst().contains("/"),
+                  LoomSettings.defaultProviderIDs.contains(ProviderID(String(path.dropFirst()))) else { return }
+            showSettings(providerID: ProviderID(String(path.dropFirst())), resetTab: true)
+        case "refresh":
+            guard components.path.isEmpty else { return }
+            refreshAction?()
+            NSApp?.activate(ignoringOtherApps: true)
+        case "open", "":
+            guard components.path.isEmpty else { return }
+            NSApp?.activate(ignoringOtherApps: true)
+        default:
+            return
+        }
     }
 }
 

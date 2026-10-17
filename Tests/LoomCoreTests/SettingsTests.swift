@@ -36,6 +36,27 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(settings.includeRecentSessions, "Default includeRecentSessions must be true")
         XCTAssertEqual(settings.hideFinishedAfter, .never, "Default hideFinishedAfter must be .never")
         XCTAssertFalse(settings.hideProjectPaths, "Default hideProjectPaths must be false")
+        XCTAssertFalse(settings.showVersionInMenuBar, "Default showVersionInMenuBar must be false")
+    }
+
+    @MainActor
+    func testShowVersionInMenuBarPersistenceAndCallback() {
+        let settings = LoomSettings(defaults: testDefaults)
+        var callbackValue: Bool?
+        settings.onShowVersionInMenuBarChanged = { val in
+            callbackValue = val
+        }
+
+        settings.showVersionInMenuBar = true
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.showVersionInMenuBarKey))
+        XCTAssertEqual(callbackValue, true)
+
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(reloaded.showVersionInMenuBar, "Persisted showVersionInMenuBar value should load on re-initialization")
+
+        settings.showVersionInMenuBar = false
+        XCTAssertFalse(testDefaults.bool(forKey: LoomSettings.showVersionInMenuBarKey))
+        XCTAssertEqual(callbackValue, false)
     }
 
     @MainActor
@@ -215,6 +236,7 @@ final class SettingsTests: XCTestCase {
         settings.includeRecentSessions = false
         settings.hideFinishedAfter = .twentyFourHours
         settings.hideProjectPaths = true
+        settings.showVersionInMenuBar = true
 
         var dockNotified = false
         var refreshNotified = false
@@ -223,6 +245,7 @@ final class SettingsTests: XCTestCase {
         var recentNotified = false
         var hideFinishedNotified = false
         var privacyNotified = false
+        var versionNotified = false
 
         settings.onShowInDockChanged = { _ in dockNotified = true }
         settings.onRefreshIntervalChanged = { _ in refreshNotified = true }
@@ -231,6 +254,7 @@ final class SettingsTests: XCTestCase {
         settings.onIncludeRecentSessionsChanged = { _ in recentNotified = true }
         settings.onHideFinishedAfterChanged = { _ in hideFinishedNotified = true }
         settings.onHideProjectPathsChanged = { _ in privacyNotified = true }
+        settings.onShowVersionInMenuBarChanged = { _ in versionNotified = true }
 
         settings.resetToDefaults()
 
@@ -241,6 +265,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(settings.includeRecentSessions)
         XCTAssertEqual(settings.hideFinishedAfter, .never)
         XCTAssertFalse(settings.hideProjectPaths)
+        XCTAssertFalse(settings.showVersionInMenuBar)
 
         XCTAssertTrue(dockNotified)
         XCTAssertTrue(refreshNotified)
@@ -249,6 +274,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(recentNotified)
         XCTAssertTrue(hideFinishedNotified)
         XCTAssertTrue(privacyNotified)
+        XCTAssertTrue(versionNotified)
     }
 
     @MainActor

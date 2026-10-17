@@ -56,10 +56,10 @@ public struct ProviderSectionView: View {
                 if let usage = snapshot.usage {
                     primaryQuotas(usage)
                     if let error = usage.errorMessage ?? snapshot.usageErrorMessage, !error.isEmpty {
-                        notice(sanitizedNotice(error), symbol: "exclamationmark.triangle", color: .orange)
+                        issueNotice(.usage(hasSavedData: true), details: error, color: .orange)
                     }
                 } else if let error = snapshot.usageErrorMessage, !error.isEmpty {
-                    notice("Quota unavailable: \(sanitizedNotice(error))", symbol: "gauge.with.dots.needle.bottom.50percent", color: .orange)
+                    issueNotice(.usage(hasSavedData: false), details: error, color: .orange)
                 } else if snapshot.availability.isAvailable && !snapshot.isRefreshing {
                     Text("No quota data available")
                         .font(.system(size: 12))
@@ -68,7 +68,7 @@ public struct ProviderSectionView: View {
             }
 
             if let error = snapshot.errorMessage, !error.isEmpty {
-                notice(sanitizedNotice(error), symbol: "exclamationmark.triangle", color: .red)
+                issueNotice(.discovery, details: error, color: .orange)
             } else if let reason = snapshot.availability.unavailabilityReason {
                 notice(sanitizedNotice(reason), symbol: "exclamationmark.triangle", color: .orange)
             }
@@ -150,6 +150,25 @@ public struct ProviderSectionView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(snapshot.displayName) section")
+    }
+
+    private func issueNotice(_ issue: ProviderIssue, details: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label(issue.title, systemImage: "exclamationmark.triangle")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(color)
+            Text(issue.recovery).font(.caption).foregroundStyle(.secondary)
+            DisclosureGroup("Technical details") {
+                Text(sanitizedNotice(details))
+                    .font(.caption).foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.caption)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func sanitizedNotice(_ text: String) -> String {
@@ -249,12 +268,8 @@ public struct ProviderSectionView: View {
 
     private func quotaCard(_ bucket: UsageBucket, usage: ProviderUsageSnapshot) -> some View {
         let reason: String?
-        if let err = usage.errorMessage {
-            if (settings?.hideProjectPaths ?? false) && (err.contains("/") || err.contains("~")) {
-                reason = "Details hidden by privacy setting"
-            } else {
-                reason = err
-            }
+        if usage.errorMessage != nil {
+            reason = "Previously fetched quota; refresh to check current availability"
         } else {
             reason = nil
         }

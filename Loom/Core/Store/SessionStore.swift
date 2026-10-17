@@ -212,6 +212,8 @@ private struct ProviderRefreshResult: Sendable {
     let usageError: String?
     let sessionError: String?
     let diagnostics: ProviderDiscoveryDiagnostics?
+    var sessionsCancelled: Bool = false
+    var usageCancelled: Bool = false
 }
 
 @Observable
@@ -222,6 +224,8 @@ public final class SessionStore {
     public private(set) var isRefreshing: Bool = false
     public private(set) var lastRefreshedAt: Date? = nil
     public private(set) var enabledProviderIDs: Set<ProviderID>
+    public private(set) var storageOverview: StorageOverview?
+    public private(set) var isStorageScanning: Bool = false
 
     public var enabledSnapshots: [ProviderSnapshot] {
         providerSnapshots.filter(\.isEnabled)
@@ -230,6 +234,7 @@ public final class SessionStore {
     private let registeredProviders: [any AgentProvider]
     private var activeRefreshTask: Task<Void, Never>?
     private var periodicRefreshTask: Task<Void, Never>?
+    private var activeStorageTask: Task<StorageOverview?, Never>?
     private var providerGenerations: [ProviderID: Int] = [:]
     private var activeProviderTasks: [ProviderID: Task<ProviderRefreshResult, Never>] = [:]
     private var needsSubsequentRefresh: Bool = false
@@ -381,6 +386,8 @@ public final class SessionStore {
                     await self?.refresh()
                 }
             }
+        } else {
+            publishWidgetSnapshot()
         }
     }
 
@@ -511,28 +518,30 @@ public final class SessionStore {
                     }
 
                     // Concurrent query for sessions and usage within provider with early cancellation checks
-                    async let sessionsTask: ([AgentSession], String?) = {
-                        guard !Task.isCancelled else { return ([], nil) }
+                    async let sessionsTask: ([AgentSession], String?, Bool) = {
+                        guard !Task.isCancelled else { return ([], nil, true) }
                         do {
                             let s = try await provider.discoverSessions()
-                            return (s, nil)
+                            return (s, nil, false)
                         } catch {
-                            return ([], error.localizedDescription)
+                            if ProviderIssue.isCancellation(error) { return ([], nil, true) }
+                            return ([], error.localizedDescription, false)
                         }
                     }()
 
-                    async let usageTask: (ProviderUsageSnapshot?, String?) = {
-                        guard !Task.isCancelled else { return (nil, nil) }
+                    async let usageTask: (ProviderUsageSnapshot?, String?, Bool) = {
+                        guard !Task.isCancelled else { return (nil, nil, true) }
                         do {
                             let u = try await provider.fetchUsage()
-                            return (u, nil)
+                            return (u, nil, false)
                         } catch {
-                            return (nil, error.localizedDescription)
+                            if ProviderIssue.isCancellation(error) { return (nil, nil, true) }
+                            return (nil, error.localizedDescription, false)
                         }
                     }()
 
-                    let (discoveredSessions, sErr) = await sessionsTask
-                    let (fetchedUsage, uErr) = await usageTask
+                    let (discoveredSessions, sErr, sCancelled) = await sessionsTask
+                    let (fetchedUsage, uErr, uCancelled) = await usageTask
 
                     guard !Task.isCancelled else {
                         return ProviderRefreshResult(
@@ -560,7 +569,9 @@ public final class SessionStore {
                         usage: fetchedUsage,
                         usageError: uErr,
                         sessionError: sErr,
-                        diagnostics: diag
+                        diagnostics: diag,
+                        sessionsCancelled: sCancelled,
+                        usageCancelled: uCancelled
                     )
                 }
 
@@ -586,6 +597,47 @@ public final class SessionStore {
         }
 
         lastRefreshedAt = Date()
+        publishWidgetSnapshot()
+    }
+
+    /// Measures and updates local agent storage overview asynchronously on a utility task.
+    public func refreshStorage(force: Bool = false) async {
+        if isStorageScanning && !force { return }
+        if !force, let lastScanned = storageOverview?.scannedAt, Date().timeIntervalSince(lastScanned) < 30 {
+            return
+        }
+
+        activeStorageTask?.cancel()
+        isStorageScanning = true
+
+        let worker = Task.detached(priority: .utility) { () -> StorageOverview? in
+            let providers = ProviderStorageLocations.local()
+            do {
+                return try StorageScanner().measureOverview(for: providers)
+            } catch {
+                return nil
+            }
+        }
+
+        let task = Task { () -> StorageOverview? in
+            await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+        }
+
+        activeStorageTask = task
+        let result = await task.value
+        guard !Task.isCancelled else {
+            isStorageScanning = false
+            return
+        }
+
+        if let result {
+            self.storageOverview = result
+        }
+        self.isStorageScanning = false
     }
 
     private func applyProviderResult(_ result: ProviderRefreshResult) {
@@ -595,13 +647,15 @@ public final class SessionStore {
 
         var snapshot = providerSnapshots[index]
         snapshot.availability = result.availability
-        snapshot.errorMessage = result.sessionError
+        if !result.sessionsCancelled { snapshot.errorMessage = result.sessionError }
         snapshot.diagnostics = result.diagnostics ?? result.sessions.first?.diagnostics
         snapshot.isRefreshing = false
 
         // Stale lifecycle protection: if provider encountered a fatal error or is unavailable,
         // ensure any previously active sessions do not remain stuck in .working!
-        if result.sessionError != nil || !result.availability.isAvailable {
+        if result.sessionsCancelled {
+            // An interrupted observation is not lifecycle evidence. Preserve previous sessions.
+        } else if result.sessionError != nil || !result.availability.isAvailable {
             if result.sessions.isEmpty && !snapshot.sessions.isEmpty {
                 snapshot.sessions = snapshot.sessions.map { s in
                     if s.state == .working || s.state == .starting || s.state == .waiting {
@@ -634,7 +688,10 @@ public final class SessionStore {
         }
 
         // Retain previous successful usage marked as stale if current fetch failed or returned nil or provider unavailable
-        if let newUsage = result.usage {
+        if result.usageCancelled {
+            snapshot.usage = snapshot.usage?.markedStale(error: nil)
+            snapshot.usageErrorMessage = nil
+        } else if let newUsage = result.usage {
             snapshot.usage = newUsage
             snapshot.usageErrorMessage = nil
         } else if let prevUsage = snapshot.usage {

@@ -7,7 +7,15 @@ log_file="/tmp/loom-settings-verification/settings-probe.log"
 exec > >(tee "$log_file") 2>&1
 
 probe_dir=$(mktemp -d /private/tmp/loom-settings-probe.XXXXXX)
-trap 'rm -rf "$probe_dir"' EXIT
+probe_pid=""
+
+cleanup() {
+    if [[ -n "$probe_pid" ]] && kill -0 "$probe_pid" 2>/dev/null; then
+        kill -TERM "$probe_pid" 2>/dev/null || true
+    fi
+    rm -rf "$probe_dir"
+}
+trap cleanup EXIT INT TERM
 
 echo "==> Building Loom targets for Settings probe..."
 swift build --disable-sandbox -Xswiftc -module-cache-path -Xswiftc "$probe_dir/cache"
@@ -25,5 +33,12 @@ swiftc -parse-as-library -module-cache-path "$probe_dir/cache" \
     -o "$probe_dir/probe"
 
 echo "==> Executing SettingsProbe..."
-"$probe_dir/probe"
-echo "==> SettingsProbe finished with exit code $?"
+"$probe_dir/probe" &
+probe_pid=$!
+wait "$probe_pid"
+probe_status=$?
+probe_pid=""
+echo "==> SettingsProbe finished with exit code $probe_status"
+
+exec 1>&- 2>&-
+exit "$probe_status"

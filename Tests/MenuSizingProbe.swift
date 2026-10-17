@@ -32,7 +32,9 @@ import Loom
  }
  @MainActor static func selectTab(_ window:NSWindow, segment:Int) {
   let width=window.contentLayoutRect.width
-  click(window,top:92,x:segment==0 ? (width+32)/4 : (width*3-32)/4)
+  let tabWidth = width / 3.0
+  let x = tabWidth * CGFloat(segment) + tabWidth / 2.0
+  click(window,top:92,x:x)
  }
  @MainActor static func clickProvider(_ window:NSWindow, index:Int, total:Int) {
   let width=window.contentLayoutRect.width
@@ -79,6 +81,12 @@ import Loom
   print("Agents expanded \(expanded)");fflush(stdout);assert(expanded>agents,"Session disclosure must grow Agents")
   selectTab(window,segment:1);await settle(host);let usageHeight=window.contentLayoutRect.height
   print("Usage height \(usageHeight)");fflush(stdout);save(host,"tabs-usage")
+  selectTab(window,segment:2);await settle(host);let storageHeight=window.contentLayoutRect.height
+  print("Storage height \(storageHeight)");fflush(stdout);save(host,"tabs-storage")
+  host.appearance=NSAppearance(named:.aqua);await settle(host);save(host,"tabs-storage-light")
+  host.appearance=NSAppearance(named:.darkAqua);await settle(host)
+  assert(storageHeight>0,"Storage tab must size correctly")
+  selectTab(window,segment:1);await settle(host)
   assert(usageHeight<expanded,"Usage must size independently of expanded Agents")
   click(window,top:310,x:20);await settle(host);let modelsHeight=window.contentLayoutRect.height
   assert(modelsHeight>usageHeight,"Additional limits disclosure must grow Usage")
@@ -102,7 +110,7 @@ import Loom
   provider.setSessions(many);await store.refresh();await settle(host)
   let cap=window.screen.map { $0.visibleFrame.height-16 } ?? 720
   assert(window.contentLayoutRect.height<=cap+2);assert(window.contentLayoutRect.height>expanded)
-  let scrolls=scrollViews(in:host);assert(scrolls.count==2,"Both tab scroll views must remain alive")
+  let scrolls=scrollViews(in:host);assert(scrolls.count>=3,"All tab scroll views must remain alive")
   let agentsScroll=scrolls.max { ($0.documentView?.frame.height ?? 0)<($1.documentView?.frame.height ?? 0) }!
   let usageScroll=scrolls.first { $0 !== agentsScroll }!
   let document=agentsScroll.documentView!
@@ -135,6 +143,8 @@ import Loom
   selectTab(window,segment:1);await settle(host);save(host,"tabs-reference-usage-dark")
   host.appearance=NSAppearance(named:.aqua);await settle(host);save(host,"tabs-reference-usage-light")
   selectTab(window,segment:0);await settle(host);save(host,"tabs-reference-agents-light")
+  selectTab(window,segment:2);await settle(host);save(host,"tabs-reference-storage-light")
+  host.appearance=NSAppearance(named:.darkAqua);await settle(host);save(host,"tabs-reference-storage-dark")
   provider.setUsage(usage.markedStale(error:"Local usage source unavailable; showing cached limits."));await referenceStore.refresh()
   host.appearance=NSAppearance(named:.darkAqua);selectTab(window,segment:1);await settle(host);save(host,"tabs-stale")
   provider.setAvailability(.unavailable(reason:"Provider is not installed"));await referenceStore.refresh();await settle(host);save(host,"tabs-unavailable")

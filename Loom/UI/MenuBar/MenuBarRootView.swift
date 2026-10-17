@@ -14,7 +14,7 @@ import LoomCore
 public struct MenuBarRootView: View {
     @Bindable var store: SessionStore
     var settings: LoomSettings?
-    @State private var contentHeights: [MenuTab: CGFloat] = [.agents: 180, .usage: 180]
+    @State private var contentHeights: [MenuTab: CGFloat] = [.agents: 180, .usage: 180, .storage: 180]
     @State private var selectedTab: MenuTab
     @State private var selectedProviderID: ProviderID?
     @State private var chromeHeight: CGFloat = 162
@@ -63,10 +63,11 @@ public struct MenuBarRootView: View {
     public var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
-                MenuBarHeaderView(store: store, settings: settings)
+                MenuBarHeaderView(store: store, settings: settings, selectedTab: selectedTab)
                 HStack(spacing: 0) {
                     tabButton("Sessions", tab: .agents)
                     tabButton("Usage", tab: .usage)
+                    tabButton("Storage", tab: .storage)
                 }
                 .padding(.horizontal, 16)
                 .accessibilityElement(children: .contain)
@@ -88,7 +89,9 @@ public struct MenuBarRootView: View {
                 ForEach(MenuTab.allCases, id: \.self) { tab in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
-                            if store.providerSnapshots.isEmpty {
+                            if tab == .storage {
+                                storageTabContent
+                            } else if store.providerSnapshots.isEmpty {
                                 Text("No providers registered")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
@@ -124,7 +127,7 @@ public struct MenuBarRootView: View {
                                         settings: settings
                                     )
                                 }
-                            } else {
+                            } else if tab == .usage {
                                 ForEach(store.enabledSnapshots) { snapshot in
                                     ProviderSectionView(
                                         snapshot: snapshot,
@@ -143,7 +146,7 @@ public struct MenuBarRootView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .background(MenuHeightReader(part: tab.rawValue))
                     }
-                    .id(tab == .agents ? "scroll-agents-\(resolvedSelectedProviderID?.rawValue ?? "none")" : "scroll-usage")
+                    .id(scrollId(for: tab))
                     .frame(height: viewportHeight(for: tab))
                     .opacity(selectedTab == tab ? 1 : 0)
                     .allowsHitTesting(selectedTab == tab)
@@ -162,7 +165,7 @@ public struct MenuBarRootView: View {
         }
         .frame(minWidth: 320, idealWidth: 420, maxWidth: 520)
         .fixedSize(horizontal: false, vertical: true)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background { LoomPanelMaterial() }
         .background(MenuScreenHeightReader { height in
             if abs(availableHeight - height) > 0.5 { availableHeight = height }
         })
@@ -185,9 +188,17 @@ public struct MenuBarRootView: View {
         .onChange(of: settings?.defaultProviderID) { _, _ in
             selectedProviderID = nil
         }
+        .onChange(of: selectedTab) { _, newTab in
+            if newTab == .storage {
+                Task {
+                    await store.refreshStorage()
+                }
+            }
+        }
         .task {
             // Refresh on popover display
             await store.refresh()
+            await store.refreshStorage()
         }
     }
 
@@ -278,15 +289,170 @@ public struct MenuBarRootView: View {
         }
         return min(contentHeights[tab] ?? 180, max(1, availableHeight - (chromeHeight + extraChrome)))
     }
+
+    private func scrollId(for tab: MenuTab) -> String {
+        switch tab {
+        case .agents:
+            return "scroll-agents-\(resolvedSelectedProviderID?.rawValue ?? "none")"
+        case .usage:
+            return "scroll-usage"
+        case .storage:
+            return "scroll-storage"
+        }
+    }
+
+    @ViewBuilder
+    private var storageTabContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Storage Summary Header
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Agent storage")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.primary)
+
+                    if store.isStorageScanning {
+                        HStack(spacing: 4) {
+                            ProgressView().controlSize(.mini)
+                            Text("Measuring…")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if let scannedAt = store.storageOverview?.scannedAt {
+                        Text(freshnessText(scannedAt, now: Date()))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                Spacer()
+                if store.isStorageScanning && store.storageOverview == nil {
+                    HStack(spacing: 4) {
+                        ProgressView().controlSize(.mini)
+                        Text("Measuring…")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                } else if let overview = store.storageOverview {
+                    Text(ByteCountFormatter.string(fromByteCount: overview.totalBytes, countStyle: .file))
+                        .font(.system(size: 14, weight: .semibold))
+                        .monospacedDigit()
+                } else {
+                    Text("Not measured")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.top, 2)
+
+            if let overview = store.storageOverview {
+                if overview.summaries.isEmpty {
+                    Text("No local providers found")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 8)
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(overview.summaries) { summary in
+                            providerStorageRow(summary, overview: overview)
+                        }
+                    }
+
+                    if !overview.isComplete {
+                        Text("Some folders could not be fully measured. Totals reflect accessible files.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 2)
+                    }
+                }
+            }
+
+            Button {
+                DockController.shared.showSettings(store: store, tab: .storage)
+            } label: {
+                HStack {
+                    Text("Storage Details…")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Image(systemName: "arrow.up.forward")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Open detailed Storage settings in Loom (⌘,)")
+            .accessibilityLabel("Open Storage Details")
+        }
+    }
+
+    private func freshnessText(_ date: Date, now: Date) -> String {
+        let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
+        if minutes == 0 { return "Measured just now" }
+        if minutes < 60 { return "Measured \(minutes)m ago" }
+        return "Measured \(minutes / 60)h ago"
+    }
+
+    private func providerStorageRow(_ summary: ProviderStorageSummary, overview: StorageOverview) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                HStack(spacing: 6) {
+                    ProviderIconView(providerID: summary.providerID, size: 14)
+                    Text(summary.name)
+                        .font(.system(size: 13, weight: .medium))
+                }
+                Spacer()
+                if summary.hasData {
+                    Text(ByteCountFormatter.string(fromByteCount: summary.totalBytes, countStyle: .file))
+                        .font(.system(size: 13, weight: .semibold))
+                        .monospacedDigit()
+                } else {
+                    Text("No data")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            StorageComparativeBar(proportion: overview.proportion(for: summary.providerID))
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(summary.name), \(summary.hasData ? ByteCountFormatter.string(fromByteCount: summary.totalBytes, countStyle: .file) : "No data")")
+    }
 }
 
 private enum MenuTab: String, CaseIterable {
-    case agents, usage
+    case agents, usage, storage
+}
+
+private struct StorageComparativeBar: View {
+    let proportion: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.12))
+                    .frame(height: 3.5)
+
+                let width = max(0, min(proxy.size.width, proxy.size.width * CGFloat(proportion)))
+                if width > 0 {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.45))
+                        .frame(width: max(3, width), height: 3.5)
+                }
+            }
+        }
+        .frame(height: 3.5)
+        .accessibilityElement(children: .ignore)
+    }
 }
 
 private struct MenuBarHeaderView: View {
     let store: SessionStore
     var settings: LoomSettings?
+    var selectedTab: MenuTab = .agents
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -328,7 +494,7 @@ private struct MenuBarHeaderView: View {
                 Image(systemName: "gearshape")
                     .font(.subheadline)
             }
-            .buttonStyle(.borderless)
+            .loomToolbarButtonStyle()
             .frame(width: 26, height: 28)
             .contentShape(Rectangle())
             .accessibilityLabel("Settings")
@@ -339,12 +505,15 @@ private struct MenuBarHeaderView: View {
             Button {
                 Task {
                     await store.refresh()
+                    if selectedTab == .storage {
+                        await store.refreshStorage(force: true)
+                    }
                 }
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.subheadline)
             }
-            .buttonStyle(.borderless)
+            .loomToolbarButtonStyle()
             .frame(width: 26, height: 28)
             .contentShape(Rectangle())
             .disabled(store.isRefreshing)
@@ -364,26 +533,37 @@ private struct MenuBarFooterView: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            if store.isRefreshing {
-                HStack(spacing: 4) {
-                    ProgressView()
-                        .controlSize(.mini)
-                    Text("Refreshing...")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            } else if let lastRefreshed = store.lastRefreshedAt {
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    Text(updatedLabel(lastRefreshed, now: context.date))
+            HStack(spacing: 5) {
+                if store.isRefreshing {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .controlSize(.mini)
+                        Text("Refreshing...")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                } else if let lastRefreshed = store.lastRefreshedAt {
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        Text(updatedLabel(lastRefreshed, now: context.date))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text("Ready")
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
                 }
-            } else {
-                Text("Ready")
-                    .font(.caption2)
+
+                Text("·")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+
+                Text("v\(AppVersion.current.shortString)")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 8)
