@@ -6,17 +6,20 @@ Loom brings your local coding sessions and usage limits into one place. See whic
 
 Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or third-party package dependencies. **Local-first:** Loom monitors supported AI coding agents using local processes and metadata on your Mac. Provider integrations may evolve as upstream tools change.
 
-## One menu, two views
+## One menu, three views
 
 **Sessions** answers “what is happening?” Repository-first cards display the project/repository name, host application (e.g. VS Code, Terminal), active process count, truthful lifecycle state (starting, working, waiting, idle, finished, failed, or unknown), and relative activity timeline. A fixed provider selector displays live session counts and lets you switch between providers so each tool remains directly accessible even with long session lists. Expand a session inspector to reveal the associated process tree, discovery evidence, normalized path, and Finder reveal.
 
 **Usage** answers “how much room do I have?” See remaining quota, reset times and additional model limits. Cached data, unavailable providers and errors remain visible; missing information is never presented as a healthy quota.
 
+**Storage** answers “what is using disk space?” A compact native utility view measures local agent caches and data on demand across Codex, Claude Code, and Antigravity, featuring official provider marks, relative comparative bars, and a direct link to detailed per-folder inspection.
+
 <p align="center">
-  <img src="docs/menu-navigation-sessions.png" width="360" alt="Loom Sessions tab showing provider selector and active agent sessions">
-  <img src="docs/menu-navigation-usage.png" width="360" alt="Loom Usage tab showing provider quotas and reset times">
+  <img src="docs/menu-navigation-sessions.png" width="270" alt="Loom Sessions tab showing provider selector, active agent sessions, and process inspector">
+  <img src="docs/menu-navigation-usage.png" width="270" alt="Loom Usage tab showing provider quotas, reset times, and model limits">
+  <img src="docs/menu-navigation-storage.png" width="270" alt="Loom Storage tab showing measured agent disk footprints and comparative bars">
 </p>
-<p align="center"><em>Loom Sessions and Usage views.</em></p>
+<p align="center"><em>Loom Sessions, Usage, and Storage views.</em></p>
 
 The menu fits its content within the available screen height, with scrolling for longer lists. Each tab preserves its own scroll and disclosure state. Refresh manually or use the configured background interval (60 seconds by default). Open **Settings** from the header gear button (⌘,) to configure provider monitoring, session retention, Dock visibility, refresh intervals, or privacy options.
 
@@ -32,16 +35,28 @@ Normal launch registers **Codex, Claude Code, and Antigravity**. Provider health
 
 Loom is independent and is not affiliated with or endorsed by these providers.
 
+## Desktop widgets
+
+Loom includes three native macOS desktop widgets for Notification Center and desktop spaces:
+
+- **Loom Sessions** (Small, Medium): Glanceable view of active agent sessions, pending user confirmation alerts, and per-provider session counts.
+- **Loom Quotas** (Small, Medium, Large): Remaining quota percentages and reset countdowns for your AI providers. Configurable via Edit Widget to track all enabled providers together or isolate a specific tool (Codex, Claude Code, or Antigravity). Single-provider layouts offer full progress bars and reset countdowns; multi-provider layouts provide compact comparative rows.
+- **Loom Usage Overview** (Medium, Large): Multi-provider overview displaying 3-column comparisons (Medium) or grouped provider sections with granular model limits (Large) like GPT-4o, o1, and Gemini 1.5 Pro.
+
+<p align="center">
+  <img src="docs/widget-showcase.png" width="860" alt="Loom macOS desktop widget showcase featuring Quotas, Sessions, and Usage Overview">
+</p>
+<p align="center"><em>Native macOS desktop widgets in Small, Medium, and Large configurations.</em></p>
+
+See [widget setup and verification](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
+
 ## Settings and privacy controls
-
-**Storage** in Settings shows measured disk space in known provider data and cache folders, with per-folder details and Finder reveal. Scans are read-only, run on demand, and distinguish partial measurements from missing or inaccessible folders. Application binaries and project files are excluded.
-
-Widgets offer **Loom Sessions** (Small/Medium) for local activity, **Loom Quotas** (Small) for a selected provider’s remaining quota and reset times, and **Loom Usage Overview** (Medium/Large) for multi-provider quota progress across all tools together. See [widget setup](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
 
 Loom provides local, persisted settings to customize monitoring and protect developer privacy:
 
 - **Providers**: Enable or disable monitoring individually for Codex, Claude Code, and Antigravity. Disabling a provider immediately stops new discovery and quota polling, applies cooperative cancellation to running provider tasks, and keeps the provider selectable in Settings. A preferred default provider can be configured with automatic fallback if disabled. The interface remains fully functional even if all providers are disabled.
 - **Sessions & retention**: Filter between active sessions only or include recent sessions. When including recent sessions, finished sessions can be hidden automatically after a configurable duration: **Never** (default), 1 hour, 24 hours, or 7 days. Keeping the default set to **Never** preserves existing behavior, and finished sessions lacking activity timestamps are conservatively retained. Active sessions with uncertain or unknown states are never hidden.
+- **Storage**: Measures disk space in known provider data and cache folders, with per-folder details and Finder reveal. Scans are read-only, run on demand, and distinguish partial measurements from missing or inaccessible folders. Application binaries and project files are excluded.
 - **Privacy mode**: The **Hide project paths** toggle conceals filesystem paths and path evidence in the menu UI and session inspector to prevent inadvertent exposure during screen sharing. The **Reveal in Finder** action still points to the actual project path on disk so local workflows remain unaffected.
 - **General**: Toggle Dock icon visibility and choose background refresh intervals (30s, 60s, 2m, or 5m). **Restore Defaults** resets all settings immediately and updates the active scheduler, registered providers, and UI in real time.
 

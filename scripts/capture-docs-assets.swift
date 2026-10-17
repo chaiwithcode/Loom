@@ -1,0 +1,659 @@
+//
+//  capture-docs-assets.swift
+//  Loom
+//
+//  Copyright © 2026 Deepak Sharma (ChaiWithCode).
+//  Licensed under the MIT License. See LICENSE for details.
+//
+
+import AppKit
+import SwiftUI
+import CoreGraphics
+import LoomCore
+import Loom
+
+@main
+struct AssetCapturer {
+    @MainActor
+    static func settle(_ host: NSView, cycles: Int = 35) async {
+        for _ in 0..<cycles {
+            host.layoutSubtreeIfNeeded()
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+    }
+
+    @MainActor
+    static func saveView(_ host: NSView, to url: URL) {
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+            fatalError("Failed to create bitmapImageRepForCachingDisplay for \(url.lastPathComponent)")
+        }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        guard let png = rep.representation(using: .png, properties: [:]) else {
+            fatalError("Failed to generate PNG data for \(url.lastPathComponent)")
+        }
+        try! png.write(to: url)
+        print(" Saved: \(url.path) (\(rep.pixelsWide)x\(rep.pixelsHigh))")
+    }
+
+    @MainActor
+    static func clickTab(_ window: NSWindow, segment: Int) {
+        let width = window.contentLayoutRect.width
+        let tabWidth = width / 3.0
+        let x = tabWidth * CGFloat(segment) + tabWidth / 2.0
+        let top: CGFloat = 92
+        let point = NSPoint(x: x, y: window.contentLayoutRect.height - top)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(
+                with: type,
+                location: point,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: 1
+            )!
+            window.sendEvent(event)
+        }
+    }
+
+    @MainActor
+    static func main() async {
+        NSApplication.shared.setActivationPolicy(.accessory)
+        NSApplication.shared.applicationIconImage = NSImage(contentsOfFile: "Resources/LoomIconMaster.png")
+
+        let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let docsDir = repoRoot.appendingPathComponent("docs")
+        try? FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
+
+        let now = Date()
+
+        let demoLoomPath = URL(fileURLWithPath: "/Users/Shared/Projects/Loom")
+        try? FileManager.default.createDirectory(at: demoLoomPath, withIntermediateDirectories: true)
+
+        // 1. Create realistic, sanitized fixtures for Codex, Claude Code, and Antigravity
+        let codexSessions = [
+            AgentSession(
+                id: "loom-main",
+                provider: .codex,
+                projectName: "Loom",
+                projectPath: demoLoomPath,
+                state: .working,
+                startedAt: now.addingTimeInterval(-1800),
+                lastActivityAt: now.addingTimeInterval(-60),
+                branch: "main",
+                summary: "Polishing documentation and release assets",
+                pid: 4812,
+                hostApp: .vsCode,
+                discoveryEvidence: ["pid:4812", "cwd:/Users/Shared/Projects/Loom"]
+            ),
+            AgentSession(
+                id: "core-engine",
+                provider: .codex,
+                projectName: "CoreEngine",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/CoreEngine"),
+                state: .starting,
+                startedAt: now.addingTimeInterval(-180),
+                lastActivityAt: now.addingTimeInterval(-30),
+                branch: "main",
+                summary: "Initializing session",
+                pid: 4890,
+                hostApp: .terminal
+            ),
+            AgentSession(
+                id: "web-pipeline",
+                provider: .codex,
+                projectName: "WebPipeline",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/WebPipeline"),
+                state: .idle,
+                startedAt: now.addingTimeInterval(-7200),
+                lastActivityAt: now.addingTimeInterval(-3600),
+                branch: "feature/sync",
+                summary: "Completed sync pass",
+                pid: 3201
+            )
+        ]
+
+        let codexUsage = ProviderUsageSnapshot(
+            providerID: .codex,
+            updatedAt: now,
+            planType: "Plus",
+            primaryBucket: UsageBucket(
+                identifier: "codex-5h",
+                label: "5-hour window",
+                usedFraction: 0.28,
+                resetsAt: now.addingTimeInterval(8220),
+                windowDurationMins: 300
+            ),
+            secondaryBucket: UsageBucket(
+                identifier: "codex-weekly",
+                label: "Weekly window",
+                usedFraction: 0.36,
+                resetsAt: now.addingTimeInterval(367200),
+                windowDurationMins: 10080
+            ),
+            additionalGroups: [
+                UsageGroup(
+                    identifier: "codex-models",
+                    label: "Other models",
+                    buckets: [
+                        UsageBucket(
+                            identifier: "gpt-4o",
+                            label: "GPT-4o",
+                            usedFraction: 0.35,
+                            resetsAt: now.addingTimeInterval(14400),
+                            windowDurationMins: 300
+                        )
+                    ]
+                )
+            ]
+        )
+
+        let codexProvider = MockAgentProvider(
+            id: .codex,
+            displayName: "Codex",
+            availability: .available,
+            sessions: codexSessions,
+            usage: codexUsage
+        )
+
+        let claudeSessions = [
+            AgentSession(
+                id: "smart-remote",
+                provider: .claude,
+                projectName: "SmartRemote",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/SmartRemote"),
+                state: .waiting,
+                startedAt: now.addingTimeInterval(-2100),
+                lastActivityAt: now.addingTimeInterval(-120),
+                branch: "fix/pairing",
+                summary: "Waiting for confirmation: npm test",
+                pid: 5120,
+                hostApp: .terminal
+            ),
+            AgentSession(
+                id: "parser-kit",
+                provider: .claude,
+                projectName: "ParserKit",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/ParserKit"),
+                state: .failed,
+                startedAt: now.addingTimeInterval(-3600),
+                lastActivityAt: now.addingTimeInterval(-720),
+                branch: "v0-kickoff",
+                summary: "Build failed: undefined symbol in parser",
+                pid: 5180
+            )
+        ]
+
+        let claudeProvider = MockAgentProvider(
+            id: .claude,
+            displayName: "Claude Code",
+            availability: .available,
+            sessions: claudeSessions,
+            usage: nil // Truthfully unsupported
+        )
+
+        let antigravitySessions = [
+            AgentSession(
+                id: "experiment",
+                provider: .antigravity,
+                projectName: "Experiment",
+                projectPath: URL(fileURLWithPath: "/Users/developer/Desktop/Projects/oss/Experiment"),
+                state: .finished,
+                startedAt: now.addingTimeInterval(-3000),
+                lastActivityAt: now.addingTimeInterval(-300),
+                branch: "prototype-v2",
+                summary: "Completed test suite optimization",
+                pid: 6100,
+                hostApp: .vsCode
+            )
+        ]
+
+        let antigravityUsage = ProviderUsageSnapshot(
+            providerID: .antigravity,
+            updatedAt: now,
+            planType: nil,
+            primaryBucket: UsageBucket(
+                identifier: "gemini-5h",
+                label: "Gemini 5h",
+                usedFraction: 0.15,
+                resetsAt: now.addingTimeInterval(8820),
+                windowDurationMins: 300
+            ),
+            secondaryBucket: UsageBucket(
+                identifier: "gemini-weekly",
+                label: "Gemini Weekly",
+                usedFraction: 0.13,
+                resetsAt: now.addingTimeInterval(518400),
+                windowDurationMins: 10080
+            ),
+            additionalGroups: [
+                UsageGroup(
+                    identifier: "claude-and-gpt",
+                    label: "Claude & GPT",
+                    buckets: [
+                        UsageBucket(
+                            identifier: "3p-5h",
+                            label: "3P 5h",
+                            usedFraction: 0.0,
+                            resetsAt: now.addingTimeInterval(14400),
+                            windowDurationMins: 300
+                        )
+                    ]
+                )
+            ]
+        )
+
+        let antigravityProvider = MockAgentProvider(
+            id: .antigravity,
+            displayName: "Antigravity",
+            availability: .available,
+            sessions: antigravitySessions,
+            usage: antigravityUsage
+        )
+
+        let store = SessionStore(providers: [codexProvider, claudeProvider, antigravityProvider])
+        await store.refresh()
+        await store.refreshStorage(force: true)
+
+        let settings = LoomSettings()
+
+        // 2. Render Menu Bar Views
+        let menuWidth: CGFloat = 420
+        let host = NSHostingView(
+            rootView: AnyView(
+                MenuBarRootView(
+                    store: store,
+                    settings: settings,
+                    expandedSessionIds: ["loom-main"],
+                    selectedProviderID: .codex
+                ).frame(width: menuWidth)
+            )
+        )
+        host.appearance = NSAppearance(named: .darkAqua)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: menuWidth, height: 800),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        window.orderFront(nil)
+
+        // Capture Sessions Tab
+        await settle(host, cycles: 40)
+        saveView(host, to: docsDir.appendingPathComponent("menu-navigation-sessions.png"))
+
+        // Switch to Usage Tab & Capture
+        clickTab(window, segment: 1)
+        await settle(host, cycles: 40)
+        saveView(host, to: docsDir.appendingPathComponent("menu-navigation-usage.png"))
+
+        // Switch to Storage Tab & Capture
+        clickTab(window, segment: 2)
+        await settle(host, cycles: 40)
+        saveView(host, to: docsDir.appendingPathComponent("menu-navigation-storage.png"))
+
+        window.close()
+
+        // 3. Render Widgets
+        let widgetSnapshot = LoomWidgetSnapshot.make(from: store)
+        let widgetEntry = LoomWidgetEntry(
+            date: now,
+            snapshot: widgetSnapshot,
+            readResult: .success(widgetSnapshot),
+            providerID: "all"
+        )
+
+        let smallSize = NSSize(width: 170, height: 170)
+        let mediumSize = NSSize(width: 364, height: 170)
+        let largeSize = NSSize(width: 364, height: 382)
+
+        // Render Small Quotas Widget (Single provider Codex configuration)
+        let widgetEntryCodex = LoomWidgetEntry(
+            date: now,
+            snapshot: widgetSnapshot,
+            readResult: .success(widgetSnapshot),
+            providerID: "codex"
+        )
+        let smallQuotaHost = NSHostingView(rootView: LoomQuotaWidgetView(entry: widgetEntryCodex).padding(14))
+        smallQuotaHost.frame = NSRect(origin: .zero, size: smallSize)
+        smallQuotaHost.appearance = NSAppearance(named: .darkAqua)
+        await settle(smallQuotaHost, cycles: 20)
+        let smallQuotaImg = renderImage(view: smallQuotaHost)
+
+        // Render Small Sessions Widget
+        let smallSessionsHost = NSHostingView(rootView: LoomSmallWidgetView(entry: widgetEntry).padding(14))
+        smallSessionsHost.frame = NSRect(origin: .zero, size: smallSize)
+        smallSessionsHost.appearance = NSAppearance(named: .darkAqua)
+        await settle(smallSessionsHost, cycles: 20)
+        let smallSessionsImg = renderImage(view: smallSessionsHost)
+
+        // Render Medium Usage Overview Widget
+        let mediumOverviewHost = NSHostingView(rootView: LoomUsageOverviewMediumView(entry: widgetEntry).padding(14))
+        mediumOverviewHost.frame = NSRect(origin: .zero, size: mediumSize)
+        mediumOverviewHost.appearance = NSAppearance(named: .darkAqua)
+        await settle(mediumOverviewHost, cycles: 20)
+        let mediumOverviewImg = renderImage(view: mediumOverviewHost)
+
+        // Render Large Usage Overview Widget
+        let largeOverviewHost = NSHostingView(rootView: LoomUsageOverviewLargeView(entry: widgetEntry).padding(14))
+        largeOverviewHost.frame = NSRect(origin: .zero, size: largeSize)
+        largeOverviewHost.appearance = NSAppearance(named: .darkAqua)
+        await settle(largeOverviewHost, cycles: 20)
+        let largeOverviewImg = renderImage(view: largeOverviewHost)
+
+        // 4. Compose Widget Showcase
+        composeWidgetShowcase(
+            medium: mediumOverviewImg,
+            smallSessions: smallSessionsImg,
+            smallQuotas: smallQuotaImg,
+            large: largeOverviewImg,
+            outputURL: docsDir.appendingPathComponent("widget-showcase.png")
+        )
+
+        // 5. Compose Social Preview (1280x640)
+        composeSocialPreview(
+            masterIconURL: repoRoot.appendingPathComponent("Resources/LoomIconMaster.png"),
+            outputURL: docsDir.appendingPathComponent("social-preview.png")
+        )
+
+        print("\nAll Loom 1.0 documentation assets generated successfully in docs/!")
+    }
+
+    @MainActor
+    static func renderImage(view: NSView) -> NSImage {
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+            fatalError("Failed to get bitmap image rep")
+        }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        let img = NSImage(size: view.bounds.size)
+        img.addRepresentation(rep)
+        return img
+    }
+
+    static func composeWidgetShowcase(
+        medium: NSImage,
+        smallSessions: NSImage,
+        smallQuotas: NSImage,
+        large: NSImage,
+        outputURL: URL
+    ) {
+        // Layout:
+        // Left Column (width 364):
+        //   Top: Medium Usage Overview (364 x 170)
+        //   Gap: 24
+        //   Bottom: Small Sessions (170 x 170) + Gap 24 + Small Quotas (170 x 170)
+        // Right Column (width 364):
+        //   Large Usage Overview (364 x 382)
+        // Margins: 48 around, column gap 36
+        // Total Width: 48 + 364 + 36 + 364 + 48 = 860 pt (1720 px at 2x)
+        // Total Height: 48 + 382 + 48 = 478 pt (956 px at 2x)
+
+        let scale: CGFloat = 2.0
+        let ptWidth: CGFloat = 860
+        let ptHeight: CGFloat = 478
+        let pxWidth = Int(ptWidth * scale)
+        let pxHeight = Int(ptHeight * scale)
+
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: pxWidth,
+                height: pxHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else {
+            fatalError("Failed to create CGContext")
+        }
+
+        context.scaleBy(x: scale, y: scale)
+
+        // Draw background gradient (dark desktop theme)
+        let gradientColors = [
+            NSColor(red: 0.10, green: 0.11, blue: 0.13, alpha: 1.0).cgColor,
+            NSColor(red: 0.06, green: 0.07, blue: 0.08, alpha: 1.0).cgColor
+        ] as CFArray
+        if let gradient = CGGradient(colorsSpace: colorSpace, colors: gradientColors, locations: [0.0, 1.0]) {
+            context.drawLinearGradient(
+                gradient,
+                start: CGPoint(x: 0, y: ptHeight),
+                end: CGPoint(x: 0, y: 0),
+                options: []
+            )
+        }
+
+        // Helper to draw a widget with native macOS rounded corner clipping & soft drop shadow
+        let cornerRadius: CGFloat = 22.0
+        func drawWidget(_ img: NSImage, at rect: CGRect) {
+            context.saveGState()
+
+            // Shadow
+            context.setShadow(
+                offset: CGSize(width: 0, height: -6),
+                blur: 16,
+                color: NSColor.black.withAlphaComponent(0.40).cgColor
+            )
+
+            // Rounded rect path
+            let path = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+            context.addPath(path)
+            context.setFillColor(NSColor(white: 0.12, alpha: 1.0).cgColor)
+            context.fillPath()
+
+            context.restoreGState()
+
+            // Clip and draw image
+            context.saveGState()
+            context.addPath(path)
+            context.clip()
+
+            if let cgImg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                context.draw(cgImg, in: rect)
+            }
+            context.restoreGState()
+
+            // Subtle border
+            context.saveGState()
+            context.addPath(path)
+            context.setStrokeColor(NSColor.white.withAlphaComponent(0.08).cgColor)
+            context.setLineWidth(1.0)
+            context.strokePath()
+            context.restoreGState()
+        }
+
+        let leftX: CGFloat = 48
+        let rightX: CGFloat = leftX + 364 + 36
+        let topY: CGFloat = ptHeight - 48
+
+        // Left Top: Medium (364 x 170)
+        let mediumRect = CGRect(x: leftX, y: topY - 170, width: 364, height: 170)
+        drawWidget(medium, at: mediumRect)
+
+        // Left Bottom: Small Sessions & Small Quotas (each 170 x 170, gap 24)
+        let bottomY = mediumRect.minY - 24 - 170
+        let smallSessionsRect = CGRect(x: leftX, y: bottomY, width: 170, height: 170)
+        drawWidget(smallSessions, at: smallSessionsRect)
+
+        let smallQuotasRect = CGRect(x: leftX + 170 + 24, y: bottomY, width: 170, height: 170)
+        drawWidget(smallQuotas, at: smallQuotasRect)
+
+        // Right Column: Large (364 x 382, matching top alignment)
+        let largeRect = CGRect(x: rightX, y: topY - 382, width: 364, height: 382)
+        drawWidget(large, at: largeRect)
+
+        guard let cgFinal = context.makeImage() else { fatalError("makeImage failed") }
+        let rep = NSBitmapImageRep(cgImage: cgFinal)
+        guard let pngData = rep.representation(using: .png, properties: [:]) else { fatalError("png failed") }
+        try! pngData.write(to: outputURL)
+        print(" Saved: \(outputURL.path) (\(pxWidth)x\(pxHeight))")
+    }
+
+    static func composeSocialPreview(masterIconURL: URL, outputURL: URL) {
+        // Dimensions: 1280 x 640 px (2:1 aspect ratio)
+        let width = 1280
+        let height = 640
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else {
+            fatalError("Failed to create context for social preview")
+        }
+
+        // Dark gradient background
+        let gradientColors = [
+            NSColor(red: 0.08, green: 0.09, blue: 0.11, alpha: 1.0).cgColor,
+            NSColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1.0).cgColor
+        ] as CFArray
+        if let gradient = CGGradient(colorsSpace: colorSpace, colors: gradientColors, locations: [0.0, 1.0]) {
+            context.drawLinearGradient(
+                gradient,
+                start: CGPoint(x: 0, y: height),
+                end: CGPoint(x: 0, y: 0),
+                options: []
+            )
+        }
+
+        // Subtle decorative background circles / ambient glow
+        context.saveGState()
+        let glowCenter = CGPoint(x: 640, y: 350)
+        let glowRadius: CGFloat = 340
+        let glowColors = [
+            NSColor(red: 0.35, green: 0.45, blue: 0.85, alpha: 0.12).cgColor,
+            NSColor.clear.cgColor
+        ] as CFArray
+        if let radial = CGGradient(colorsSpace: colorSpace, colors: glowColors, locations: [0.0, 1.0]) {
+            context.drawRadialGradient(
+                radial,
+                startCenter: glowCenter,
+                startRadius: 0,
+                endCenter: glowCenter,
+                endRadius: glowRadius,
+                options: []
+            )
+        }
+        context.restoreGState()
+
+        // Draw App Icon
+        if let iconImg = NSImage(contentsOf: masterIconURL),
+           let cgIcon = iconImg.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            let iconSize: CGFloat = 164
+            let iconRect = CGRect(x: (CGFloat(width) - iconSize) / 2.0, y: 370, width: iconSize, height: iconSize)
+
+            context.saveGState()
+            context.setShadow(
+                offset: CGSize(width: 0, height: -10),
+                blur: 32,
+                color: NSColor.black.withAlphaComponent(0.65).cgColor
+            )
+            context.draw(cgIcon, in: iconRect)
+            context.restoreGState()
+        }
+
+        // Draw Typography using CoreText / AppKit
+        let fontTitle = NSFont.systemFont(ofSize: 52, weight: .bold)
+        let fontTagline = NSFont.systemFont(ofSize: 26, weight: .semibold)
+        let fontSub = NSFont.systemFont(ofSize: 18, weight: .regular)
+
+        let titleStyle = NSMutableParagraphStyle()
+        titleStyle.alignment = .center
+        let subStyle = NSMutableParagraphStyle()
+        subStyle.alignment = .center
+
+        let titleAttrs: [NSAttributedString.Key: Any] = [
+            .font: fontTitle,
+            .foregroundColor: NSColor.white,
+            .paragraphStyle: titleStyle
+        ]
+        let taglineAttrs: [NSAttributedString.Key: Any] = [
+            .font: fontTagline,
+            .foregroundColor: NSColor(white: 0.94, alpha: 1.0),
+            .paragraphStyle: subStyle
+        ]
+        let subAttrs: [NSAttributedString.Key: Any] = [
+            .font: fontSub,
+            .foregroundColor: NSColor(white: 0.65, alpha: 1.0),
+            .paragraphStyle: subStyle
+        ]
+
+        let titleStr = NSAttributedString(string: "Loom", attributes: titleAttrs)
+        let taglineStr = NSAttributedString(string: "Three agents. One Loom.", attributes: taglineAttrs)
+        let subStr = NSAttributedString(string: "Local AI agents, one native macOS menu bar.", attributes: subAttrs)
+
+        let graphicsContext = NSGraphicsContext(cgContext: context, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphicsContext
+
+        titleStr.draw(in: CGRect(x: 0, y: 280, width: CGFloat(width), height: 60))
+        taglineStr.draw(in: CGRect(x: 0, y: 235, width: CGFloat(width), height: 36))
+        subStr.draw(in: CGRect(x: 0, y: 198, width: CGFloat(width), height: 28))
+
+        // Draw Provider Marks along bottom
+        let badgeFont = NSFont.systemFont(ofSize: 14, weight: .medium)
+        let badgeAttrs: [NSAttributedString.Key: Any] = [
+            .font: badgeFont,
+            .foregroundColor: NSColor(white: 0.60, alpha: 1.0)
+        ]
+
+        let providers = [
+            ("provider-codex", "Codex"),
+            ("provider-claude", "Claude Code"),
+            ("provider-antigravity", "Antigravity")
+        ]
+
+        var totalBadgeWidth: CGFloat = 0
+        let itemWidths: [CGFloat] = providers.map { (iconName, label) in
+            let labelWidth = (label as NSString).size(withAttributes: badgeAttrs).width
+            return 20 + 8 + labelWidth // icon(20) + gap(8) + label
+        }
+        let itemGap: CGFloat = 36
+        totalBadgeWidth = itemWidths.reduce(0, +) + CGFloat(providers.count - 1) * itemGap
+
+        var currentX = (CGFloat(width) - totalBadgeWidth) / 2.0
+        let badgeY: CGFloat = 100
+
+        for (idx, (iconName, label)) in providers.enumerated() {
+            let iconURL = URL(fileURLWithPath: "Resources/\(iconName).png")
+            if let iconImg = NSImage(contentsOf: iconURL) {
+                let iconRect = CGRect(x: currentX, y: badgeY - 2, width: 20, height: 20)
+                if iconName == "provider-codex" {
+                    if let cgIcon = iconImg.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                        context.draw(cgIcon, in: iconRect)
+                    }
+                } else {
+                    let tinted = NSImage(size: iconImg.size)
+                    tinted.lockFocus()
+                    NSColor(white: 0.88, alpha: 1.0).set()
+                    NSRect(origin: .zero, size: iconImg.size).fill()
+                    iconImg.draw(at: .zero, from: .zero, operation: .destinationIn, fraction: 1.0)
+                    tinted.unlockFocus()
+                    if let cgTinted = tinted.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                        context.draw(cgTinted, in: iconRect)
+                    }
+                }
+            }
+            let labelRect = CGRect(x: currentX + 28, y: badgeY, width: itemWidths[idx] - 28, height: 22)
+            NSAttributedString(string: label, attributes: badgeAttrs).draw(in: labelRect)
+            currentX += itemWidths[idx] + itemGap
+        }
+
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let finalCG = context.makeImage() else { fatalError("makeImage failed for social preview") }
+        let rep = NSBitmapImageRep(cgImage: finalCG)
+        guard let pngData = rep.representation(using: .png, properties: [:]) else { fatalError("png failed") }
+        try! pngData.write(to: outputURL)
+        print(" Saved: \(outputURL.path) (\(width)x\(height))")
+    }
+}
