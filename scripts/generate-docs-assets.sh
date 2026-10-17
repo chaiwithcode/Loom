@@ -19,7 +19,9 @@ TMP_WIDGET_SRC="${TMP_DIR}/LoomWidgetForDocs.swift"
 {
     echo "import LoomCore"
     echo "import Loom"
-    sed -e 's/@main/\/\/ @main/g' "${ROOT_DIR}/LoomWidget/LoomWidget.swift"
+    sed -e 's/@main/\/\/ @main/g' \
+        -e 's/@Environment(\\.widgetFamily) var family/@Environment(\\.widgetFamily) var systemFamily; var familyOverride: WidgetFamily? = nil; private var family: WidgetFamily { familyOverride ?? systemFamily }/g' \
+        "${ROOT_DIR}/LoomWidget/LoomWidget.swift"
 } > "${TMP_WIDGET_SRC}"
 
 echo "==> Gathering compiled objects..."

@@ -67,7 +67,12 @@ struct AssetCapturer {
         let docsDir = repoRoot.appendingPathComponent("docs")
         try? FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
 
-        let now = Date()
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: Date())
+        components.hour = 10
+        components.minute = 0
+        components.second = 0
+        let now = calendar.date(from: components) ?? Date()
 
         let demoLoomPath = URL(fileURLWithPath: "/Users/Shared/Projects/Loom")
         try? FileManager.default.createDirectory(at: demoLoomPath, withIntermediateDirectories: true)
@@ -300,7 +305,16 @@ struct AssetCapturer {
         window.close()
 
         // 3. Render Widgets
-        let widgetSnapshot = LoomWidgetSnapshot.make(from: store)
+        let baseSnapshot = LoomWidgetSnapshot.make(from: store)
+        let widgetSnapshot = LoomWidgetSnapshot(
+            schemaVersion: baseSnapshot.schemaVersion,
+            timestamp: now,
+            activeSessionCount: baseSnapshot.activeSessionCount,
+            attentionSessionCount: baseSnapshot.attentionSessionCount,
+            totalSessionCount: baseSnapshot.totalSessionCount,
+            providerSummaries: baseSnapshot.providerSummaries,
+            statusMessage: baseSnapshot.statusMessage
+        )
         let widgetEntry = LoomWidgetEntry(
             date: now,
             snapshot: widgetSnapshot,
@@ -312,34 +326,32 @@ struct AssetCapturer {
         let mediumSize = NSSize(width: 364, height: 170)
         let largeSize = NSSize(width: 364, height: 382)
 
-        // Render Small Quotas Widget (Single provider Codex configuration)
-        let widgetEntryCodex = LoomWidgetEntry(
-            date: now,
-            snapshot: widgetSnapshot,
-            readResult: .success(widgetSnapshot),
-            providerID: "codex"
+        // Render Small Quotas Widget (All enabled providers)
+        let smallQuotaHost = NSHostingView(
+            rootView: LoomQuotaWidgetView(entry: widgetEntry, familyOverride: .systemSmall).padding(14)
         )
-        let smallQuotaHost = NSHostingView(rootView: LoomQuotaWidgetView(entry: widgetEntryCodex).padding(14))
         smallQuotaHost.frame = NSRect(origin: .zero, size: smallSize)
         smallQuotaHost.appearance = NSAppearance(named: .darkAqua)
         await settle(smallQuotaHost, cycles: 20)
         let smallQuotaImg = renderImage(view: smallQuotaHost)
 
-        // Render Small Sessions Widget
+        // Render Small Sessions Widget (Multi-provider active sessions)
         let smallSessionsHost = NSHostingView(rootView: LoomSmallWidgetView(entry: widgetEntry).padding(14))
         smallSessionsHost.frame = NSRect(origin: .zero, size: smallSize)
         smallSessionsHost.appearance = NSAppearance(named: .darkAqua)
         await settle(smallSessionsHost, cycles: 20)
         let smallSessionsImg = renderImage(view: smallSessionsHost)
 
-        // Render Medium Usage Overview Widget
-        let mediumOverviewHost = NSHostingView(rootView: LoomUsageOverviewMediumView(entry: widgetEntry).padding(14))
-        mediumOverviewHost.frame = NSRect(origin: .zero, size: mediumSize)
-        mediumOverviewHost.appearance = NSAppearance(named: .darkAqua)
-        await settle(mediumOverviewHost, cycles: 20)
-        let mediumOverviewImg = renderImage(view: mediumOverviewHost)
+        // Render Medium Quotas Widget (All enabled providers)
+        let mediumQuotaHost = NSHostingView(
+            rootView: LoomQuotaWidgetView(entry: widgetEntry, familyOverride: .systemMedium).padding(14)
+        )
+        mediumQuotaHost.frame = NSRect(origin: .zero, size: mediumSize)
+        mediumQuotaHost.appearance = NSAppearance(named: .darkAqua)
+        await settle(mediumQuotaHost, cycles: 20)
+        let mediumQuotaImg = renderImage(view: mediumQuotaHost)
 
-        // Render Large Usage Overview Widget
+        // Render Large Usage Overview Widget (All enabled providers)
         let largeOverviewHost = NSHostingView(rootView: LoomUsageOverviewLargeView(entry: widgetEntry).padding(14))
         largeOverviewHost.frame = NSRect(origin: .zero, size: largeSize)
         largeOverviewHost.appearance = NSAppearance(named: .darkAqua)
@@ -348,7 +360,7 @@ struct AssetCapturer {
 
         // 4. Compose Widget Showcase
         composeWidgetShowcase(
-            medium: mediumOverviewImg,
+            medium: mediumQuotaImg,
             smallSessions: smallSessionsImg,
             smallQuotas: smallQuotaImg,
             large: largeOverviewImg,
@@ -475,13 +487,13 @@ struct AssetCapturer {
         let mediumRect = CGRect(x: leftX, y: topY - 170, width: 364, height: 170)
         drawWidget(medium, at: mediumRect)
 
-        // Left Bottom: Small Sessions & Small Quotas (each 170 x 170, gap 24)
+        // Left Bottom: Small Quotas & Small Sessions (each 170 x 170, gap 24)
         let bottomY = mediumRect.minY - 24 - 170
-        let smallSessionsRect = CGRect(x: leftX, y: bottomY, width: 170, height: 170)
-        drawWidget(smallSessions, at: smallSessionsRect)
-
-        let smallQuotasRect = CGRect(x: leftX + 170 + 24, y: bottomY, width: 170, height: 170)
+        let smallQuotasRect = CGRect(x: leftX, y: bottomY, width: 170, height: 170)
         drawWidget(smallQuotas, at: smallQuotasRect)
+
+        let smallSessionsRect = CGRect(x: leftX + 170 + 24, y: bottomY, width: 170, height: 170)
+        drawWidget(smallSessions, at: smallSessionsRect)
 
         // Right Column: Large (364 x 382, matching top alignment)
         let largeRect = CGRect(x: rightX, y: topY - 382, width: 364, height: 382)
