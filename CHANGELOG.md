@@ -5,6 +5,17 @@ All notable changes to Loom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0] - 2026-10-17
+
+### Added
+- **Multi-Provider Loom Quotas Widget**: Desktop widgets across Small, Medium, and Large families supporting Codex, Claude Code, and Antigravity with live quota windows, remaining percentages, and reset timestamps.
+- **Provider-Level Storage Monitoring**: Native compact menu-bar Storage view and detailed drill-down in Settings displaying local disk footprint for agent directories, caches, and logs.
+- **Verified Provider Brand Assets**: Official marks for Codex, Claude, and Antigravity with fallback resilience.
+
+### Changed
+- **Visual Hierarchy Polish**: Primary remaining percentages and clean desktop chrome across widgets and menu bar.
+- **Settings Window Layout**: Enforced robust minimum dimensions and fixed vertical sizing bug across all Settings tabs.
+
 ## [0.1.1] - 2026-10-13
 
 ### Fixed
