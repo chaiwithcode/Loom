@@ -1,64 +1,81 @@
 <p align="center"><img src="Resources/LoomIconMaster.png" width="144" alt="Three strands woven into one Loom"></p>
 <h1 align="center">Loom</h1>
-<p align="center"><strong>Three agents. One Loom.</strong><br>Local AI agents, one native macOS menu bar.</p>
-
-Loom brings your local coding sessions and usage limits into one place. See which project an agent is working on, what needs attention, and how much quota remains—without switching between terminals and apps.
-
-Built with Swift and SwiftUI. No Loom account, hosted backend, analytics SDK, or third-party package dependencies. **Local-first:** Loom monitors supported AI coding agents using local processes and metadata on your Mac. Provider integrations may evolve as upstream tools change.
-
-## One menu, three views
-
-**Sessions** answers “what is happening?” Repository-first cards display the project/repository name, host application (e.g. VS Code, Terminal), active process count, truthful lifecycle state (starting, working, waiting, idle, finished, failed, or unknown), and relative activity timeline. A fixed provider selector displays live session counts and lets you switch between providers so each tool remains directly accessible even with long session lists. Expand a session inspector to reveal the associated process tree, discovery evidence, normalized path, and Finder reveal.
-
-**Usage** answers “how much room do I have?” See remaining quota, reset times and additional model limits. Cached data, unavailable providers and errors remain visible; missing information is never presented as a healthy quota.
-
-**Storage** answers “what is using disk space?” A compact native utility view measures local agent caches and data on demand across Codex, Claude Code, and Antigravity, featuring official provider marks, relative comparative bars, and a direct link to detailed per-folder inspection.
+<p align="center"><strong>Three agents. One Loom.</strong><br>Monitor Codex, Claude Code, and Antigravity from one native macOS menu-bar app.</p>
 
 <p align="center">
-  <img src="docs/menu-navigation-sessions.png" width="270" alt="Loom Sessions tab showing provider selector, active agent sessions, and process inspector">
-  <img src="docs/menu-navigation-usage.png" width="270" alt="Loom Usage tab showing provider quotas, reset times, and model limits">
-  <img src="docs/menu-navigation-storage.png" width="270" alt="Loom Storage tab showing measured agent disk footprints and comparative bars">
+  <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-Demo-16x9.mp4">
+    <img src="docs/loom-demo-thumbnail.png" width="860" alt="Watch Loom in action — 35-second demo video">
+  </a><br>
+  <sub><a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-Demo-16x9.mp4">▶ <strong>Watch Loom in action — 35 seconds</strong></a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-Demo-9x16.mp4">Vertical mobile cut (32s)</a></sub>
 </p>
-<p align="center"><em>Loom Sessions, Usage, and Storage views.</em></p>
 
-The menu fits its content within the available screen height, with scrolling for longer lists. Each tab preserves its own scroll and disclosure state. Refresh manually or use the configured background interval (60 seconds by default). Open **Settings** from the header gear button (⌘,) to configure provider monitoring, session retention, Dock visibility, refresh intervals, or privacy options.
+<p align="center">
+  <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-1.0.dmg"><strong>Download for macOS (DMG)</strong></a> &nbsp;•&nbsp;
+  <a href="#homebrew-recommended"><strong>Install with Homebrew</strong></a> &nbsp;•&nbsp;
+  <a href="https://github.com/chaiwithcode/Loom/releases"><strong>GitHub Releases</strong></a>
+</p>
 
-## Integrations
+---
 
-| Provider | Session discovery | Usage | Status |
-| --- | --- | --- | --- |
-| OpenAI Codex | Running processes, process tree, and Git metadata | Local app-server interface | Implemented |
-| Google Antigravity | Local session metadata and language-server processes | Local language-server interface | Implemented |
-| Anthropic Claude Code | Running processes, process tree, CLI detection, transcripts | Local status / files | Implemented |
+## Why Loom?
 
-Normal launch registers **Codex, Claude Code, and Antigravity**. Provider health (`available`, `degraded`, `unavailable`, `error`) is strictly separated from session lifecycle states. Process trees correlate child workers and helpers into exactly one logical session per repo task. Expandable discovery diagnostics report processes detected, logical sessions, workspaces resolved, metadata status/errors, and discovery duration timing.
+When you run multiple local AI coding agents across background terminals, editor extensions, and language servers, answering a simple question becomes surprisingly tedious: *"What are all my local AI coding agents doing on my Mac right now?"*
 
-Loom is independent and is not affiliated with or endorsed by these providers.
+Loom gives you one clean, local-first menu-bar application to see which project each agent is working on, which session needs attention, and how much quota remains—without switching between terminals, browser dashboards, and apps.
 
-## Desktop widgets
+Built with Swift and SwiftUI. No Loom account, no hosted backend, no analytics SDKs, and zero third-party dependencies.
 
-Loom includes three native macOS desktop widgets for Notification Center and desktop spaces:
+## Local Agent Sessions
 
-- **Loom Sessions** (Small, Medium): Glanceable view of active agent sessions, pending user confirmation alerts, and per-provider session counts.
-- **Loom Quotas** (Small, Medium, Large): Remaining quota percentages and reset countdowns for your AI providers. Configurable via Edit Widget to track all enabled providers together or isolate a specific tool (Codex, Claude Code, or Antigravity). Single-provider layouts offer full progress bars and reset countdowns; multi-provider layouts provide compact comparative rows.
-- **Loom Usage Overview** (Medium, Large): Multi-provider overview displaying 3-column comparisons (Medium) or grouped provider sections with granular model limits (Large) like GPT-4o, o1, and Gemini 1.5 Pro.
+The **Sessions** tab answers *"what is happening right now?"*
+
+<p align="center">
+  <img src="docs/menu-navigation-sessions.png" width="380" alt="Loom Sessions view showing active Codex session on Loom repository with process inspector">
+</p>
+
+- **Provider monitoring**: Toggle between OpenAI Codex, Anthropic Claude Code, and Google Antigravity with a fixed, glanceable provider selector displaying live session counts.
+- **Repository identification**: Repository-first cards display project names, Git branch metadata, active host applications (e.g. VS Code, Terminal), and relative activity timestamps.
+- **Lifecycle states**: Truthfully report whether an agent is starting, working, waiting for input, idle, finished, or failed. Provider availability and health (`available`, `degraded`, `unavailable`) are strictly separated from agent execution state.
+- **Process inspection**: Expand any session to reveal its associated process tree, PID hierarchy, normalized working directories, discovery evidence, and a direct Reveal in Finder action.
+
+## Usage & Storage
+
+Keep track of rate limits and local disk footprint in one place.
+
+<p align="center">
+  <img src="docs/menu-navigation-usage.png" width="380" alt="Loom Usage tab showing provider quota windows and reset times">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/menu-navigation-storage.png" width="380" alt="Loom Storage tab showing measured local disk footprint">
+</p>
+
+- **Truthful Quotas (Usage)**: View remaining quota percentages, rolling window reset times, and model limits (such as GPT-4o, o1, and Gemini 1.5 Pro). Missing or unsupported telemetry is never masked as a healthy quota: Claude Code is truthfully marked as *Quota not supported* by upstream local interfaces, while Codex and Antigravity report verified live metrics.
+- **Local Disk Footprint (Storage)**: Measure on-disk agent caches, conversation transcripts, language server indices, and log files on demand across all providers. Displays clean comparative proportion bars and provides a drill-down into detailed folder paths.
+
+## Native macOS Widgets
+
+Glance at agent sessions and quotas directly on your desktop or Notification Center with three native widgets:
 
 <p align="center">
   <img src="docs/widget-showcase.png" width="860" alt="Loom macOS desktop widget showcase featuring Quotas, Sessions, and Usage Overview">
 </p>
-<p align="center"><em>Native macOS desktop widgets in Small, Medium, and Large configurations.</em></p>
 
-See [widget setup and verification](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
+- **Loom Quotas** (Small, Medium, Large): Displays prominent remaining percentages and reset countdowns. Configurable via *Edit Widget* to monitor all enabled providers together or focus on a specific provider.
+- **Loom Sessions** (Small, Medium): Real-time view of active sessions, waiting-for-input alerts, and per-provider counters.
+- **Loom Usage Overview** (Medium, Large): Multi-column comparison (Medium) or detailed vertical breakdowns with granular model limits (Large).
 
-## Settings and privacy controls
+See [widget setup and verification guide](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
 
-Loom provides local, persisted settings to customize monitoring and protect developer privacy:
+## Supported Providers
 
-- **Providers**: Enable or disable monitoring individually for Codex, Claude Code, and Antigravity. Disabling a provider immediately stops new discovery and quota polling, applies cooperative cancellation to running provider tasks, and keeps the provider selectable in Settings. A preferred default provider can be configured with automatic fallback if disabled. The interface remains fully functional even if all providers are disabled.
-- **Sessions & retention**: Filter between active sessions only or include recent sessions. When including recent sessions, finished sessions can be hidden automatically after a configurable duration: **Never** (default), 1 hour, 24 hours, or 7 days. Keeping the default set to **Never** preserves existing behavior, and finished sessions lacking activity timestamps are conservatively retained. Active sessions with uncertain or unknown states are never hidden.
-- **Storage**: Measures disk space in known provider data and cache folders, with per-folder details and Finder reveal. Scans are read-only, run on demand, and distinguish partial measurements from missing or inaccessible folders. Application binaries and project files are excluded.
-- **Privacy mode**: The **Hide project paths** toggle conceals filesystem paths and path evidence in the menu UI and session inspector to prevent inadvertent exposure during screen sharing. The **Reveal in Finder** action still points to the actual project path on disk so local workflows remain unaffected.
-- **General**: Toggle Dock icon visibility and choose background refresh intervals (30s, 60s, 2m, or 5m). **Restore Defaults** resets all settings immediately and updates the active scheduler, registered providers, and UI in real time.
+| Provider | Session Discovery | Quota / Usage | Local Storage | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **OpenAI Codex** | Running processes, process tree, and Git metadata | Local app-server interface | Caches, sessions & logs | Implemented |
+| **Google Antigravity** | Local session metadata and language-server processes | Local language-server interface | Store, artifacts & logs | Implemented |
+| **Anthropic Claude Code** | Running processes, process tree, CLI detection, transcripts | Not exposed by upstream CLI | State, config & transcripts | Implemented |
+
+Normal launch registers **Codex, Claude Code, and Antigravity**. Process trees correlate child workers and helpers into exactly one logical session per repo task. Expandable discovery diagnostics report processes detected, logical sessions, workspaces resolved, metadata status, and discovery timing.
+
+*Loom is an independent open-source project and is not affiliated with or endorsed by OpenAI, Anthropic, or Google.*
 
 ## Installation
 
@@ -72,21 +89,41 @@ brew install --cask chaiwithcode/tap/chaiwithcode-loom
 
 ### Direct Download
 
-1. Download `Loom-1.0.dmg` (or the latest release disk image) from [GitHub Releases](https://github.com/chaiwithcode/Loom/releases).
+1. Download **`Loom-1.0.dmg`** from [GitHub Releases](https://github.com/chaiwithcode/Loom/releases).
 2. Open the disk image.
-3. Drag **Loom.app** to `/Applications`.
+3. Drag **Loom.app** into your `/Applications` folder.
 4. Launch **Loom** from Applications or Spotlight.
 
 ### Software Updates
 
-Loom integrates native software updates powered by **Sparkle 2**. Updates are delivered securely over HTTPS from the official [GitHub Pages appcast feed](https://chaiwithcode.github.io/Loom/appcast.xml), cryptographically signed with EdDSA (Ed25519), and notarized by Apple.
+Loom integrates native software updates powered by **Sparkle 2**. Updates are delivered over HTTPS from the official [GitHub Pages appcast feed](https://chaiwithcode.github.io/Loom/appcast.xml), cryptographically signed with EdDSA (Ed25519), and notarized by Apple.
 
 You can check for updates anytime:
 - Via **Check for Updates…** in the Loom menu or Dock menu
 - In **Settings** (`⌘,`) under the **General** tab
-- Under the application menu in the macOS menu bar
 
-## Build and run
+## Privacy & Local-First
+
+Loom is built from the ground up for developer privacy and security:
+
+- **No Loom Account**: There are no accounts, cloud logins, or external servers.
+- **Local Process Inspection**: Loom inspects local processes and metadata on your Mac. It is strictly read-only: it does not inject prompts, approve commands, edit projects, or modify agent sessions.
+- **Zero Telemetry**: No tracking, analytics, or behavioral telemetry SDKs.
+- **Ephemeral Credentials**: Codex usage communicates via local stdio. Antigravity usage communicates with a discovered local loopback endpoint using an ephemeral memory token. Tokens are never persisted to disk.
+- **Path Concealment**: Enable the **Hide project paths** privacy toggle in Settings (`⌘,`) to mask filesystem paths and evidence in the UI during screen shares or presentations (Reveal in Finder continues to point to the actual directory).
+
+See [security guidance](SECURITY.md) and [architecture](docs/ARCHITECTURE.md).
+
+## Settings and Configuration
+
+Press `⌘,` or click the header gear icon to open Loom Settings:
+
+- **Providers**: Enable or disable monitoring individually for Codex, Claude Code, and Antigravity. Disabling a provider immediately halts process discovery and polling tasks.
+- **Sessions & Retention**: Filter to active sessions only or retain completed sessions for a configurable period (Never, 1 hour, 24 hours, 7 days).
+- **Storage**: Run on-demand storage scans and inspect per-folder breakdowns with direct Finder navigation.
+- **General**: Toggle Dock icon visibility and configure background refresh intervals (30s, 60s, 2m, 5m).
+
+## Build and Run
 
 Requires **macOS 14+** and **Swift 5.9+ / Xcode 15+**. Install the coding tools you want to monitor separately. From the repository root:
 
@@ -112,15 +149,7 @@ open -n .build/Loom.app --args --demo-failure
 
 The mock fixture includes all three provider identities and the normalized states for testing and visual previews.
 
-## Local-first, read-only
-
-Loom inspects local processes and metadata and queries local status interfaces. It does not inject prompts, approve commands, edit projects, or modify agent sessions. There is no Loom cloud service or telemetry pipeline.
-
-Codex usage is queried through a local subprocess over standard input/output. Antigravity usage uses HTTPS to a discovered loopback endpoint. Its transport accepts local TLS trust only for the discovered loopback host and port, rejects redirects, and uses an ephemeral token in memory. This is a narrow local connection exception, not normal certificate-chain validation. Loom does not persist provider tokens or credentials. Monitored tools retain their own accounts and network behavior.
-
-Paths and session summaries can contain sensitive information. Enable the **Hide project paths** privacy toggle in Settings to conceal filesystem paths and detailed path evidence in the menu UI and session inspector (the Finder reveal action continues to point to the actual path on disk). Review screenshots and diagnostics before sharing them. See [security guidance](SECURITY.md) and the [architecture](docs/ARCHITECTURE.md).
-
-## Development and verification
+## Development and Verification
 
 ```bash
 swift build
@@ -146,13 +175,13 @@ See [CONTRIBUTING](CONTRIBUTING.md) for fixtures, review expectations and provid
 
 See [widget verification and troubleshooting](docs/WIDGETS.md) for local widget builds, installation, shared storage, and Notification Center checks.
 
-## What comes next
+## What Comes Next
 
 Reliable local discovery comes first: improve state accuracy, cover upstream format changes, and expand diagnostics and accessibility. Remote control, cloud sync and orchestration are outside the current scope.
 
 The visual identity stays simple: three independent strands woven into one Loom. The full-color app icon and simplified monochrome menu bar glyph share that silhouette. See [icon design notes](docs/ICON_DESIGN.md) and [product direction](docs/PRODUCT.md).
 
-## License and author
+## License and Author
 
 Created by **[Deepak Sharma](https://github.com/chaiwithcode)**.
 
