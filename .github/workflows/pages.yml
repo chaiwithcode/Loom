@@ -1,9 +1,15 @@
-name: Deploy Sparkle Appcast to GitHub Pages
+name: Deploy Website & Sparkle Appcast to GitHub Pages
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'pages/**'
+      - '.github/workflows/pages.yml'
+      - 'docs/**'
 
 concurrency:
   group: pages
@@ -15,69 +21,120 @@ permissions:
   id-token: write
 
 jobs:
-  deploy-appcast:
+  deploy-pages:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download appcast from latest release
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Stage website and static assets
+        run: |
+          set -euo pipefail
+          mkdir -p site/docs site/Resources
+
+          if [ -d pages ]; then
+            cp -R pages/. site/
+          fi
+
+          if [ -f docs/loom-demo-thumbnail.png ]; then
+            cp docs/loom-demo-thumbnail.png site/docs/
+          fi
+
+          for f in docs/menu-navigation-*.png; do
+            if [ -f "$f" ]; then
+              cp "$f" site/docs/
+            fi
+          done
+
+          if [ -f docs/widget-showcase.png ]; then
+            cp docs/widget-showcase.png site/docs/
+          fi
+
+          if [ -f Resources/LoomIconMaster.png ]; then
+            cp Resources/LoomIconMaster.png site/Resources/
+          fi
+
+          touch site/.nojekyll
+
+      - name: Download release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          mkdir -p pages
 
           TAG="${{ github.event.release.tag_name }}"
           if [[ -z "${TAG}" ]]; then
             TAG="$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName 2>/dev/null || gh release list --repo "${{ github.repository }}" --limit 1 | awk '{print $3}')"
           fi
-          echo "Fetching appcast.xml for release ${TAG}..."
-          gh release download "${TAG}" --repo "${{ github.repository }}" --pattern "appcast.xml" --dir pages || {
-            echo "Warning: appcast.xml not found in release asset."
-          }
+          echo "Target release tag: ${TAG:-latest}"
 
-          python3 -c '
-          import textwrap
-          html = """<!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <title>Loom — Software Updates</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #f0f2f5; margin: 0; padding: 40px 20px; display: flex; justify-content: center; align-items: center; min-height: 80vh; }
-              .card { background: #1a1d26; border: 1px solid #2d313e; border-radius: 12px; max-width: 540px; width: 100%; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-              h1 { margin-top: 0; font-size: 24px; color: #ffffff; }
-              p { line-height: 1.6; color: #9da5b4; }
-              a.button { display: inline-block; background: #2563eb; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-top: 12px; margin-right: 10px; }
-              a.button:hover { background: #1d4ed8; }
-              a.secondary { display: inline-block; background: #2d313e; color: #e2e8f0; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-top: 12px; }
-              a.secondary:hover { background: #373c4c; }
-              code { background: #282c37; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #38bdf8; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <h1>Loom Updates Feed</h1>
-              <p>This is the official Sparkle 2 appcast feed distribution server for <strong>Loom</strong>, the native macOS monitor for local AI coding agents.</p>
-              <p>Sparkle Feed URL: <code>https://chaiwithcode.github.io/Loom/appcast.xml</code></p>
-              <div>
-                <a class="button" href="https://github.com/chaiwithcode/Loom/releases">GitHub Releases</a>
-                <a class="secondary" href="appcast.xml">View appcast.xml</a>
+          for pattern in "appcast.xml" "Loom-Demo-16x9.mp4" "Loom-Demo-9x16.mp4"; do
+            echo "Fetching ${pattern}..."
+            if [[ -n "${TAG}" ]]; then
+              gh release download "${TAG}" --repo "${{ github.repository }}" --pattern "${pattern}" --dir site --clobber || {
+                echo "Warning: ${pattern} not found in release ${TAG}."
+              }
+            else
+              gh release download --repo "${{ github.repository }}" --pattern "${pattern}" --dir site --clobber || {
+                echo "Warning: ${pattern} not found in latest release."
+              }
+            fi
+          done
+
+          # Fallback to local appcast if release asset was not present
+          if [[ ! -f site/appcast.xml && -f dist/appcast.xml ]]; then
+            echo "Falling back to repository dist/appcast.xml for site/appcast.xml"
+            cp dist/appcast.xml site/appcast.xml
+          fi
+
+          # Fallback minimal page if pages/index.html was not provided
+          if [[ ! -f site/index.html ]]; then
+            echo "Generating fallback index.html..."
+            python3 -c '
+            import textwrap
+            html = """<!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>Loom — Software Updates</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #f0f2f5; margin: 0; padding: 40px 20px; display: flex; justify-content: center; align-items: center; min-height: 80vh; }
+                .card { background: #1a1d26; border: 1px solid #2d313e; border-radius: 12px; max-width: 540px; width: 100%; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+                h1 { margin-top: 0; font-size: 24px; color: #ffffff; }
+                p { line-height: 1.6; color: #9da5b4; }
+                a.button { display: inline-block; background: #2563eb; color: #ffffff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-top: 12px; margin-right: 10px; }
+                a.button:hover { background: #1d4ed8; }
+                a.secondary { display: inline-block; background: #2d313e; color: #e2e8f0; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-top: 12px; }
+                a.secondary:hover { background: #373c4c; }
+                code { background: #282c37; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #38bdf8; }
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <h1>Loom Updates Feed</h1>
+                <p>This is the official Sparkle 2 appcast feed distribution server for <strong>Loom</strong>, the native macOS monitor for local AI coding agents.</p>
+                <p>Sparkle Feed URL: <code>https://chaiwithcode.github.io/Loom/appcast.xml</code></p>
+                <div>
+                  <a class="button" href="https://github.com/chaiwithcode/Loom/releases">GitHub Releases</a>
+                  <a class="secondary" href="appcast.xml">View appcast.xml</a>
+                </div>
               </div>
-            </div>
-          </body>
-          </html>
-          """
-          with open("pages/index.html", "w") as f:
-              f.write(textwrap.dedent(html).strip() + "\n")
-          '
+            </body>
+            </html>
+            """
+            with open("site/index.html", "w") as f:
+                f.write(textwrap.dedent(html).strip() + "\n")
+            '
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: pages
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deployment

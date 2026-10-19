@@ -4,7 +4,7 @@
 
 **Core** defines provider-neutral session/usage models, normalization, settings and refresh coordination. **Providers** own local detection, discovery, transport and provider parsing. **UI** consumes normalized state through SwiftUI menu, settings and About views.
 
-SwiftPM exposes `LoomCore` from `Loom/Core` and `Loom/Providers`, and the `Loom` executable from `Loom/App` and `Loom/UI`. Xcode provides the shared Loom scheme. There are no third-party package dependencies.
+SwiftPM exposes `LoomCore` from `Loom/Core` and `Loom/Providers`, and the `Loom` executable from `Loom/App` and `Loom/UI`. Xcode provides the shared Loom scheme. `LoomCore` has zero third-party package dependencies; the `Loom` executable integrates official Sparkle 2 for signed, secure local updates.
 
 ## Data flow
 

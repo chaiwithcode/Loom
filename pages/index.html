@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loom — Monitor Local AI Coding Agents from macOS Menu Bar</title>
+  <meta name="description" content="Loom is a native macOS menu-bar app to monitor OpenAI Codex, Anthropic Claude Code, and Google Antigravity sessions, live quotas, and local storage.">
+  
+  <!-- Open Graph / Social Meta -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://chaiwithcode.github.io/Loom/">
+  <meta property="og:title" content="Loom — Three agents. One Loom.">
+  <meta property="og:description" content="Monitor your local AI coding agents from one native macOS menu-bar app. Sessions, live quotas, and widgets.">
+  <meta property="og:image" content="docs/social-preview.png">
+
+  <!-- Twitter Meta -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Loom — Three agents. One Loom.">
+  <meta name="twitter:description" content="Monitor your local AI coding agents from one native macOS menu-bar app.">
+  <meta name="twitter:image" content="docs/social-preview.png">
+
+  <link rel="icon" type="image/png" href="Resources/LoomIconMaster.png">
+  <link rel="apple-touch-icon" href="Resources/LoomIconMaster.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <!-- Navigation -->
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a href="#" class="nav-brand" aria-label="Loom Home">
+        <img src="Resources/LoomIconMaster.png" alt="Loom app icon" class="nav-brand-icon" width="32" height="32">
+        <span>Loom</span>
+      </a>
+
+      <nav aria-label="Primary Navigation">
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#demo">Demo</a></li>
+          <li><a href="#providers">Providers</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="https://github.com/chaiwithcode/Loom#readme" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+          <li><a href="https://github.com/chaiwithcode/Loom" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-1.0.dmg" class="nav-cta" download>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Download</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero Section -->
+    <section class="hero-section" id="hero">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="container hero-content">
+        <div class="hero-icon-wrapper">
+          <img src="Resources/LoomIconMaster.png" alt="Three strands woven into one Loom icon" class="hero-icon" width="120" height="120">
+        </div>
+        
+        <h1 class="hero-title">Loom</h1>
+        <p class="hero-subtitle">Three agents. One Loom.</p>
+        <p class="hero-tagline">Monitor your local AI coding agents from one native macOS menu-bar app.</p>
+
+        <div class="hero-cta-group">
+          <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-1.0.dmg" class="btn btn-primary" download>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Download for macOS</span>
+          </a>
+
+          <a href="#install" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            <span>Install with Homebrew</span>
+          </a>
+
+          <a href="https://github.com/chaiwithcode/Loom" class="btn btn-subtle" target="_blank" rel="noopener noreferrer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            <span>View on GitHub</span>
+          </a>
+        </div>
+
+        <div class="hero-pill-compat">
+          <span class="compat-dot" aria-hidden="true"></span>
+          <span>macOS Sonoma 14+ • Apple Silicon & Intel • Notarized by Apple</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Product Video Section -->
+    <section class="demo-section" id="demo">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Product Walkthrough</span>
+          <h2 class="section-title">Watch Loom in Action</h2>
+          <p class="section-desc">Experience local session discovery, real-time quota telemetry, and desktop widgets in 35 seconds.</p>
+        </div>
+
+        <div class="demo-window-container">
+          <div class="macos-window">
+            <div class="macos-titlebar">
+              <div class="macos-traffic-lights" aria-hidden="true">
+                <span class="traffic-light traffic-close"></span>
+                <span class="traffic-light traffic-minimize"></span>
+                <span class="traffic-light traffic-expand"></span>
+              </div>
+              <div class="macos-window-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Loom Demo — Native macOS Experience</span>
+              </div>
+            </div>
+
+            <div class="video-frame">
+              <video controls preload="metadata" poster="docs/loom-demo-thumbnail.png" playsinline>
+                <source src="Loom-Demo-16x9.mp4" type="video/mp4">
+                <source src="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-Demo-16x9.mp4" type="video/mp4">
+                <p>Your browser does not support HTML5 video. You can <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-Demo-16x9.mp4">download the demo video directly</a>.</p>
+              </video>
+            </div>
+
+            <div class="demo-caption-bar">
+              <div class="demo-meta">
+                <span class="badge-duration">0:35</span>
+                <span>Full resolution (16:9) capture with active agent workloads</span>
+              </div>
+              <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-Demo-9x16.mp4" class="demo-vertical-link">
+                <span>Vertical mobile cut (32s)</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Why Loom / Problem & Value -->
+    <section class="why-section" id="why">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Why Loom?</span>
+          <h2 class="section-title">What are all my local AI coding agents doing on my Mac right now?</h2>
+          <p class="section-desc">When you juggle multiple autonomous agents across terminals, editor extensions, and language servers, visibility evaporates.</p>
+        </div>
+
+        <div class="why-grid">
+          <div class="why-card">
+            <div class="why-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <h3>Terminal &amp; Process Sprawl</h3>
+            <p>Codex in VS Code, Claude Code in Terminal tabs, and Antigravity running background helpers. Loom discovers all active agent processes and groups them into clean, logical project sessions.</p>
+          </div>
+
+          <div class="why-card">
+            <div class="why-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <h3>Invisible Rolling Quotas</h3>
+            <p>Hitting 5-hour rolling rate limits in the middle of a refactor breaks momentum. Loom surfaces truthful quota percentages and exact countdowns to your next reset window.</p>
+          </div>
+
+          <div class="why-card">
+            <div class="why-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h3>100% Local &amp; Ephemeral</h3>
+            <p>No Loom account, no cloud relay, and zero telemetry SDKs. Loom is strictly read-only, communicates over local stdio and loopback HTTPS, and never persists sensitive provider tokens.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Showcase -->
+    <section class="features-section" id="features">
+      <div class="container">
+        <!-- Feature 1: Local Agent Sessions -->
+        <div class="feature-block">
+          <div class="feature-content">
+            <span class="feature-pill">Live Monitoring</span>
+            <h3 class="feature-title">Local Agent Sessions</h3>
+            <p class="feature-lead">Know immediately which repository each agent is editing, what phase it is executing, and when it needs your input.</p>
+
+            <ul class="feature-list">
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Glanceable Provider Selector</strong>
+                  <span>Switch between OpenAI Codex, Anthropic Claude Code, and Google Antigravity with live session counters.</span>
+                </div>
+              </li>
+
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Normalized Lifecycle States</strong>
+                  <span>Truthful status indicators for <code>working</code>, <code>idle</code>, <code>waiting for input</code>, <code>starting</code>, <code>finished</code>, and <code>failed</code>.</span>
+                </div>
+              </li>
+
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Process Tree &amp; Directory Inspector</strong>
+                  <span>Expand any session to inspect helper PIDs, host apps, Git branches, working paths, and a one-click Reveal in Finder action.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="feature-visual">
+            <div class="screenshot-card">
+              <img src="docs/menu-navigation-sessions.png" alt="Loom menu bar popover showing active Sessions tab with process hierarchy and Git metadata" class="screenshot-img" loading="lazy">
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 2: Usage Quotas & Local Storage -->
+        <div class="feature-block reverse">
+          <div class="feature-content">
+            <span class="feature-pill">Telemetry &amp; Diagnostics</span>
+            <h3 class="feature-title">Usage Quotas &amp; Local Storage</h3>
+            <p class="feature-lead">Track rate limits and inspect agent disk consumption without touching terminal commands or third-party web portals.</p>
+
+            <ul class="feature-list">
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Truthful Live Quotas</strong>
+                  <span>View remaining percentages and reset windows for standard and premium models (GPT-4o, o1, Gemini 1.5 Pro). Unsupported providers like Claude Code are honestly labeled rather than displaying fake zeros.</span>
+                </div>
+              </li>
+
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>On-Demand Local Storage Audit</strong>
+                  <span>Measure allocated disk space across agent stores, transcript logs, and cache folders. Scans run cooperatively in the background without reading file contents or traversing symlinks.</span>
+                </div>
+              </li>
+
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Path Concealment Mode</strong>
+                  <span>Mask repo directories and sensitive disk paths with one toggle in Settings for secure screen sharing and live streaming.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="feature-visual">
+            <div class="dual-screenshot-grid">
+              <div class="dual-screenshot-card">
+                <img src="docs/menu-navigation-usage.png" alt="Loom Usage tab showing real-time quota progress and model limits" class="screenshot-img" loading="lazy">
+                <div class="screenshot-caption">Usage Quotas &amp; Reset Timers</div>
+              </div>
+              <div class="dual-screenshot-card">
+                <img src="docs/menu-navigation-storage.png" alt="Loom Storage tab showing measured local disk footprint per provider" class="screenshot-img" loading="lazy">
+                <div class="screenshot-caption">Local Disk Storage Footprint</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 3: Native macOS Widgets -->
+        <div class="feature-block">
+          <div class="feature-content">
+            <span class="feature-pill">Desktop Integration</span>
+            <h3 class="feature-title">Native macOS Widgets</h3>
+            <p class="feature-lead">Keep agent activity and remaining quotas in your peripheral vision across desktop spaces and Notification Center.</p>
+
+            <ul class="feature-list">
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Three Dedicated Widget Families</strong>
+                  <span>Choose from <strong>Loom Sessions</strong>, <strong>Loom Quotas</strong>, and <strong>Loom Usage Overview</strong> across Small, Medium, and Large families.</span>
+                </div>
+              </li>
+
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Configurable Provider Targeting</strong>
+                  <span>Monitor all enabled providers simultaneously or configure a widget to follow a specific coding agent via native Edit Widget controls.</span>
+                </div>
+              </li>
+
+              <li class="feature-list-item">
+                <span class="feature-list-bullet" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="feature-list-text">
+                  <strong>Native WidgetKit Fidelity</strong>
+                  <span>Built with pure SwiftUI for macOS Sonoma. Adapts automatically to Light, Dark, and desktop tinting modes with zero CPU overhead.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="feature-visual">
+            <div class="screenshot-card">
+              <img src="docs/widget-showcase.png" alt="Loom macOS desktop widget showcase featuring Small, Medium, and Large widgets" class="screenshot-img" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Supported Providers Table -->
+    <section class="providers-section" id="providers">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Compatibility</span>
+          <h2 class="section-title">Supported Providers</h2>
+          <p class="section-desc">Loom connects directly to local runtimes using verified OS evidence and official local IPC.</p>
+        </div>
+
+        <div class="table-responsive-wrapper">
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th scope="col">Provider</th>
+                <th scope="col">Session Discovery</th>
+                <th scope="col">Quota / Usage Interface</th>
+                <th scope="col">Storage Accounting</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="provider-cell">
+                    <span class="provider-icon-badge provider-badge-codex" aria-hidden="true">O</span>
+                    <span>OpenAI Codex</span>
+                  </div>
+                </td>
+                <td>Running processes, child process tree &amp; Git repository metadata</td>
+                <td>Local app-server interface over stdio</td>
+                <td>Caches, session data, and execution logs</td>
+                <td><span class="status-badge badge-implemented">Implemented</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="provider-cell">
+                    <span class="provider-icon-badge provider-badge-claude" aria-hidden="true">C</span>
+                    <span>Anthropic Claude Code</span>
+                  </div>
+                </td>
+                <td>Running CLI processes, process hierarchy, active workspaces &amp; transcripts</td>
+                <td><span class="status-badge badge-unsupported">Not exposed by upstream CLI</span></td>
+                <td>Configuration roots, session state &amp; transcripts</td>
+                <td><span class="status-badge badge-implemented">Implemented</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="provider-cell">
+                    <span class="provider-icon-badge provider-badge-antigravity" aria-hidden="true">G</span>
+                    <span>Google Antigravity</span>
+                  </div>
+                </td>
+                <td>Local session metadata &amp; language-server processes</td>
+                <td>Local language-server interface over loopback HTTPS with ephemeral token</td>
+                <td>Store database, session artifacts &amp; diagnostic logs</td>
+                <td><span class="status-badge badge-implemented">Implemented</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="disclaimer-text">Loom is an independent open-source project and is not affiliated with or endorsed by OpenAI, Anthropic, or Google.</p>
+      </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section class="install-section" id="install">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Get Started</span>
+          <h2 class="section-title">Install Loom on your Mac</h2>
+          <p class="section-desc">Choose between the official Homebrew tap or a signed, notarized disk image.</p>
+        </div>
+
+        <div class="install-grid">
+          <!-- Option 1: Homebrew -->
+          <div class="install-card highlight">
+            <span class="install-tag">Recommended</span>
+            <h3>Homebrew Cask</h3>
+            <p>Install and keep Loom updated using Homebrew through the official tap:</p>
+
+            <div class="terminal-snippet">
+              <code class="terminal-code" id="brew-command">brew install --cask chaiwithcode/tap/chaiwithcode-loom</code>
+              <button class="copy-btn" id="copy-btn" aria-label="Copy Homebrew command" onclick="copyCommand()">Copy</button>
+            </div>
+
+            <ul class="install-meta-list">
+              <li><span class="check-icon">✓</span> Managed via Homebrew updates</li>
+              <li><span class="check-icon">✓</span> Direct binary verification</li>
+            </ul>
+          </div>
+
+          <!-- Option 2: Direct DMG -->
+          <div class="install-card">
+            <h3>Direct Download</h3>
+            <p>Download the standalone disk image with Apple Hardened Runtime:</p>
+
+            <div style="margin-bottom: 20px;">
+              <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-1.0.dmg" class="btn btn-primary" style="width: 100%;" download>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Download Loom-1.0.dmg</span>
+              </a>
+            </div>
+
+            <ul class="install-meta-list">
+              <li><span class="check-icon">✓</span> Apple Developer ID signed</li>
+              <li><span class="check-icon">✓</span> Apple Notarization ticket stapled</li>
+            </ul>
+          </div>
+
+          <!-- Option 3: Sparkle Updates -->
+          <div class="install-card">
+            <h3>Automatic Updates</h3>
+            <p>Built-in silent or interactive updates powered by Sparkle 2:</p>
+
+            <div style="margin-bottom: 16px;">
+              <a href="appcast.xml" class="btn btn-secondary" style="width: 100%;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+                <span>Inspect Appcast Feed</span>
+              </a>
+            </div>
+
+            <ul class="install-meta-list">
+              <li><span class="check-icon">✓</span> Ed25519 cryptographic signatures</li>
+              <li><span class="check-icon">✓</span> Check anytime in Settings (⌘,)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy & Open Source -->
+    <section class="privacy-section" id="privacy">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Security &amp; Architecture</span>
+          <h2 class="section-title">Built for Developer Privacy</h2>
+          <p class="section-desc">Loom is crafted with a strict local-first architecture to protect your code and credentials.</p>
+        </div>
+
+        <div class="privacy-grid">
+          <div class="privacy-item">
+            <div class="privacy-item-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="privacy-item-content">
+              <h3>No Accounts, Zero Telemetry</h3>
+              <p>There is no sign-in, no Loom user database, and no cloud server. Loom embeds zero tracking, analytics, or behavioral telemetry frameworks.</p>
+            </div>
+          </div>
+
+          <div class="privacy-item">
+            <div class="privacy-item-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="privacy-item-content">
+              <h3>Strictly Read-Only Inspection</h3>
+              <p>Loom never executes prompts, writes code, modifies agent sessions, or approves dangerous CLI operations. It inspects local runtime state purely for monitoring.</p>
+            </div>
+          </div>
+
+          <div class="privacy-item">
+            <div class="privacy-item-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <div class="privacy-item-content">
+              <h3>Ephemeral Memory Tokens</h3>
+              <p>Loopback authentication tokens for Google Antigravity language-server endpoints are retained strictly in memory and are never written to disk or logs.</p>
+            </div>
+          </div>
+
+          <div class="privacy-item">
+            <div class="privacy-item-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </div>
+            <div class="privacy-item-content">
+              <h3>Path Concealment Mode</h3>
+              <p>Mask absolute filesystem paths and project folder evidence across all menu views with a single toggle in Settings (<code>⌘,</code>) during presentations and recordings.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="opensource-banner">
+          <div class="opensource-info">
+            <h3>100% Free and Open Source</h3>
+            <p>Loom is developed in public under the permissive MIT License by Deepak Sharma (ChaiWithCode). Inspect every line of code, verify the build pipeline, or submit contributions on GitHub.</p>
+          </div>
+          <div>
+            <a href="https://github.com/chaiwithcode/Loom" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
+              <span>View Repository</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand-col">
+          <a href="#" class="footer-brand">
+            <img src="Resources/LoomIconMaster.png" alt="Loom icon" class="footer-brand-icon" width="28" height="28">
+            <span>Loom</span>
+          </a>
+          <p class="footer-tagline">Three agents. One Loom. Monitor your local AI coding agents from one native macOS menu-bar app.</p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Navigation</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#demo">Demo Walkthrough</a></li>
+            <li><a href="#providers">Supported Providers</a></li>
+            <li><a href="#install">Installation</a></li>
+            <li><a href="#privacy">Privacy &amp; Security</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Documentation</h4>
+          <ul>
+            <li><a href="https://github.com/chaiwithcode/Loom#readme" target="_blank" rel="noopener noreferrer">README</a></li>
+            <li><a href="https://github.com/chaiwithcode/Loom/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer">Architecture</a></li>
+            <li><a href="https://github.com/chaiwithcode/Loom/blob/main/docs/WIDGETS.md" target="_blank" rel="noopener noreferrer">Widget Guide</a></li>
+            <li><a href="https://github.com/chaiwithcode/Loom/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security Policy</a></li>
+            <li><a href="https://github.com/chaiwithcode/Loom/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Releases &amp; Feed</h4>
+          <ul>
+            <li><a href="https://github.com/chaiwithcode/Loom/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a></li>
+            <li><a href="https://github.com/chaiwithcode/homebrew-tap" target="_blank" rel="noopener noreferrer">Homebrew Tap</a></li>
+            <li><a href="appcast.xml">Sparkle Updates (appcast.xml)</a></li>
+            <li><a href="https://github.com/chaiwithcode/Loom/releases/tag/v1.0" target="_blank" rel="noopener noreferrer">v1.0 Release Notes</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="footer-copy">Copyright &copy; 2026 Deepak Sharma (<a href="https://github.com/chaiwithcode" target="_blank" rel="noopener noreferrer">ChaiWithCode</a>). Licensed under the <a href="https://github.com/chaiwithcode/Loom/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>.</p>
+        <p class="footer-copy">Built natively with Swift and SwiftUI for macOS Sonoma 14+.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function copyCommand() {
+      const code = document.getElementById('brew-command').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('copy-btn');
+        const orig = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = 'rgba(48, 209, 88, 0.4)';
+        setTimeout(() => {
+          btn.innerText = orig;
+          btn.style.background = '';
+        }, 2000);
+      }).catch(err => {
+        console.error('Copy failed', err);
+      });
+    }
+  </script>
+</body>
+</html>
