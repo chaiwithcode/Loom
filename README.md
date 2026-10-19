@@ -1,6 +1,7 @@
 <p align="center"><img src="Resources/LoomIconMaster.png" width="144" alt="Three strands woven into one Loom"></p>
 <h1 align="center">Loom</h1>
-<p align="center"><strong>Three agents. One Loom.</strong><br>Monitor Codex, Claude Code, and Antigravity from one native macOS menu-bar app.</p>
+<p align="center"><strong>Three agents. One Loom.</strong><br>Monitor Codex, Claude Code, and Antigravity from one native macOS menu-bar app.<br><br>
+<strong><a href="https://chaiwithcode.github.io/Loom/">Website</a> &nbsp;·&nbsp; <a href="https://chaiwithcode.github.io/Loom/#demo">Watch Demo</a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-1.0.dmg">Download</a></strong></p>
 
 <p align="center">
   <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-Demo-16x9.mp4">
@@ -10,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://chaiwithcode.github.io/Loom/"><strong>Official Website</strong></a> &nbsp;•&nbsp;
   <a href="https://github.com/chaiwithcode/Loom/releases/download/v1.0/Loom-1.0.dmg"><strong>Download for macOS (DMG)</strong></a> &nbsp;•&nbsp;
   <a href="#homebrew-recommended"><strong>Install with Homebrew</strong></a> &nbsp;•&nbsp;
   <a href="https://github.com/chaiwithcode/Loom/releases"><strong>GitHub Releases</strong></a>
@@ -23,7 +25,7 @@ When you run multiple local AI coding agents across background terminals, editor
 
 Loom gives you one clean, local-first menu-bar application to see which project each agent is working on, which session needs attention, and how much quota remains—without switching between terminals, browser dashboards, and apps.
 
-Built with Swift and SwiftUI. No Loom account, no hosted backend, no analytics SDKs, and zero third-party dependencies.
+Built with Swift and SwiftUI. No Loom account, no hosted backend, no analytics SDKs, and no third-party packages except official Sparkle 2 for signed, secure local updates.
 
 ## Local Agent Sessions
 
