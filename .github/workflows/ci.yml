@@ -20,6 +20,10 @@ jobs:
       # Keep test in source; this job does not claim live-database coverage.
       - name: Portable tests (live Antigravity discovery excluded)
         run: swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest'
+      - name: Verify release and pages pipeline
+        run: |
+          bash scripts/verify-release-pipeline.sh
+          bash scripts/verify-pages-staging.sh
       - name: Package development artifact
         run: |
           set -euo pipefail

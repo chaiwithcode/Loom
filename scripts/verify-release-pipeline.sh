@@ -33,6 +33,7 @@ check "release-package.sh syntax" "bash -n scripts/release-package.sh"
 check "package-dmg.sh syntax" "bash -n scripts/package-dmg.sh"
 check "update-homebrew-tap.sh syntax" "bash -n scripts/update-homebrew-tap.sh"
 check "generate-appcast.sh syntax" "bash -n scripts/generate-appcast.sh"
+check "verify-pages-staging.sh syntax" "bash -n scripts/verify-pages-staging.sh"
 
 # 2. Release Packager pipeline invariants
 check "release-package calls package-dmg.sh" \
@@ -98,6 +99,9 @@ check "dual SHA256SUMS format matches DMG entry" \
 
 check "dual SHA256SUMS validates via shasum -c" \
     "(cd \"${TEST_TMP}\" && shasum -a 256 -c SHA256SUMS.txt >/dev/null 2>&1)"
+
+check "pages staging simulation and invariants" \
+    "bash scripts/verify-pages-staging.sh >/dev/null 2>&1"
 
 rm -rf "${TEST_TMP}"
 trap - EXIT INT TERM
