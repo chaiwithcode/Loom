@@ -137,50 +137,36 @@ public struct UsageBarView: View {
 
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 // Header line: Label and optional Pacing badge
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .center) {
                     Text(bucket.label)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                         .help(bucket.label)
 
                     Spacer(minLength: 4)
 
                     if let pacing = pacingStatus(at: context.date) {
-                        HStack(spacing: 2.5) {
+                        HStack(spacing: 3) {
                             Image(systemName: pacing.icon)
-                                .font(.system(size: 7.5, weight: .semibold))
+                                .font(.system(size: 8, weight: .semibold))
                             Text(pacing.label)
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(.system(size: 9.5, weight: .medium))
                         }
                         .foregroundStyle(pacing.color)
-                        .padding(.horizontal, 4.5)
-                        .padding(.vertical, 1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1.5)
                         .background(pacing.color.opacity(0.12), in: Capsule())
                         .help("Quota consumption pacing within current window")
                     }
                 }
 
-                // Main Quota Readout
-                if let percent = bucket.remainingPercent {
-                    (Text("\(percent)%").font(.system(size: 23, weight: .semibold))
-                        + Text(" left").font(.system(size: 14)))
-                        .foregroundStyle(.primary)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                } else {
-                    Text("Unavailable")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 4)
-                }
-
                 // Progress Bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.secondary.opacity(0.18))
+                        Capsule().fill(Color.primary.opacity(0.08))
                         if let fraction = bucket.remainingFraction {
                             Capsule()
                                 .fill(barColor)
@@ -188,28 +174,43 @@ public struct UsageBarView: View {
                         }
                     }
                 }
-                .frame(height: 6)
+                .frame(height: 5)
                 .accessibilityHidden(true)
 
-                // Exact reset timing
-                Text(resetDescription(at: context.date))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .help(bucket.formattedResetTime(relativeTo: context.date)?.capitalizedFirst ?? "")
+                // Readout line: Percentage on leading, Exact reset time on trailing
+                HStack(alignment: .firstTextBaseline) {
+                    if let percent = bucket.remainingPercent {
+                        Text("\(percent)% left")
+                            .font(.system(size: 12, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(barColor)
+                    } else {
+                        Text("Unavailable")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(resetDescription(at: context.date))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .help(bucket.formattedResetTime(relativeTo: context.date)?.capitalizedFirst ?? "")
+                }
 
                 // Stale warning badge
                 if isStale {
                     HStack(spacing: 4) {
                         Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 9.5, weight: .medium))
+                            .font(.system(size: 9, weight: .medium))
                         Text(staleLabel(relativeTo: context.date))
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 9.5, weight: .medium))
                     }
                     .foregroundStyle(.orange)
                     .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 5))
+                    .padding(.vertical, 1.5)
+                    .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 4))
                     .help(staleReason ?? "Previously fetched quota; current data could not be confirmed")
                 }
 
@@ -221,8 +222,9 @@ public struct UsageBarView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(12)
-            .loomCard(cornerRadius: 10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .loomCard(cornerRadius: 8)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(bucket.label), \(bucket.remainingPercent.map { "\($0) percent remaining" } ?? "remaining quota unavailable")\(isStale ? ", cached data" : "")")
         }

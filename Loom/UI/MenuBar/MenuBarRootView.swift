@@ -65,36 +65,32 @@ public struct MenuBarRootView: View {
             VStack(spacing: 0) {
                 VStack(spacing: 0) {
                     MenuBarHeaderView(store: store, settings: settings, selectedTab: selectedTab)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 10)
+                        .padding(.bottom, 6)
 
                     // Native macOS Segmented Control
-                    HStack(spacing: 0) {
-                        tabButton("Sessions", tab: .agents)
-                        tabButton("Usage", tab: .usage)
-                        tabButton("Storage", tab: .storage)
+                    Picker("", selection: $selectedTab) {
+                        Text("Sessions").tag(MenuTab.agents)
+                        Text("Usage").tag(MenuTab.usage)
+                        Text("Storage").tag(MenuTab.storage)
                     }
-                    .padding(3)
-                    .background {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.primary.opacity(0.05))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                    }
-                    .padding(.horizontal, 16)
-                    .frame(height: 40)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityLabel("Loom view")
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .controlSize(.regular)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+                    .accessibilityIdentifier("main-tab-picker")
                 }
                 .background(MenuHeightReader(part: "header"))
 
                 if selectedTab == .agents && !store.enabledSnapshots.isEmpty {
-                    Divider()
+                    Divider().opacity(0.4)
                     providerSelector
                         .background(MenuHeightReader(part: "selector"))
                 }
 
-                Divider()
+                Divider().opacity(0.4)
 
                 // Preserve separate scroll/disclosure state without letting the inactive
                 // tab determine the menu height or participate in accessibility/input.
@@ -218,12 +214,13 @@ public struct MenuBarRootView: View {
 
     @ViewBuilder
     private var providerSelector: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             ForEach(store.enabledSnapshots) { snapshot in
                 providerButton(for: snapshot)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
         .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Provider selector")
@@ -238,49 +235,40 @@ public struct MenuBarRootView: View {
             selectedProviderID = snapshot.id
         } label: {
             HStack(spacing: 4) {
-                ProviderIconView(providerID: snapshot.id, size: 12)
+                ProviderIconView(providerID: snapshot.id, size: 11)
 
                 Text(snapshot.displayName)
-                    .font(.system(size: 11.5, weight: isSelected ? .semibold : .medium))
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
 
                 if needsAttention {
                     Circle()
                         .fill(Color.orange)
-                        .frame(width: 5.5, height: 5.5)
+                        .frame(width: 5, height: 5)
                         .help("This provider has sessions requiring attention")
                 }
 
                 Text("\(sessionCount)")
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium, design: .rounded))
+                    .font(.system(size: 9.5, weight: isSelected ? .semibold : .medium, design: .rounded))
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .padding(.horizontal, 4.5)
-                    .padding(.vertical, 1)
-                    .background(
-                        (isSelected ? Color.primary.opacity(0.12) : Color.primary.opacity(0.06)),
-                        in: Capsule()
-                    )
-                    .fixedSize(horizontal: true, vertical: false)
             }
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity)
-            .frame(height: 28)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3.5)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.primary.opacity(0.08))
+                    Capsule()
+                        .fill(Color.primary.opacity(0.10))
                 }
             }
             .overlay {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                    Capsule()
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
                 }
             }
-            .contentShape(Rectangle())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -288,31 +276,6 @@ public struct MenuBarRootView: View {
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityValue(isSelected ? "Selected" : "")
         .accessibilityIdentifier("provider-tab-\(snapshot.id.rawValue)")
-    }
-
-    private func tabButton(_ title: String, tab: MenuTab) -> some View {
-        let isSelected = selectedTab == tab
-        return Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                selectedTab = tab
-            }
-        } label: {
-            Text(title)
-                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.85))
-                            .shadow(color: Color.black.opacity(0.08), radius: 2, y: 1)
-                    }
-                }
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .accessibilityValue(isSelected ? "Selected" : "")
     }
 
     private func viewportHeight(for tab: MenuTab) -> CGFloat {
@@ -501,85 +464,93 @@ private struct MenuBarHeaderView: View {
         if attentionCount > 0 && activeCount > 0 {
             return "\(activeCount) active • \(attentionCount) need attention"
         } else if attentionCount > 0 {
-            return "\(attentionCount) \(attentionCount == 1 ? "session needs" : "sessions need") attention"
+            return "\(attentionCount) need attention"
         } else if activeCount > 0 {
-            return "\(activeCount) \(activeCount == 1 ? "active session" : "active sessions")"
+            return "\(activeCount) active"
         } else {
-            return "Local AI agents"
+            return "Ready"
         }
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            LoomIconView(size: 20)
+        HStack(alignment: .center, spacing: 7) {
+            LoomIconView(size: 15)
                 .foregroundStyle(.primary)
-                .frame(width: 30, height: 30)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .accessibilityHidden(true)
-                .layoutPriority(1)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text("Loom")
-                        .font(.system(size: 16, weight: .bold))
-                    if let badge = store.fixture.badgeLabel {
-                        Text(badge)
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.secondary.opacity(0.2), in: RoundedRectangle(cornerRadius: 3))
-                            .foregroundStyle(.secondary)
-                            .layoutPriority(1)
-                    }
-                }
-                Text(activitySubtitle)
-                    .font(.system(size: 11))
+            Text("Loom")
+                .font(.system(size: 13, weight: .semibold))
+
+            if let badge = store.fixture.badgeLabel {
+                Text(badge)
+                    .font(.system(size: 8.5, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 3))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
             }
 
-            Spacer(minLength: 4)
+            Text("•")
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
 
-            // Settings action
-            Button {
-                DockController.shared.showSettings(store: store)
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 26, height: 26)
-            }
-            .buttonStyle(.plain)
-            .loomInteractiveGlass(in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .contentShape(Rectangle())
-            .accessibilityLabel("Settings")
-            .help("Open Loom Settings (⌘,)")
-            .layoutPriority(2)
+            Text(activitySubtitle)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
 
-            // Manual Refresh action
-            Button {
-                Task {
-                    await store.refresh()
-                    if selectedTab == .storage {
-                        await store.refreshStorage(force: true)
+            Spacer(minLength: 6)
+
+            // Header Toolbar Actions
+            HStack(spacing: 2) {
+                // Quick Privacy Toggle
+                Button {
+                    if let settings {
+                        settings.hideProjectPaths.toggle()
                     }
+                } label: {
+                    Image(systemName: (settings?.hideProjectPaths ?? false) ? "eye.slash.fill" : "eye")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle((settings?.hideProjectPaths ?? false) ? Color.accentColor : Color.secondary)
+                        .frame(width: 22, height: 22)
                 }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 26, height: 26)
+                .buttonStyle(.plain)
+                .help((settings?.hideProjectPaths ?? false) ? "Project paths hidden (click to show)" : "Hide project paths")
+                .accessibilityLabel("Toggle project path privacy")
+
+                // Manual Refresh
+                Button {
+                    Task {
+                        await store.refresh()
+                        if selectedTab == .storage {
+                            await store.refreshStorage(force: true)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.plain)
+                .disabled(store.isRefreshing)
+                .help("Refresh (⌘R)")
+                .accessibilityLabel("Refresh sessions")
+
+                // Settings
+                Button {
+                    DockController.shared.showSettings(store: store)
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.plain)
+                .help("Open Settings (⌘,)")
+                .accessibilityLabel("Settings")
             }
-            .buttonStyle(.plain)
-            .loomInteractiveGlass(in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .contentShape(Rectangle())
-            .disabled(store.isRefreshing)
-            .accessibilityLabel("Refresh sessions")
-            .help("Refresh agent sessions")
-            .layoutPriority(2)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
     }
 }
 
@@ -594,20 +565,20 @@ private struct MenuBarFooterView: View {
                         ProgressView()
                             .controlSize(.mini)
                         Text("Refreshing…")
-                            .font(.system(size: 11))
+                            .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 } else if let lastRefreshed = store.lastRefreshedAt {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         Text(updatedLabel(lastRefreshed, now: context.date))
-                            .font(.system(size: 11))
+                            .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 } else {
                     Text("Ready")
-                        .font(.system(size: 11))
+                        .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
 
@@ -616,7 +587,7 @@ private struct MenuBarFooterView: View {
                     .foregroundStyle(.tertiary)
 
                 Text("v\(AppVersion.current.shortString)")
-                    .font(.system(size: 11))
+                    .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

@@ -55,90 +55,77 @@ public struct SessionRowView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.easeInOut(duration: 0.15)) {
                     isExpanded.toggle()
                 }
             } label: {
-                VStack(alignment: .leading, spacing: 7) {
-                    // Line 1: Repository / Project name (prominent) + State badge & Chevron
-                    HStack(alignment: .center, spacing: 8) {
-                        Text(projectTitle)
-                            .font(.system(size: 14.5, weight: .bold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .help(projectTitle)
+                HStack(alignment: .center, spacing: 8) {
+                    StateIndicatorView(state: session.state)
+                        .frame(width: 7, height: 7)
 
-                        Spacer(minLength: 4)
-
-                        // Semantic state badge
-                        HStack(spacing: 4) {
-                            StateIndicatorView(state: session.state)
-                                .frame(width: 8, height: 8)
-                            Text(session.state.displayName)
-                                .font(.system(size: 10.5, weight: .semibold))
-                                .foregroundStyle(stateColor(for: session.state))
-                        }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(stateColor(for: session.state).opacity(0.12), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10.5, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .accessibilityHidden(true)
-                    }
-
-                    // Line 2: Branch pill, Host App badge, Process count & Relative Activity
-                    HStack(spacing: 6) {
-                        if let branch = session.branch, !branch.isEmpty {
-                            HStack(spacing: 3) {
-                                Image(systemName: "arrow.triangle.branch")
-                                    .font(.system(size: 9))
-                                Text(branch)
-                                    .font(.system(size: 10.5, weight: .medium))
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1.5)
-                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        }
-
-                        if let hostApp = session.hostApp {
-                            Text(hostApp.displayName)
-                                .font(.system(size: 10.5, weight: .medium))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1.5)
-                                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        }
-
-                        let pCount = session.processCount
-                        Text(pCount == 1 ? "1 proc" : "\(pCount) procs")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-
-                        Spacer(minLength: 4)
-
-                        activityLine
-                    }
-
-                    // Line 3: Current activity summary (if present)
-                    if let summary = session.summary, !summary.isEmpty {
-                        HStack(spacing: 5) {
-                            Image(systemName: activityIcon(for: session.state))
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(stateColor(for: session.state))
-                            Text(hideProjectPaths ? "Activity details hidden" : summary)
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2.5) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(projectTitle)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.primary)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
+                                .help(projectTitle)
+
+                            if let hostApp = session.hostApp {
+                                Text(hostApp.displayName)
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 4.5)
+                                    .padding(.vertical, 1)
+                                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 3.5, style: .continuous))
+                            }
+                        }
+
+                        HStack(spacing: 5) {
+                            if let branch = session.branch, !branch.isEmpty {
+                                HStack(spacing: 2) {
+                                    Image(systemName: "arrow.triangle.branch")
+                                        .font(.system(size: 8))
+                                    Text(branch)
+                                        .font(.system(size: 10.5))
+                                }
+                                .foregroundStyle(.secondary)
+
+                                Text("•")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(.tertiary)
+                            }
+
+                            if let summary = session.summary, !summary.isEmpty {
+                                Text(hideProjectPaths ? "Active" : summary)
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            } else {
+                                activityLine
+                            }
                         }
                     }
+
+                    Spacer(minLength: 6)
+
+                    HStack(spacing: 5) {
+                        Text(session.state.displayName)
+                            .font(.system(size: 10, weight: session.state == .waiting || session.state == .failed ? .semibold : .medium))
+                            .foregroundStyle(stateColor(for: session.state))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(stateColor(for: session.state).opacity(0.12), in: Capsule())
+
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
-                .padding(12)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -147,12 +134,16 @@ public struct SessionRowView: View {
 
             // Expandable Process Inspector & Actions
             if isExpanded {
-                Divider()
+                Divider().opacity(0.4)
                 sessionDetails
-                    .padding(12)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
             }
         }
-        .loomCard(cornerRadius: 10, accentBorderColor: accentBorderColor)
+        .loomRow(
+            isAttention: session.state == .waiting || session.state == .failed,
+            isSelected: isExpanded
+        )
     }
 
     @ViewBuilder
@@ -189,10 +180,13 @@ public struct SessionRowView: View {
     }
 
     private var sessionDetails: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            DetailRow(label: "Provider", value: session.provider.displayName)
-            DetailRow(label: "State", value: session.state.displayName)
+        VStack(alignment: .leading, spacing: 7) {
+            // Productivity Quick Actions (Focus Host App, Reveal in Finder, Copy metadata)
+            SessionActionsView(session: session, hideProjectPaths: hideProjectPaths)
 
+            Divider().opacity(0.4).padding(.vertical, 2)
+
+            // Essential Metadata
             if !hideProjectPaths, let path = session.formattedProjectPath {
                 DetailRow(label: "Repository", value: path)
             } else if let name = session.projectName, !name.isEmpty {
@@ -217,10 +211,10 @@ public struct SessionRowView: View {
 
             // Associated processes breakdown & hierarchy
             if !session.associatedProcesses.isEmpty {
-                Divider().padding(.vertical, 2)
-                VStack(alignment: .leading, spacing: 5) {
+                Divider().opacity(0.4).padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Process Tree (\(session.associatedProcesses.count))")
-                        .font(.system(size: 11.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -235,10 +229,10 @@ public struct SessionRowView: View {
 
             // Discovery Evidence
             if !session.discoveryEvidence.isEmpty || session.providerSessionID != nil {
-                Divider().padding(.vertical, 2)
-                VStack(alignment: .leading, spacing: 5) {
+                Divider().opacity(0.4).padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Discovery Evidence")
-                        .font(.system(size: 11.5, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
 
                     if let sid = session.providerSessionID, !sid.isEmpty {
@@ -247,7 +241,7 @@ public struct SessionRowView: View {
 
                     if hideProjectPaths {
                         Text("• Evidence details hidden by privacy setting")
-                            .font(.system(size: 11.5))
+                            .font(.system(size: 10.5))
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(session.discoveryEvidence, id: \.self) { ev in
@@ -255,17 +249,13 @@ public struct SessionRowView: View {
                                 Text("•")
                                     .foregroundStyle(.secondary)
                                 Text(ev)
-                                    .font(.system(size: 11.5))
+                                    .font(.system(size: 10.5))
                                     .foregroundStyle(.primary)
                             }
                         }
                     }
                 }
             }
-
-            // Productivity Quick Actions (Focus Host App, Reveal in Finder, Copy metadata)
-            Divider().padding(.vertical, 2)
-            SessionActionsView(session: session, hideProjectPaths: hideProjectPaths)
         }
     }
 

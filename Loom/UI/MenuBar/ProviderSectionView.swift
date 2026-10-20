@@ -62,8 +62,10 @@ public struct ProviderSectionView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            providerHeader
+        VStack(alignment: .leading, spacing: 10) {
+            if showsUsage {
+                providerHeader
+            }
 
             if showsUsage {
                 if let usage = snapshot.usage {
@@ -91,21 +93,21 @@ public struct ProviderSectionView: View {
             // Render sessions with priority hierarchy
             if showsSessions {
                 if !visibleSessions.isEmpty {
-                    if showsUsage && snapshot.usage != nil { Divider() }
+                    if showsUsage && snapshot.usage != nil { Divider().opacity(0.4) }
 
                     // 1. Attention Sessions (Waiting for input or Failed) appear first
                     if !attentionSessions.isEmpty {
                         HStack(spacing: 5) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 10.5))
+                                .font(.system(size: 10))
                                 .foregroundStyle(.orange)
                             Text("Needs Attention (\(attentionSessions.count))")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(.orange)
                         }
                         .padding(.top, 2)
 
-                        VStack(spacing: 8) {
+                        VStack(spacing: 3) {
                             ForEach(attentionSessions) { session in
                                 SessionRowView(
                                     session: session,
@@ -119,17 +121,13 @@ public struct ProviderSectionView: View {
                     // 2. Active Sessions (Working / Starting / Idle / Unknown)
                     if !activeSessions.isEmpty {
                         if !attentionSessions.isEmpty {
-                            Text("Active sessions")
-                                .font(.system(size: 12, weight: .medium))
+                            Text("Active Sessions (\(activeSessions.count))")
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.secondary)
-                                .padding(.top, 4)
-                        } else {
-                            Text("Recent sessions")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
+                                .padding(.top, 3)
                         }
 
-                        VStack(spacing: 8) {
+                        VStack(spacing: 3) {
                             ForEach(activeSessions) { session in
                                 SessionRowView(
                                     session: session,
@@ -143,12 +141,7 @@ public struct ProviderSectionView: View {
                     // 3. Completed Sessions (Finished)
                     if !finishedSessions.isEmpty {
                         if attentionSessions.isEmpty && activeSessions.isEmpty {
-                            // If only completed sessions exist, display directly
-                            Text("Recent sessions")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
-
-                            VStack(spacing: 8) {
+                            VStack(spacing: 3) {
                                 ForEach(finishedSessions) { session in
                                     SessionRowView(
                                         session: session,
@@ -160,7 +153,7 @@ public struct ProviderSectionView: View {
                         } else {
                             // Compact collapsible section so finished runs do not dominate popover
                             DisclosureGroup(isExpanded: $isShowingRecentFinished) {
-                                VStack(spacing: 8) {
+                                VStack(spacing: 3) {
                                     ForEach(finishedSessions) { session in
                                         SessionRowView(
                                             session: session,
@@ -173,9 +166,9 @@ public struct ProviderSectionView: View {
                             } label: {
                                 HStack(spacing: 5) {
                                     Image(systemName: "checkmark.circle")
-                                        .font(.system(size: 11))
+                                        .font(.system(size: 10.5))
                                     Text("Recent Completed Sessions (\(finishedSessions.count))")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 11, weight: .medium))
                                 }
                                 .foregroundStyle(.secondary)
                             }
@@ -183,10 +176,10 @@ public struct ProviderSectionView: View {
                         }
                     }
                 } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil && !snapshot.isRefreshing {
-                    Text("No recent sessions")
+                    Text("No active sessions")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
-                        .padding(.vertical, 2)
+                        .padding(.vertical, 4)
                 }
 
                 // Expose Developer Discovery Diagnostics
@@ -308,43 +301,34 @@ public struct ProviderSectionView: View {
     }
 
     private var providerHeader: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                providerTitle.fixedSize()
-                statusBadge.fixedSize()
-                Spacer(minLength: 4)
-                planBadge
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    providerTitle
-                    Spacer(minLength: 4)
-                    planBadge
-                }
-                statusBadge
-            }
-        }
-    }
+        HStack(alignment: .center, spacing: 6) {
+            ProviderIconView(providerID: snapshot.id, size: 13)
 
-    private var providerTitle: some View {
-        Text(snapshot.displayName)
-            .font(.system(size: 17, weight: .semibold))
-            .fixedSize(horizontal: false, vertical: true)
+            Text(snapshot.displayName)
+                .font(.system(size: 13, weight: .semibold))
+
+            statusBadge
+
+            Spacer(minLength: 4)
+
+            planBadge
+        }
+        .padding(.vertical, 2)
     }
 
     private var statusBadge: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 3.5) {
             if status.label == "Checking" {
                 ProgressView().controlSize(.mini)
             } else {
-                Circle().fill(status.color).frame(width: 6, height: 6)
+                Circle().fill(status.color).frame(width: 5, height: 5)
             }
-            Text(status.label).font(.system(size: 11, weight: .medium))
+            Text(status.label).font(.system(size: 10, weight: .medium))
         }
         .foregroundStyle(status.color)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(status.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .padding(.horizontal, 5.5)
+        .padding(.vertical, 1.5)
+        .background(status.color.opacity(0.10), in: Capsule())
         .help("Local provider availability; this does not confirm account authentication")
     }
 
@@ -352,32 +336,33 @@ public struct ProviderSectionView: View {
     private var planBadge: some View {
         if showsUsage, let plan = snapshot.usage?.planType, !plan.isEmpty {
             Text(plan)
-                .font(.system(size: 11.5, weight: .medium))
+                .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3.5)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1.5)
+                .background(Color.primary.opacity(0.06), in: Capsule())
                 .help(plan)
         }
     }
 
     @ViewBuilder
     private func primaryQuotas(_ usage: ProviderUsageSnapshot) -> some View {
-        if let primary = usage.primaryBucket, let secondary = usage.secondaryBucket {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(spacing: 8) {
+            if let primary = usage.primaryBucket {
                 quotaCard(primary, usage: usage)
+            }
+            if let secondary = usage.secondaryBucket {
                 quotaCard(secondary, usage: usage)
             }
-        } else if let bucket = usage.primaryBucket ?? usage.secondaryBucket {
-            quotaCard(bucket, usage: usage)
-        } else if usage.additionalGroups.allSatisfy({ $0.buckets.isEmpty }),
-                  usage.errorMessage == nil, snapshot.usageErrorMessage == nil,
-                  snapshot.availability.isAvailable, !snapshot.isRefreshing {
-            Text("No quota data available")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            if usage.primaryBucket == nil && usage.secondaryBucket == nil {
+                if usage.additionalGroups.allSatisfy({ $0.buckets.isEmpty }),
+                   usage.errorMessage == nil, snapshot.usageErrorMessage == nil,
+                   snapshot.availability.isAvailable, !snapshot.isRefreshing {
+                    Text("No quota data available")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 

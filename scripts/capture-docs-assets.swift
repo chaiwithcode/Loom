@@ -15,47 +15,146 @@ import Loom
 @main
 struct AssetCapturer {
     @MainActor
-    static func settle(_ host: NSView, cycles: Int = 35) async {
+    static func settle(_ host: NSView, cycles: Int = 30) async {
         for _ in 0..<cycles {
             host.layoutSubtreeIfNeeded()
-            try? await Task.sleep(nanoseconds: 20_000_000)
+            try? await Task.sleep(nanoseconds: 15_000_000)
         }
     }
 
     @MainActor
-    static func saveView(_ host: NSView, to url: URL) {
+    static func saveView(_ host: NSView, to url: URL, isDark: Bool = true) {
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
             fatalError("Failed to create bitmapImageRepForCachingDisplay for \(url.lastPathComponent)")
         }
         host.cacheDisplay(in: host.bounds, to: rep)
-        guard let png = rep.representation(using: .png, properties: [:]) else {
+
+        let image = NSImage(size: host.bounds.size)
+        image.addRepresentation(rep)
+
+        let composited = NSImage(size: host.bounds.size)
+        composited.lockFocus()
+        let bgColor = isDark
+            ? NSColor(red: 0.12, green: 0.12, blue: 0.13, alpha: 1.0)
+            : NSColor(red: 0.96, green: 0.96, blue: 0.97, alpha: 1.0)
+        bgColor.setFill()
+        NSRect(origin: .zero, size: host.bounds.size).fill()
+        image.draw(in: NSRect(origin: .zero, size: host.bounds.size))
+        composited.unlockFocus()
+
+        guard let tiff = composited.tiffRepresentation,
+              let finalRep = NSBitmapImageRep(data: tiff),
+              let png = finalRep.representation(using: .png, properties: [:]) else {
             fatalError("Failed to generate PNG data for \(url.lastPathComponent)")
         }
         try! png.write(to: url)
-        print(" Saved: \(url.path) (\(rep.pixelsWide)x\(rep.pixelsHigh))")
+        print(" Saved: \(url.path) (\(finalRep.pixelsWide)x\(finalRep.pixelsHigh))")
+    }
+
+    @MainActor
+    static func findSegmentedControl(in view: NSView) -> NSSegmentedControl? {
+        if let seg = view as? NSSegmentedControl {
+            return seg
+        }
+        for sub in view.subviews {
+            if let found = findSegmentedControl(in: sub) {
+                return found
+            }
+        }
+        return nil
     }
 
     @MainActor
     static func clickTab(_ window: NSWindow, segment: Int) {
-        let width = window.contentLayoutRect.width
-        let tabWidth = width / 3.0
-        let x = tabWidth * CGFloat(segment) + tabWidth / 2.0
-        let top: CGFloat = 92
-        let point = NSPoint(x: x, y: window.contentLayoutRect.height - top)
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            let event = NSEvent.mouseEvent(
-                with: type,
-                location: point,
-                modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber,
-                context: nil,
-                eventNumber: 0,
-                clickCount: 1,
-                pressure: 1
-            )!
-            window.sendEvent(event)
+        guard let contentView = window.contentView else { return }
+        if let seg = findSegmentedControl(in: contentView) {
+            seg.selectedSegment = segment
+            if let action = seg.action {
+                NSApp.sendAction(action, to: seg.target, from: seg)
+            }
         }
+    }
+
+    @MainActor
+    static func renderMenuBar(
+        store: SessionStore,
+        settings: LoomSettings,
+        isDark: Bool,
+        isUsageExpanded: Bool = false,
+        selectedProviderID: ProviderID? = .codex,
+        expandedSessionIds: Set<String> = ["loom-main"]
+    ) -> (host: NSHostingView<AnyView>, window: NSWindow) {
+        let appearanceName: NSAppearance.Name = isDark ? .darkAqua : .aqua
+        let appearance = NSAppearance(named: appearanceName)
+        let colorScheme: ColorScheme = isDark ? .dark : .light
+        let menuWidth: CGFloat = 420
+
+        let root = MenuBarRootView(
+            store: store,
+            settings: settings,
+            isUsageExpanded: isUsageExpanded,
+            expandedSessionIds: expandedSessionIds,
+            selectedProviderID: selectedProviderID
+        )
+        .frame(width: menuWidth)
+        .preferredColorScheme(colorScheme)
+
+        let host = NSHostingView(rootView: AnyView(root))
+        host.appearance = appearance
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: menuWidth, height: 800),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = appearance
+        window.contentView = host
+        window.orderFront(nil)
+
+        return (host, window)
+    }
+
+    @MainActor
+    static func renderSettings(
+        store: SessionStore,
+        settings: LoomSettings,
+        isDark: Bool
+    ) async -> (host: NSView, window: NSWindow) {
+        let appearanceName: NSAppearance.Name = isDark ? .darkAqua : .aqua
+        let appearance = NSAppearance(named: appearanceName)
+        let colorScheme: ColorScheme = isDark ? .dark : .light
+        let width: CGFloat = 540
+        let height: CGFloat = 480
+
+        let root = SettingsView(
+            settings: settings,
+            store: store,
+            initialTab: .general
+        )
+        .frame(width: width, height: height)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .preferredColorScheme(colorScheme)
+
+        let host = NSHostingView(rootView: AnyView(root))
+        host.appearance = appearance
+        host.frame = NSRect(x: 0, y: 0, width: width, height: height)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: width, height: height),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = appearance
+        window.title = "Loom Settings"
+        window.contentView = host
+        window.orderFront(nil)
+
+        await settle(host, cycles: 40)
+        return (host, window)
     }
 
     @MainActor
@@ -65,7 +164,9 @@ struct AssetCapturer {
 
         let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let docsDir = repoRoot.appendingPathComponent("docs")
+        let visualDir = URL(fileURLWithPath: "/private/tmp/loom-visual")
         try? FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: visualDir, withIntermediateDirectories: true)
 
         let calendar = Calendar.current
         var components = calendar.dateComponents([.year, .month, .day], from: Date())
@@ -196,7 +297,7 @@ struct AssetCapturer {
             displayName: "Claude Code",
             availability: .available,
             sessions: claudeSessions,
-            usage: nil // Truthfully unsupported
+            usage: nil
         )
 
         let antigravitySessions = [
@@ -264,45 +365,110 @@ struct AssetCapturer {
 
         let settings = LoomSettings()
 
-        // 2. Render Menu Bar Views
-        let menuWidth: CGFloat = 420
-        let host = NSHostingView(
-            rootView: AnyView(
-                MenuBarRootView(
+        // 2. Render Menu Bar and Settings Views across Dark and Light modes
+        print("==> Capturing Visual QA previews for Dark and Light modes...")
+        for isDark in [true, false] {
+            let mode = isDark ? "dark" : "light"
+            let appearanceName: NSAppearance.Name = isDark ? .darkAqua : .aqua
+            NSApp.appearance = NSAppearance(named: appearanceName)
+
+            // A. Sessions Tab (Default: Codex selected)
+            do {
+                let (host, window) = renderMenuBar(
                     store: store,
                     settings: settings,
-                    expandedSessionIds: ["loom-main"],
+                    isDark: isDark,
+                    isUsageExpanded: false,
+                    selectedProviderID: .codex,
+                    expandedSessionIds: ["loom-main"]
+                )
+                await settle(host, cycles: 30)
+                saveView(host, to: visualDir.appendingPathComponent("sessions-\(mode).png"), isDark: isDark)
+                saveView(host, to: visualDir.appendingPathComponent("sessions-codex-\(mode).png"), isDark: isDark)
+                if isDark {
+                    saveView(host, to: docsDir.appendingPathComponent("menu-navigation-sessions.png"), isDark: isDark)
+                }
+                window.close()
+            }
+
+            // B. Sessions Tab (Claude Code selected)
+            do {
+                let (host, window) = renderMenuBar(
+                    store: store,
+                    settings: settings,
+                    isDark: isDark,
+                    isUsageExpanded: false,
+                    selectedProviderID: .claude,
+                    expandedSessionIds: ["smart-remote"]
+                )
+                await settle(host, cycles: 30)
+                saveView(host, to: visualDir.appendingPathComponent("sessions-claude-\(mode).png"), isDark: isDark)
+                window.close()
+            }
+
+            // C. Sessions Tab (Antigravity selected)
+            do {
+                let (host, window) = renderMenuBar(
+                    store: store,
+                    settings: settings,
+                    isDark: isDark,
+                    isUsageExpanded: false,
+                    selectedProviderID: .antigravity,
+                    expandedSessionIds: ["experiment"]
+                )
+                await settle(host, cycles: 30)
+                saveView(host, to: visualDir.appendingPathComponent("sessions-antigravity-\(mode).png"), isDark: isDark)
+                window.close()
+            }
+
+            // D. Usage Tab
+            do {
+                let (host, window) = renderMenuBar(
+                    store: store,
+                    settings: settings,
+                    isDark: isDark,
+                    isUsageExpanded: true,
                     selectedProviderID: .codex
-                ).frame(width: menuWidth)
-            )
-        )
-        host.appearance = NSAppearance(named: .darkAqua)
+                )
+                await settle(host, cycles: 30)
+                saveView(host, to: visualDir.appendingPathComponent("usage-\(mode).png"), isDark: isDark)
+                if isDark {
+                    saveView(host, to: docsDir.appendingPathComponent("menu-navigation-usage.png"), isDark: isDark)
+                }
+                window.close()
+            }
 
-        let window = NSWindow(
-            contentRect: NSRect(x: 200, y: 200, width: menuWidth, height: 800),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        window.contentView = host
-        window.orderFront(nil)
+            // E. Storage Tab
+            do {
+                let (host, window) = renderMenuBar(
+                    store: store,
+                    settings: settings,
+                    isDark: isDark,
+                    isUsageExpanded: false,
+                    selectedProviderID: .codex
+                )
+                await settle(host, cycles: 20)
+                clickTab(window, segment: 2)
+                await settle(host, cycles: 30)
+                saveView(host, to: visualDir.appendingPathComponent("storage-\(mode).png"), isDark: isDark)
+                if isDark {
+                    saveView(host, to: docsDir.appendingPathComponent("menu-navigation-storage.png"), isDark: isDark)
+                }
+                window.close()
+            }
 
-        // Capture Sessions Tab
-        await settle(host, cycles: 40)
-        saveView(host, to: docsDir.appendingPathComponent("menu-navigation-sessions.png"))
-
-        // Switch to Usage Tab & Capture
-        clickTab(window, segment: 1)
-        await settle(host, cycles: 40)
-        saveView(host, to: docsDir.appendingPathComponent("menu-navigation-usage.png"))
-
-        // Switch to Storage Tab & Capture
-        clickTab(window, segment: 2)
-        await settle(host, cycles: 40)
-        saveView(host, to: docsDir.appendingPathComponent("menu-navigation-storage.png"))
-
-        window.close()
+            // F. Settings Window
+            do {
+                let (host, window) = await renderSettings(
+                    store: store,
+                    settings: settings,
+                    isDark: isDark
+                )
+                await settle(host, cycles: 30)
+                saveView(host, to: visualDir.appendingPathComponent("settings-\(mode).png"), isDark: isDark)
+                window.close()
+            }
+        }
 
         // 3. Render Widgets
         let baseSnapshot = LoomWidgetSnapshot.make(from: store)
@@ -373,7 +539,7 @@ struct AssetCapturer {
             outputURL: docsDir.appendingPathComponent("social-preview.png")
         )
 
-        print("\nAll Loom 1.0 documentation assets generated successfully in docs/!")
+        print("\nAll Loom documentation & Visual QA assets generated successfully!")
     }
 
     @MainActor
@@ -394,17 +560,6 @@ struct AssetCapturer {
         large: NSImage,
         outputURL: URL
     ) {
-        // Layout:
-        // Left Column (width 364):
-        //   Top: Medium Usage Overview (364 x 170)
-        //   Gap: 24
-        //   Bottom: Small Sessions (170 x 170) + Gap 24 + Small Quotas (170 x 170)
-        // Right Column (width 364):
-        //   Large Usage Overview (364 x 382)
-        // Margins: 48 around, column gap 36
-        // Total Width: 48 + 364 + 36 + 364 + 48 = 860 pt (1720 px at 2x)
-        // Total Height: 48 + 382 + 48 = 478 pt (956 px at 2x)
-
         let scale: CGFloat = 2.0
         let ptWidth: CGFloat = 860
         let ptHeight: CGFloat = 478
@@ -440,7 +595,6 @@ struct AssetCapturer {
             )
         }
 
-        // Helper to draw a widget with native macOS rounded corner clipping & soft drop shadow
         let cornerRadius: CGFloat = 22.0
         func drawWidget(_ img: NSImage, at rect: CGRect) {
             context.saveGState()
@@ -507,7 +661,6 @@ struct AssetCapturer {
     }
 
     static func composeSocialPreview(masterIconURL: URL, outputURL: URL) {
-        // Dimensions: 1280 x 640 px (2:1 aspect ratio)
         let width = 1280
         let height = 640
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
@@ -627,7 +780,7 @@ struct AssetCapturer {
         var totalBadgeWidth: CGFloat = 0
         let itemWidths: [CGFloat] = providers.map { (iconName, label) in
             let labelWidth = (label as NSString).size(withAttributes: badgeAttrs).width
-            return 20 + 8 + labelWidth // icon(20) + gap(8) + label
+            return 20 + 8 + labelWidth
         }
         let itemGap: CGFloat = 36
         totalBadgeWidth = itemWidths.reduce(0, +) + CGFloat(providers.count - 1) * itemGap

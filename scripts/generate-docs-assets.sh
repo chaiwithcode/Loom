@@ -14,6 +14,12 @@ cd "${ROOT_DIR}"
 
 TMP_DIR="/tmp/loom-docs-capture"
 mkdir -p "${TMP_DIR}"
+mkdir -p "/private/tmp/loom-visual"
+
+if [[ ! -d .build/debug/Modules ]]; then
+    echo "==> Building Loom..."
+    swift build
+fi
 
 TMP_WIDGET_SRC="${TMP_DIR}/LoomWidgetForDocs.swift"
 {
@@ -47,6 +53,6 @@ swiftc -parse-as-library \
     -o "${RUNNER_BIN}"
 
 echo "==> Running asset capture..."
-"${RUNNER_BIN}"
+"${RUNNER_BIN}" "$@"
 
 echo "==> Asset capture complete!"

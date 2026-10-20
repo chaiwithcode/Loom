@@ -235,31 +235,27 @@ public struct SessionFilterBar: View {
 
                 if let count, count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 10, weight: .bold))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(
-                            criterion == .needsAttention
-                                ? Color.orange.opacity(0.25)
-                                : (isSelected ? Color.white.opacity(0.2) : Color.primary.opacity(0.08)),
-                            in: Capsule()
-                        )
+                        .font(.system(size: 9.5, weight: isSelected ? .semibold : .medium, design: .rounded))
                         .foregroundStyle(
                             criterion == .needsAttention
                                 ? Color.orange
-                                : (isSelected ? .white : .secondary)
+                                : (isSelected ? Color.primary : Color.secondary)
                         )
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.vertical, 3.5)
             .background(
                 isSelected
-                    ? Color.accentColor
-                    : Color.primary.opacity(0.05),
+                    ? Color.primary.opacity(0.10)
+                    : Color.clear,
                 in: Capsule()
             )
-            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .overlay(
+                Capsule()
+                    .strokeBorder(isSelected ? Color.primary.opacity(0.10) : Color.primary.opacity(0.06), lineWidth: 0.5)
+            )
+            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(criterion.displayName) filter\(count != nil ? ", \(count!) sessions" : "")")

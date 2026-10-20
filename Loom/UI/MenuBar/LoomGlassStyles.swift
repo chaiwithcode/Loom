@@ -109,6 +109,42 @@ public struct LoomInteractiveGlass<S: Shape>: ViewModifier {
     }
 }
 
+// MARK: - Row Surface (Native List Row Presentation)
+
+/// Clean native list row styling adhering to macOS Tahoe / Liquid Glass guidelines.
+/// Replaces heavy opaque card containers with lightweight rows, subtle hover states,
+/// and semantic accentuation for actionable sessions.
+public struct LoomRowModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    let isAttention: Bool
+    let isSelected: Bool
+
+    public init(isAttention: Bool = false, isSelected: Bool = false) {
+        self.isAttention = isAttention
+        self.isSelected = isSelected
+    }
+
+    public func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+        content
+            .background {
+                if isAttention {
+                    shape.fill(Color.orange.opacity(0.07))
+                } else if isSelected {
+                    shape.fill(Color.primary.opacity(0.06))
+                }
+            }
+            .overlay {
+                if isAttention {
+                    shape.strokeBorder(Color.orange.opacity(0.35), lineWidth: 1)
+                } else if contrast == .increased {
+                    shape.strokeBorder(Color.primary.opacity(0.20), lineWidth: 0.5)
+                }
+            }
+    }
+}
+
 // MARK: - Card Surface (Content Presentations)
 
 /// Consistent card container adhering to Apple HIG:
@@ -121,7 +157,7 @@ public struct LoomCardModifier: ViewModifier {
     let accentBorderColor: Color?
     let isHighlighted: Bool
 
-    public init(cornerRadius: CGFloat = 10, accentBorderColor: Color? = nil, isHighlighted: Bool = false) {
+    public init(cornerRadius: CGFloat = 8, accentBorderColor: Color? = nil, isHighlighted: Bool = false) {
         self.cornerRadius = cornerRadius
         self.accentBorderColor = accentBorderColor
         self.isHighlighted = isHighlighted
@@ -129,15 +165,15 @@ public struct LoomCardModifier: ViewModifier {
 
     public func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        let border = accentBorderColor ?? (contrast == .increased ? Color.primary.opacity(0.35) : Color.primary.opacity(0.08))
-        let lineWidth: CGFloat = accentBorderColor != nil ? 1.5 : (contrast == .increased ? 1.5 : 0.75)
+        let border = accentBorderColor ?? (contrast == .increased ? Color.primary.opacity(0.35) : Color.primary.opacity(0.06))
+        let lineWidth: CGFloat = accentBorderColor != nil ? 1.0 : 0.5
 
         content
             .background {
                 if reduceTransparency {
                     shape.fill(Color(nsColor: .controlBackgroundColor))
                 } else {
-                    shape.fill(Color.primary.opacity(isHighlighted ? 0.06 : 0.035))
+                    shape.fill(Color.primary.opacity(isHighlighted ? 0.05 : 0.025))
                 }
             }
             .overlay {
@@ -159,9 +195,14 @@ public extension View {
         modifier(LoomInteractiveGlass(shape: shape, tintColor: tint))
     }
 
+    /// Applies a lightweight native list row styling with subtle hover and attention accents.
+    func loomRow(isAttention: Bool = false, isSelected: Bool = false) -> some View {
+        modifier(LoomRowModifier(isAttention: isAttention, isSelected: isSelected))
+    }
+
     /// Applies a standard content card styling avoiding nested blur layers,
     /// with optional semantic alert border.
-    func loomCard(cornerRadius: CGFloat = 10, accentBorderColor: Color? = nil, isHighlighted: Bool = false) -> some View {
+    func loomCard(cornerRadius: CGFloat = 8, accentBorderColor: Color? = nil, isHighlighted: Bool = false) -> some View {
         modifier(LoomCardModifier(cornerRadius: cornerRadius, accentBorderColor: accentBorderColor, isHighlighted: isHighlighted))
     }
 }
