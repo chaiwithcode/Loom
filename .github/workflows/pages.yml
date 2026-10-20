@@ -65,32 +65,29 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="${{ github.event.release.tag_name }}"
-          if [[ -z "${TAG}" ]]; then
-            TAG="$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName 2>/dev/null || gh release list --repo "${{ github.repository }}" --limit 1 | awk '{print $3}')"
+          # 1. Resolve current published app release for Sparkle update feed
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          if [[ -z "${RELEASE_TAG}" ]]; then
+            RELEASE_TAG="$(gh release view --repo "${{ github.repository }}" --json tagName -q .tagName 2>/dev/null || gh release list --repo "${{ github.repository }}" --limit 1 | awk '{print $3}')"
           fi
-          echo "Target release tag: ${TAG:-latest}"
+          echo "Target app release for appcast: ${RELEASE_TAG:-latest}"
 
-          for pattern in "appcast.xml" "Loom-Demo-16x9.mp4" "Loom-Demo-9x16.mp4"; do
-            echo "Fetching ${pattern}..."
-            if [[ -n "${TAG}" ]]; then
-              gh release download "${TAG}" --repo "${{ github.repository }}" --pattern "${pattern}" --dir site --clobber || {
-                echo "Warning: ${pattern} not found in release ${TAG}."
-              }
-            else
-              gh release download --repo "${{ github.repository }}" --pattern "${pattern}" --dir site --clobber || {
-                echo "Warning: ${pattern} not found in latest release."
-              }
-            fi
+          echo "Downloading appcast.xml from current release (${RELEASE_TAG:-latest})..."
+          if [[ -n "${RELEASE_TAG}" ]]; then
+            gh release download "${RELEASE_TAG}" --repo "${{ github.repository }}" --pattern "appcast.xml" --dir site --clobber
+          else
+            gh release download --repo "${{ github.repository }}" --pattern "appcast.xml" --dir site --clobber
+          fi
+
+          # 2. Download promotional demo videos from stable v1.0 release unless deliberately migrated
+          PROMO_RELEASE_TAG="${PROMO_RELEASE_TAG:-v1.0}"
+          echo "Downloading promotional videos from release ${PROMO_RELEASE_TAG}..."
+          for video in "Loom-Demo-16x9.mp4" "Loom-Demo-9x16.mp4"; do
+            echo "Fetching ${video} from ${PROMO_RELEASE_TAG}..."
+            gh release download "${PROMO_RELEASE_TAG}" --repo "${{ github.repository }}" --pattern "${video}" --dir site --clobber
           done
 
-          # Fallback to local appcast if release asset was not present
-          if [[ ! -f site/appcast.xml && -f dist/appcast.xml ]]; then
-            echo "Falling back to repository dist/appcast.xml for site/appcast.xml"
-            cp dist/appcast.xml site/appcast.xml
-          fi
-
-          # Fallback minimal page if pages/index.html was not provided
+          # 3. Fallback minimal page only if pages/index.html was not provided
           if [[ ! -f site/index.html ]]; then
             echo "Generating fallback index.html..."
             python3 -c '
@@ -130,6 +127,28 @@ jobs:
                 f.write(textwrap.dedent(html).strip() + "\n")
             '
           fi
+
+          # 4. Strict validation: fail deployment if any required asset is missing or empty
+          echo "Validating required site assets..."
+          REQUIRED_ASSETS=(
+            "site/appcast.xml"
+            "site/Loom-Demo-16x9.mp4"
+            "site/Loom-Demo-9x16.mp4"
+            "site/index.html"
+            "site/style.css"
+          )
+
+          for asset in "${REQUIRED_ASSETS[@]}"; do
+            if [[ ! -f "${asset}" ]]; then
+              echo "::error::Required deployment asset '${asset}' is missing!" >&2
+              exit 1
+            fi
+            if [[ ! -s "${asset}" ]]; then
+              echo "::error::Required deployment asset '${asset}' is empty (0 bytes)!" >&2
+              exit 1
+            fi
+            echo "Verified asset: ${asset} ($(wc -c < "${asset}" | tr -d ' ') bytes)"
+          done
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
