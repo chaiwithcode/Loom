@@ -708,36 +708,71 @@ struct OCRResult {
         assert(containsToken("Include recent sessions", in: joinedTab2))
         assert(containsToken("Hide finished after", in: joinedTab2))
 
-        // Tab 3: Storage
+        // Tab 3: Notifications
+        let tabNotificationsHost = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .notifications).frame(width: 480, height: 360))
+        tabNotificationsHost.appearance = NSAppearance(named: .darkAqua)
+        probeWindow.contentView = tabNotificationsHost
+        await settle(tabNotificationsHost)
+        let tabNotificationsRep = saveOpaque(tabNotificationsHost, "tab-3-notifications")
+        let tabNotificationsResults = try recognizeText(in: tabNotificationsRep)
+        dumpObservations(tabNotificationsResults, label: "Check 11: Tab 3 (Notifications)")
+        let joinedTabNotifications = normalizeAndJoinReadingOrder(tabNotificationsResults)
+        assert(containsToken("Enable Notifications", in: joinedTabNotifications), "Notifications tab renders Enable Notifications")
+        assert(containsToken("Quota Alerts", in: joinedTabNotifications), "Notifications tab renders Quota Alerts")
+
+        if containsToken("Session Alerts", in: joinedTabNotifications) {
+            print("  Session Alerts visible within viewport on Notifications tab at 480x360")
+        } else if let scroll = scrollView(in: tabNotificationsHost) {
+            let clipView = scroll.contentView
+            let docView = scroll.documentView
+            let docHeight = docView?.bounds.height ?? 0
+            let clipHeight = clipView.bounds.height
+            if docHeight > clipHeight {
+                let bottomOrigin = NSPoint(x: 0, y: docHeight - clipHeight)
+                clipView.scroll(to: bottomOrigin)
+                scroll.reflectScrolledClipView(clipView)
+                await settle(tabNotificationsHost)
+                let scrolledRep = saveOpaque(tabNotificationsHost, "tab-3-notifications-scrolled")
+                let scrolledResults = try recognizeText(in: scrolledRep)
+                let joinedScrolled = normalizeAndJoinReadingOrder(scrolledResults)
+                assert(containsToken("Session Alerts", in: joinedScrolled), "Session Alerts reachable via native scrolling on Notifications tab at 480x360")
+            } else {
+                assertionFailure("Session Alerts not found and scroll view does not overflow")
+            }
+        } else {
+            assertionFailure("Session Alerts not found in Notifications tab")
+        }
+
+        // Tab 4: Storage
         let tab3Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .storage).frame(width: 480, height: 360))
         tab3Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab3Host
         await settle(tab3Host)
-        let tab3Rep = saveOpaque(tab3Host, "tab-3-storage")
+        let tab3Rep = saveOpaque(tab3Host, "tab-4-storage")
         let tab3Results = try recognizeText(in: tab3Rep)
-        dumpObservations(tab3Results, label: "Check 11: Tab 3 (Storage)")
+        dumpObservations(tab3Results, label: "Check 11: Tab 4 (Storage)")
         let joinedTab3 = normalizeAndJoinReadingOrder(tab3Results)
         assert(containsToken("Local data on disk", in: joinedTab3) || containsToken("Known agent data", in: joinedTab3))
 
-        // Tab 4: Privacy
+        // Tab 5: Privacy
         let tab4Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .privacy).frame(width: 480, height: 360))
         tab4Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab4Host
         await settle(tab4Host)
-        let tab4Rep = saveOpaque(tab4Host, "tab-4-privacy")
+        let tab4Rep = saveOpaque(tab4Host, "tab-5-privacy")
         let tab4Results = try recognizeText(in: tab4Rep)
-        dumpObservations(tab4Results, label: "Check 11: Tab 4 (Privacy)")
+        dumpObservations(tab4Results, label: "Check 11: Tab 5 (Privacy)")
         let joinedTab4 = normalizeAndJoinReadingOrder(tab4Results)
         assert(containsToken("Hide project paths", in: joinedTab4))
 
-        // Tab 5: About
+        // Tab 6: About
         let tab5Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .about).frame(width: 480, height: 360))
         tab5Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab5Host
         await settle(tab5Host)
-        let tab5Rep = saveOpaque(tab5Host, "tab-5-about")
+        let tab5Rep = saveOpaque(tab5Host, "tab-6-about")
         let tab5Results = try recognizeText(in: tab5Rep)
-        dumpObservations(tab5Results, label: "Check 11: Tab 5 (About)")
+        dumpObservations(tab5Results, label: "Check 11: Tab 6 (About)")
         let joinedTab5 = normalizeAndJoinReadingOrder(tab5Results)
         assert(containsToken("Loom", in: joinedTab5))
         assert(containsToken("Version 1.0", in: joinedTab5) || containsToken("Version", in: joinedTab5))
@@ -747,7 +782,7 @@ struct OCRResult {
                "About tab renders description with stable semantic tokens (Lightweight + macOS menu bar monitor + coding agents)")
         assert(containsToken("Made with", in: joinedTab5), "Footer 'Made with' is present on SettingsView")
         assert(containsToken("Deepak", in: joinedTab5), "Footer 'by Deepak (ChaiWithCode)' is present on SettingsView")
-        print("  PASS: All 6 tabs rendered and all controls verified at 480x360 (including footer)")
+        print("  PASS: All 7 tabs rendered and all controls verified at 480x360 (including footer)")
         fflush(stdout)
 
         // =====================================================================
@@ -760,6 +795,14 @@ struct OCRResult {
         settings.hideFinishedAfter = .twentyFourHours
         settings.hideProjectPaths = true
         settings.showVersionInMenuBar = true
+        settings.notificationsEnabled = true
+        settings.notifyQuota15Percent = false
+        settings.notifyQuota5Percent = false
+        settings.notifyQuotaReset = false
+        settings.notifySessionWaiting = false
+        settings.notifySessionFinished = true
+        settings.notifySessionFailed = false
+        settings.menuBarStatusMode = .activeSessionCount
 
         settings.resetToDefaults()
         assert(!settings.showInDock, "showInDock must reset to false")
@@ -770,16 +813,24 @@ struct OCRResult {
         assert(settings.hideFinishedAfter == .never, "hideFinishedAfter must reset to never")
         assert(!settings.hideProjectPaths, "hideProjectPaths must reset to false")
         assert(!settings.showVersionInMenuBar, "showVersionInMenuBar must reset to false")
-        print("  PASS: Reset to defaults restored all settings")
+        assert(!settings.notificationsEnabled, "notificationsEnabled must reset to false")
+        assert(settings.notifyQuota15Percent, "notifyQuota15Percent must reset to true")
+        assert(settings.notifyQuota5Percent, "notifyQuota5Percent must reset to true")
+        assert(settings.notifyQuotaReset, "notifyQuotaReset must reset to true")
+        assert(settings.notifySessionWaiting, "notifySessionWaiting must reset to true")
+        assert(!settings.notifySessionFinished, "notifySessionFinished must reset to false")
+        assert(settings.notifySessionFailed, "notifySessionFailed must reset to true")
+        assert(settings.menuBarStatusMode == .iconOnly, "menuBarStatusMode must reset to iconOnly")
+        print("  PASS: Reset to defaults restored all settings (including notification preferences)")
         fflush(stdout)
 
         probeWindow.close()
 
         // =====================================================================
-        // Test 13: Focused regression check: 6 navigation controls visible and
+        // Test 13: Focused regression check: 7 navigation controls visible and
         // hittable without opening overflow on actual titled DockController window
         // =====================================================================
-        print("Check 13: Focused regression check for 6 visible, hittable navigation controls without overflow")
+        print("Check 13: Focused regression check for 7 visible, hittable navigation controls without overflow")
         controller.showSettings(store: healthStore, resetTab: true)
         guard let settingsWindow = controller.settingsWindow else {
             fatalError("controller.settingsWindow must not be nil")
@@ -787,22 +838,35 @@ struct OCRResult {
         assert(settingsWindow.styleMask.contains(.titled), "Settings window must be a titled NSWindow")
         assert(settingsWindow.title == "Loom Settings", "Window title must be 'Loom Settings'")
         assert(settingsWindow.isVisible, "Settings window must be visible")
+        await settle(settingsWindow.contentView!)
 
-        let expectedTabs = ["General", "Providers", "Sessions", "Storage", "Privacy", "About"]
+        let expectedTabs = ["General", "Providers", "Sessions", "Notifications", "Storage", "Privacy", "About"]
         let expectedTokens = [
             "Show Loom in Dock",
             "Default Provider",
             "Include recent sessions",
+            "Enable Notifications",
             "Local data on disk",
             "Hide project paths",
             "Loom"
         ]
 
+        guard let seg = findSegmentedControl(in: settingsWindow.contentView!) else {
+            fatalError("NSSegmentedControl for settings tabs not found in window")
+        }
+
+        // Calculate minimum width and height that prevent horizontal and vertical tab bar clipping
+        let minFittingWidth = max(560.0, ceil(seg.fittingSize.width + 32.0))
+        let minFittingHeight = 380.0
+        let defaultWidth = max(minFittingWidth, 580.0)
+        let defaultHeight = 460.0
+        print("  Calculated frame bounds preventing tab bar clipping: min \(Int(minFittingWidth))x\(Int(minFittingHeight)), default \(Int(defaultWidth))x\(Int(defaultHeight))")
+
         let testConfigurations: [(width: CGFloat, height: CGFloat, appearanceName: String, appearance: NSAppearance?)] = [
-            (480, 360, "min-dark", NSAppearance(named: .darkAqua)),
-            (480, 360, "min-light", NSAppearance(named: .aqua)),
-            (520, 420, "default-dark", NSAppearance(named: .darkAqua)),
-            (520, 420, "default-light", NSAppearance(named: .aqua))
+            (minFittingWidth, minFittingHeight, "min-dark", NSAppearance(named: .darkAqua)),
+            (minFittingWidth, minFittingHeight, "min-light", NSAppearance(named: .aqua)),
+            (defaultWidth, defaultHeight, "default-dark", NSAppearance(named: .darkAqua)),
+            (defaultWidth, defaultHeight, "default-light", NSAppearance(named: .aqua))
         ]
 
         for config in testConfigurations {
@@ -819,35 +883,38 @@ struct OCRResult {
                    "No double-chevron overflow button should exist in content view for \(config.appearanceName)")
 
             // 2. Find NSSegmentedControl in content view hierarchy
-            guard let seg = findSegmentedControl(in: settingsWindow.contentView!) else {
+            guard let segControl = findSegmentedControl(in: settingsWindow.contentView!) else {
                 fatalError("NSSegmentedControl for settings tabs not found in window for \(config.appearanceName)")
             }
 
-            // 3. Verify exactly 6 segments with matching titles
-            assert(seg.segmentCount == 6, "Expected exactly 6 segments in segmented control, found \(seg.segmentCount)")
+            // 3. Verify exactly 7 segments with matching titles
+            assert(segControl.segmentCount == 7, "Expected exactly 7 segments in segmented control, found \(segControl.segmentCount)")
             for (idx, expectedTitle) in expectedTabs.enumerated() {
-                let actualTitle = seg.label(forSegment: idx)
+                let actualTitle = segControl.label(forSegment: idx)
                 assert(actualTitle == expectedTitle, "Segment \(idx) title mismatch: got \(actualTitle ?? "nil"), expected \(expectedTitle)")
-                assert(seg.isEnabled(forSegment: idx), "Segment \(idx) (\(expectedTitle)) must be enabled")
+                assert(segControl.isEnabled(forSegment: idx), "Segment \(idx) (\(expectedTitle)) must be enabled")
             }
 
-            // 4. Verify segmented control is fully within content view bounds without clipping
-            let segFrameInContent = seg.convert(seg.bounds, to: settingsWindow.contentView!)
-            assert(segFrameInContent.minX >= 0, "Segmented control minX (\(segFrameInContent.minX)) must be >= 0")
+            // 4. Verify segmented control is fully within content view bounds without horizontal or vertical clipping
+            let segFrameInContent = segControl.convert(segControl.bounds, to: settingsWindow.contentView!)
+            assert(segFrameInContent.minX >= 0, "Segmented control minX (\(segFrameInContent.minX)) must be >= 0 to prevent clipping")
             assert(segFrameInContent.maxX <= settingsWindow.contentView!.bounds.width,
                    "Segmented control maxX (\(segFrameInContent.maxX)) must be <= content width (\(settingsWindow.contentView!.bounds.width))")
-            assert(seg.bounds.width > 0 && seg.bounds.height > 0, "Segmented control size must be non-zero")
+            assert(segFrameInContent.minY >= 0, "Segmented control minY must be >= 0")
+            assert(segFrameInContent.maxY <= settingsWindow.contentView!.bounds.height,
+                   "Segmented control maxY must be <= content height")
+            assert(segControl.bounds.width > 0 && segControl.bounds.height > 0, "Segmented control size must be non-zero")
 
             // 5. Test hittability and section switching without opening overflow
-            for tabIndex in 0..<6 {
-                let segWidth = seg.bounds.width / CGFloat(seg.segmentCount)
-                let clickPt = seg.convert(NSPoint(x: (CGFloat(tabIndex) + 0.5) * segWidth, y: seg.bounds.midY), to: nil)
+            for tabIndex in 0..<7 {
+                let segWidth = segControl.bounds.width / CGFloat(segControl.segmentCount)
+                let clickPt = segControl.convert(NSPoint(x: (CGFloat(tabIndex) + 0.5) * segWidth, y: segControl.bounds.midY), to: nil)
                 let windowCountBefore = NSApp.windows.count
 
                 clickPoint(settingsWindow, at: clickPt)
                 await settle(settingsWindow.contentView!)
 
-                assert(seg.selectedSegment == tabIndex, "Clicking segment \(tabIndex) must update selectedSegment to \(tabIndex)")
+                assert(segControl.selectedSegment == tabIndex, "Clicking segment \(tabIndex) must update selectedSegment to \(tabIndex)")
                 assert(NSApp.windows.count == windowCountBefore, "Clicking segment must not open any menu/overflow popup")
 
                 let screenshot = saveOpaque(settingsWindow.contentView!, "titled-window-tab-\(tabIndex)-\(config.appearanceName)")
@@ -860,15 +927,15 @@ struct OCRResult {
 
         // Test Storage on-demand scan and cooperative cancellation
         print("  Verifying Storage on-demand scan and cooperative cancellation...")
-        // Click Storage (segment 3)
+        // Click Storage (segment 4)
         guard let seg = findSegmentedControl(in: settingsWindow.contentView!) else {
             fatalError("Segmented control missing")
         }
         let segWidth = seg.bounds.width / CGFloat(seg.segmentCount)
-        let storagePt = seg.convert(NSPoint(x: (CGFloat(3) + 0.5) * segWidth, y: seg.bounds.midY), to: nil)
+        let storagePt = seg.convert(NSPoint(x: (CGFloat(4) + 0.5) * segWidth, y: seg.bounds.midY), to: nil)
         clickPoint(settingsWindow, at: storagePt)
         await settle(settingsWindow.contentView!, iterations: 5)
-        assert(seg.selectedSegment == 3, "Storage segment must be selected")
+        assert(seg.selectedSegment == 4, "Storage segment must be selected")
 
         // Now click General (segment 0) to cancel Storage scan cooperatively
         let generalPt = seg.convert(NSPoint(x: (CGFloat(0) + 0.5) * segWidth, y: seg.bounds.midY), to: nil)

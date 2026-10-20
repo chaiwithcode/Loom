@@ -13,6 +13,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     case general = "General"
     case providers = "Providers"
     case sessions = "Sessions"
+    case notifications = "Notifications"
     case storage = "Storage"
     case privacy = "Privacy"
     case about = "About"
@@ -47,8 +48,9 @@ public struct SettingsView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .controlSize(.small)
             .labelsHidden()
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 10)
             .padding(.top, 12)
             .padding(.bottom, 8)
             .accessibilityIdentifier("picker-settings-tabs")
@@ -63,6 +65,8 @@ public struct SettingsView: View {
                     ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
                 case .sessions:
                     SessionsSettingsTab(settings: settings)
+                case .notifications:
+                    NotificationsSettingsTab(settings: settings)
                 case .storage:
                     StorageSettingsTab(hidePaths: settings.hideProjectPaths)
                 case .privacy:
@@ -77,7 +81,7 @@ public struct SettingsView: View {
 
             SettingsFooterView()
         }
-        .frame(minWidth: 480, idealWidth: 520, maxWidth: 640, minHeight: 360, idealHeight: 460, maxHeight: 600)
+        .frame(minWidth: 480, idealWidth: 540, maxWidth: 680, minHeight: 360, idealHeight: 480, maxHeight: 640)
     }
 }
 

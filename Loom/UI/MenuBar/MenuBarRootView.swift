@@ -61,107 +61,121 @@ public struct MenuBarRootView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
+        LoomGlassContainer {
             VStack(spacing: 0) {
-                MenuBarHeaderView(store: store, settings: settings, selectedTab: selectedTab)
-                HStack(spacing: 0) {
-                    tabButton("Sessions", tab: .agents)
-                    tabButton("Usage", tab: .usage)
-                    tabButton("Storage", tab: .storage)
+                VStack(spacing: 0) {
+                    MenuBarHeaderView(store: store, settings: settings, selectedTab: selectedTab)
+
+                    // Native macOS Segmented Control
+                    HStack(spacing: 0) {
+                        tabButton("Sessions", tab: .agents)
+                        tabButton("Usage", tab: .usage)
+                        tabButton("Storage", tab: .storage)
+                    }
+                    .padding(3)
+                    .background {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.primary.opacity(0.05))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 40)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Loom view")
                 }
-                .padding(.horizontal, 16)
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Loom view")
-            }
-            .background(MenuHeightReader(part: "header"))
+                .background(MenuHeightReader(part: "header"))
 
-            if selectedTab == .agents && !store.enabledSnapshots.isEmpty {
+                if selectedTab == .agents && !store.enabledSnapshots.isEmpty {
+                    Divider()
+                    providerSelector
+                        .background(MenuHeightReader(part: "selector"))
+                }
+
                 Divider()
-                providerSelector
-                    .background(MenuHeightReader(part: "selector"))
-            }
 
-            Divider()
-
-            // Preserve separate scroll/disclosure state without letting the inactive
-            // tab determine the menu height or participate in accessibility/input.
-            ZStack(alignment: .top) {
-                ForEach(MenuTab.allCases, id: \.self) { tab in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 14) {
-                            if tab == .storage {
-                                storageTabContent
-                            } else if store.providerSnapshots.isEmpty {
-                                Text("No providers registered")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding(.vertical, 24)
-                            } else if store.enabledSnapshots.isEmpty {
-                                VStack(spacing: 12) {
-                                    Image(systemName: "pause.circle")
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(.secondary)
-                                    Text("All Providers Disabled")
-                                        .font(.headline)
-                                    Text("Monitoring is disabled for all providers. Enable providers in Settings to monitor sessions and usage.")
+                // Preserve separate scroll/disclosure state without letting the inactive
+                // tab determine the menu height or participate in accessibility/input.
+                ZStack(alignment: .top) {
+                    ForEach(MenuTab.allCases, id: \.self) { tab in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 14) {
+                                if tab == .storage {
+                                    storageTabContent
+                                } else if store.providerSnapshots.isEmpty {
+                                    Text("No providers registered")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal, 24)
-                                    Button("Open Settings…") {
-                                        DockController.shared.showSettings(store: store)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding(.vertical, 24)
+                                } else if store.enabledSnapshots.isEmpty {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "pause.circle")
+                                            .font(.system(size: 28))
+                                            .foregroundStyle(.secondary)
+                                        Text("All Providers Disabled")
+                                            .font(.headline)
+                                        Text("Monitoring is disabled for all providers. Enable providers in Settings to monitor sessions and usage.")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal, 24)
+                                        Button("Open Settings…") {
+                                            DockController.shared.showSettings(store: store)
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .controlSize(.regular)
                                     }
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.regular)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.vertical, 32)
-                            } else if tab == .agents {
-                                if let selectedSnapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
-                                    ProviderSectionView(
-                                        snapshot: selectedSnapshot,
-                                        showsSessions: true,
-                                        showsUsage: false,
-                                        expandedSessionIds: defaultExpandedSessionIds,
-                                        settings: settings
-                                    )
-                                }
-                            } else if tab == .usage {
-                                ForEach(store.enabledSnapshots) { snapshot in
-                                    ProviderSectionView(
-                                        snapshot: snapshot,
-                                        showsSessions: false,
-                                        showsUsage: true,
-                                        expandedSessionIds: defaultExpandedSessionIds,
-                                        settings: settings
-                                    )
-                                    if snapshot.id != store.enabledSnapshots.last?.id {
-                                        Divider().padding(.vertical, 4)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.vertical, 32)
+                                } else if tab == .agents {
+                                    if let selectedSnapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
+                                        ProviderSectionView(
+                                            snapshot: selectedSnapshot,
+                                            showsSessions: true,
+                                            showsUsage: false,
+                                            expandedSessionIds: defaultExpandedSessionIds,
+                                            settings: settings
+                                        )
+                                    }
+                                } else if tab == .usage {
+                                    ForEach(store.enabledSnapshots) { snapshot in
+                                        ProviderSectionView(
+                                            snapshot: snapshot,
+                                            showsSessions: false,
+                                            showsUsage: true,
+                                            expandedSessionIds: defaultExpandedSessionIds,
+                                            settings: settings
+                                        )
+                                        if snapshot.id != store.enabledSnapshots.last?.id {
+                                            Divider().padding(.vertical, 4)
+                                        }
                                     }
                                 }
                             }
+                            .padding(16)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .background(MenuHeightReader(part: tab.rawValue))
                         }
-                        .padding(16)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .background(MenuHeightReader(part: tab.rawValue))
+                        .id(scrollId(for: tab))
+                        .frame(height: viewportHeight(for: tab))
+                        .opacity(selectedTab == tab ? 1 : 0)
+                        .allowsHitTesting(selectedTab == tab)
+                        .accessibilityHidden(selectedTab != tab)
+                        .zIndex(selectedTab == tab ? 1 : 0)
                     }
-                    .id(scrollId(for: tab))
-                    .frame(height: viewportHeight(for: tab))
-                    .opacity(selectedTab == tab ? 1 : 0)
-                    .allowsHitTesting(selectedTab == tab)
-                    .accessibilityHidden(selectedTab != tab)
-                    .zIndex(selectedTab == tab ? 1 : 0)
                 }
+                .frame(height: viewportHeight(for: selectedTab), alignment: .top)
+                .clipped()
+
+                Divider()
+
+                // Footer
+                MenuBarFooterView(store: store)
+                    .background(MenuHeightReader(part: "footer"))
             }
-            .frame(height: viewportHeight(for: selectedTab), alignment: .top)
-            .clipped()
-
-            Divider()
-
-            // Footer
-            MenuBarFooterView(store: store)
-                .background(MenuHeightReader(part: "footer"))
         }
         .frame(minWidth: 320, idealWidth: 420, maxWidth: 520)
         .fixedSize(horizontal: false, vertical: true)
@@ -218,39 +232,59 @@ public struct MenuBarRootView: View {
     private func providerButton(for snapshot: ProviderSnapshot) -> some View {
         let isSelected = resolvedSelectedProviderID == snapshot.id
         let sessionCount = filteredSessions(for: snapshot).count
+        let needsAttention = snapshot.sessions.contains { $0.state == .waiting || $0.state == .failed }
+
         return Button {
             selectedProviderID = snapshot.id
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
+                ProviderIconView(providerID: snapshot.id, size: 12)
+
                 Text(snapshot.displayName)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 11.5, weight: isSelected ? .semibold : .medium))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
+
+                if needsAttention {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 5.5, height: 5.5)
+                        .help("This provider has sessions requiring attention")
+                }
+
                 Text("\(sessionCount)")
-                    .font(.system(size: 10.5, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium, design: .rounded))
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 4.5)
                     .padding(.vertical, 1)
                     .background(
-                        (isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12)),
+                        (isSelected ? Color.primary.opacity(0.12) : Color.primary.opacity(0.06)),
                         in: Capsule()
                     )
                     .fixedSize(horizontal: true, vertical: false)
             }
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+            .padding(.horizontal, 6)
             .padding(.vertical, 4)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(isSelected ? Color.accentColor : Color.clear)
-                    .frame(height: 2)
-            }
             .frame(maxWidth: .infinity)
             .frame(height: 28)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(0.08))
+                }
+            }
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(snapshot.displayName), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")")
+        .accessibilityLabel("\(snapshot.displayName), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")\(needsAttention ? ", needs attention" : "")")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityValue(isSelected ? "Selected" : "")
         .accessibilityIdentifier("provider-tab-\(snapshot.id.rawValue)")
@@ -259,24 +293,25 @@ public struct MenuBarRootView: View {
     private func tabButton(_ title: String, tab: MenuTab) -> some View {
         let isSelected = selectedTab == tab
         return Button {
-            selectedTab = tab
+            withAnimation(.easeInOut(duration: 0.15)) {
+                selectedTab = tab
+            }
         } label: {
             Text(title)
-                .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
                 .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .padding(.vertical, 10)
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(isSelected ? Color.accentColor : Color.clear)
-                        .frame(height: 2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.85))
+                            .shadow(color: Color.black.opacity(0.08), radius: 2, y: 1)
+                    }
                 }
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(maxWidth: .infinity)
-                .frame(height: 40)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityValue(isSelected ? "Selected" : "")
     }
 
@@ -454,19 +489,39 @@ private struct MenuBarHeaderView: View {
     var settings: LoomSettings?
     var selectedTab: MenuTab = .agents
 
+    private var activitySubtitle: String {
+        let enabled = store.enabledSnapshots
+        let activeCount = enabled.reduce(0) { count, snap in
+            count + snap.sessions.filter { $0.state == .working || $0.state == .starting }.count
+        }
+        let attentionCount = enabled.reduce(0) { count, snap in
+            count + snap.sessions.filter { $0.state == .waiting || $0.state == .failed }.count
+        }
+
+        if attentionCount > 0 && activeCount > 0 {
+            return "\(activeCount) active • \(attentionCount) need attention"
+        } else if attentionCount > 0 {
+            return "\(attentionCount) \(attentionCount == 1 ? "session needs" : "sessions need") attention"
+        } else if activeCount > 0 {
+            return "\(activeCount) \(activeCount == 1 ? "active session" : "active sessions")"
+        } else {
+            return "Local AI agents"
+        }
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-                .resizable()
-                .frame(width: 40, height: 40)
+            LoomIconView(size: 20)
+                .foregroundStyle(.primary)
+                .frame(width: 30, height: 30)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .accessibilityHidden(true)
                 .layoutPriority(1)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("Loom")
-                        .font(.system(size: 20, weight: .bold))
-                        .fontWeight(.bold)
+                        .font(.system(size: 16, weight: .bold))
                     if let badge = store.fixture.badgeLabel {
                         Text(badge)
                             .font(.caption2)
@@ -478,8 +533,8 @@ private struct MenuBarHeaderView: View {
                             .layoutPriority(1)
                     }
                 }
-                Text("Local AI agents")
-                    .font(.system(size: 12))
+                Text(activitySubtitle)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
@@ -492,10 +547,11 @@ private struct MenuBarHeaderView: View {
                 DockController.shared.showSettings(store: store)
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.subheadline)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 26, height: 26)
             }
-            .loomToolbarButtonStyle()
-            .frame(width: 26, height: 28)
+            .buttonStyle(.plain)
+            .loomInteractiveGlass(in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             .contentShape(Rectangle())
             .accessibilityLabel("Settings")
             .help("Open Loom Settings (⌘,)")
@@ -511,17 +567,16 @@ private struct MenuBarHeaderView: View {
                 }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.subheadline)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 26, height: 26)
             }
-            .loomToolbarButtonStyle()
-            .frame(width: 26, height: 28)
+            .buttonStyle(.plain)
+            .loomInteractiveGlass(in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             .contentShape(Rectangle())
             .disabled(store.isRefreshing)
             .accessibilityLabel("Refresh sessions")
             .help("Refresh agent sessions")
             .layoutPriority(2)
-
-
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
@@ -538,30 +593,30 @@ private struct MenuBarFooterView: View {
                     HStack(spacing: 4) {
                         ProgressView()
                             .controlSize(.mini)
-                        Text("Refreshing...")
-                            .font(.callout)
+                        Text("Refreshing…")
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 } else if let lastRefreshed = store.lastRefreshedAt {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         Text(updatedLabel(lastRefreshed, now: context.date))
-                            .font(.callout)
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 } else {
                     Text("Ready")
-                        .font(.callout)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
 
-                Text("·")
-                    .font(.callout)
+                Text("•")
+                    .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
 
                 Text("v\(AppVersion.current.shortString)")
-                    .font(.callout)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -572,13 +627,15 @@ private struct MenuBarFooterView: View {
                 NSApplication.shared.terminate(nil)
             }
             .buttonStyle(.bordered)
-            .controlSize(.regular)
+            .controlSize(.small)
             .layoutPriority(1)
+            .accessibilityLabel("Quit")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
+        .padding(.vertical, 10)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
     }
+
     private func updatedLabel(_ date: Date, now: Date) -> String {
         let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
         if minutes == 0 { return "Updated just now" }
@@ -624,7 +681,6 @@ public enum PathDisambiguationHelper {
         return myParentURL.path
     }
 }
-
 
 private struct MenuHeightKey: PreferenceKey {
     static let defaultValue: [String: CGFloat] = [:]

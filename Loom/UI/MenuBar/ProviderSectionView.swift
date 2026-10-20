@@ -17,6 +17,7 @@ public struct ProviderSectionView: View {
     public let settings: LoomSettings?
     @State private var isShowingAdditionalQuotas = false
     @State private var isShowingDiagnostics = false
+    @State private var isShowingRecentFinished = false
 
     public init(
         snapshot: ProviderSnapshot,
@@ -48,6 +49,18 @@ public struct ProviderSectionView: View {
         return snapshot.sessions
     }
 
+    private var attentionSessions: [AgentSession] {
+        visibleSessions.filter { $0.state == .waiting || $0.state == .failed }
+    }
+
+    private var activeSessions: [AgentSession] {
+        visibleSessions.filter { $0.state == .working || $0.state == .starting || $0.state == .idle || $0.state == .unknown }
+    }
+
+    private var finishedSessions: [AgentSession] {
+        visibleSessions.filter { $0.state == .finished }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             providerHeader
@@ -58,6 +71,8 @@ public struct ProviderSectionView: View {
                     if let error = usage.errorMessage ?? snapshot.usageErrorMessage, !error.isEmpty {
                         issueNotice(.usage(hasSavedData: true), details: error, color: .orange)
                     }
+                } else if snapshot.id == .claude {
+                    claudeQuotaNotice
                 } else if let error = snapshot.usageErrorMessage, !error.isEmpty {
                     issueNotice(.usage(hasSavedData: false), details: error, color: .orange)
                 } else if snapshot.availability.isAvailable && !snapshot.isRefreshing {
@@ -73,20 +88,98 @@ public struct ProviderSectionView: View {
                 notice(sanitizedNotice(reason), symbol: "exclamationmark.triangle", color: .orange)
             }
 
-            // Render any sessions supplied by the snapshot alongside provider notices.
+            // Render sessions with priority hierarchy
             if showsSessions {
                 if !visibleSessions.isEmpty {
                     if showsUsage && snapshot.usage != nil { Divider() }
-                    Text("Recent sessions")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    VStack(spacing: 8) {
-                        ForEach(visibleSessions) { session in
-                            SessionRowView(
-                                session: session,
-                                isExpanded: expandedSessionIds.contains(session.id),
-                                hideProjectPaths: settings?.hideProjectPaths ?? false
-                            )
+
+                    // 1. Attention Sessions (Waiting for input or Failed) appear first
+                    if !attentionSessions.isEmpty {
+                        HStack(spacing: 5) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.orange)
+                            Text("Needs Attention (\(attentionSessions.count))")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.orange)
+                        }
+                        .padding(.top, 2)
+
+                        VStack(spacing: 8) {
+                            ForEach(attentionSessions) { session in
+                                SessionRowView(
+                                    session: session,
+                                    isExpanded: expandedSessionIds.contains(session.id),
+                                    hideProjectPaths: settings?.hideProjectPaths ?? false
+                                )
+                            }
+                        }
+                    }
+
+                    // 2. Active Sessions (Working / Starting / Idle / Unknown)
+                    if !activeSessions.isEmpty {
+                        if !attentionSessions.isEmpty {
+                            Text("Active sessions")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 4)
+                        } else {
+                            Text("Recent sessions")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        VStack(spacing: 8) {
+                            ForEach(activeSessions) { session in
+                                SessionRowView(
+                                    session: session,
+                                    isExpanded: expandedSessionIds.contains(session.id),
+                                    hideProjectPaths: settings?.hideProjectPaths ?? false
+                                )
+                            }
+                        }
+                    }
+
+                    // 3. Completed Sessions (Finished)
+                    if !finishedSessions.isEmpty {
+                        if attentionSessions.isEmpty && activeSessions.isEmpty {
+                            // If only completed sessions exist, display directly
+                            Text("Recent sessions")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+
+                            VStack(spacing: 8) {
+                                ForEach(finishedSessions) { session in
+                                    SessionRowView(
+                                        session: session,
+                                        isExpanded: expandedSessionIds.contains(session.id),
+                                        hideProjectPaths: settings?.hideProjectPaths ?? false
+                                    )
+                                }
+                            }
+                        } else {
+                            // Compact collapsible section so finished runs do not dominate popover
+                            DisclosureGroup(isExpanded: $isShowingRecentFinished) {
+                                VStack(spacing: 8) {
+                                    ForEach(finishedSessions) { session in
+                                        SessionRowView(
+                                            session: session,
+                                            isExpanded: expandedSessionIds.contains(session.id),
+                                            hideProjectPaths: settings?.hideProjectPaths ?? false
+                                        )
+                                    }
+                                }
+                                .padding(.top, 4)
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "checkmark.circle")
+                                        .font(.system(size: 11))
+                                    Text("Recent Completed Sessions (\(finishedSessions.count))")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundStyle(.secondary)
+                            }
+                            .tint(.secondary)
                         }
                     }
                 } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil && !snapshot.isRefreshing {
@@ -127,7 +220,7 @@ public struct ProviderSectionView: View {
             }
 
             if showsUsage, let usage = snapshot.usage, !usage.additionalGroups.isEmpty {
-                Divider()
+                Divider().padding(.vertical, 4)
                 DisclosureGroup(isExpanded: $isShowingAdditionalQuotas) {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(usage.additionalGroups) { group in
@@ -152,6 +245,28 @@ public struct ProviderSectionView: View {
         .accessibilityLabel("\(snapshot.displayName) section")
     }
 
+    private var claudeQuotaNotice: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Quota monitoring not exposed by CLI")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text("Claude Code does not provide a local quota command or telemetry endpoint.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .loomCard(cornerRadius: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Quota monitoring not exposed by CLI. Claude Code does not provide a local quota command or telemetry endpoint.")
+    }
+
     private func issueNotice(_ issue: ProviderIssue, details: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Label(issue.title, systemImage: "exclamationmark.triangle")
@@ -168,7 +283,7 @@ public struct ProviderSectionView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+        .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func sanitizedNotice(_ text: String) -> String {
@@ -213,23 +328,23 @@ public struct ProviderSectionView: View {
 
     private var providerTitle: some View {
         Text(snapshot.displayName)
-            .font(.system(size: 18, weight: .semibold))
+            .font(.system(size: 17, weight: .semibold))
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var statusBadge: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             if status.label == "Checking" {
                 ProgressView().controlSize(.mini)
             } else {
-                Circle().fill(status.color).frame(width: 7, height: 7)
+                Circle().fill(status.color).frame(width: 6, height: 6)
             }
             Text(status.label).font(.system(size: 11, weight: .medium))
         }
         .foregroundStyle(status.color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(status.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(status.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         .help("Local provider availability; this does not confirm account authentication")
     }
 
@@ -237,13 +352,13 @@ public struct ProviderSectionView: View {
     private var planBadge: some View {
         if showsUsage, let plan = snapshot.usage?.planType, !plan.isEmpty {
             Text(plan)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3.5)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .help(plan)
         }
     }
@@ -286,6 +401,6 @@ public struct ProviderSectionView: View {
         .font(.system(size: 11))
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(9)
-        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }

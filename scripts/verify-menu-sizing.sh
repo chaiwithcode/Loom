@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
 probe_dir=$(mktemp -d /private/tmp/loom-menu-probe.XXXXXX)

@@ -37,6 +37,237 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.hideFinishedAfter, .never, "Default hideFinishedAfter must be .never")
         XCTAssertFalse(settings.hideProjectPaths, "Default hideProjectPaths must be false")
         XCTAssertFalse(settings.showVersionInMenuBar, "Default showVersionInMenuBar must be false")
+
+        // Notification preferences defaults
+        XCTAssertFalse(settings.notificationsEnabled, "Default notificationsEnabled must be false (opt-in)")
+        XCTAssertTrue(settings.notifyQuota15Percent, "Default notifyQuota15Percent must be true")
+        XCTAssertTrue(settings.notifyQuota5Percent, "Default notifyQuota5Percent must be true")
+        XCTAssertTrue(settings.notifyQuotaReset, "Default notifyQuotaReset must be true")
+        XCTAssertTrue(settings.notifySessionWaiting, "Default notifySessionWaiting must be true")
+        XCTAssertFalse(settings.notifySessionFinished, "Default notifySessionFinished must be false")
+        XCTAssertTrue(settings.notifySessionFailed, "Default notifySessionFailed must be true")
+        XCTAssertEqual(settings.menuBarStatusMode, .iconOnly, "Default menuBarStatusMode must be .iconOnly")
+    }
+
+    @MainActor
+    func testNotificationPreferencesPersistenceAndCallbacks() {
+        let settings = LoomSettings(defaults: testDefaults)
+
+        var notifiedEnabled: Bool?
+        var notified15: Bool?
+        var notified5: Bool?
+        var notifiedReset: Bool?
+        var notifiedWaiting: Bool?
+        var notifiedFinished: Bool?
+        var notifiedFailed: Bool?
+        var notifiedMode: MenuBarStatusMode?
+
+        settings.onNotificationsEnabledChanged = { notifiedEnabled = $0 }
+        settings.onNotifyQuota15PercentChanged = { notified15 = $0 }
+        settings.onNotifyQuota5PercentChanged = { notified5 = $0 }
+        settings.onNotifyQuotaResetChanged = { notifiedReset = $0 }
+        settings.onNotifySessionWaitingChanged = { notifiedWaiting = $0 }
+        settings.onNotifySessionFinishedChanged = { notifiedFinished = $0 }
+        settings.onNotifySessionFailedChanged = { notifiedFailed = $0 }
+        settings.onMenuBarStatusModeChanged = { notifiedMode = $0 }
+
+        // Change values
+        settings.notificationsEnabled = true
+        settings.notifyQuota15Percent = false
+        settings.notifyQuota5Percent = false
+        settings.notifyQuotaReset = false
+        settings.notifySessionWaiting = false
+        settings.notifySessionFinished = true
+        settings.notifySessionFailed = false
+        settings.menuBarStatusMode = .lowestQuota
+
+        // Verify callbacks
+        XCTAssertEqual(notifiedEnabled, true)
+        XCTAssertEqual(notified15, false)
+        XCTAssertEqual(notified5, false)
+        XCTAssertEqual(notifiedReset, false)
+        XCTAssertEqual(notifiedWaiting, false)
+        XCTAssertEqual(notifiedFinished, true)
+        XCTAssertEqual(notifiedFailed, false)
+        XCTAssertEqual(notifiedMode, .lowestQuota)
+
+        // Verify UserDefaults persistence
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.notificationsEnabledKey))
+        XCTAssertFalse(testDefaults.bool(forKey: LoomSettings.notifyQuota15PercentKey))
+        XCTAssertFalse(testDefaults.bool(forKey: LoomSettings.notifyQuota5PercentKey))
+        XCTAssertFalse(testDefaults.bool(forKey: LoomSettings.notifyQuotaResetKey))
+        XCTAssertFalse(testDefaults.bool(forKey: LoomSettings.notifySessionWaitingKey))
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.notifySessionFinishedKey))
+        XCTAssertFalse(testDefaults.bool(forKey: LoomSettings.notifySessionFailedKey))
+        XCTAssertEqual(testDefaults.string(forKey: LoomSettings.menuBarStatusModeKey), "lowestQuota")
+
+        // Verify reload from UserDefaults
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(reloaded.notificationsEnabled)
+        XCTAssertFalse(reloaded.notifyQuota15Percent)
+        XCTAssertFalse(reloaded.notifyQuota5Percent)
+        XCTAssertFalse(reloaded.notifyQuotaReset)
+        XCTAssertFalse(reloaded.notifySessionWaiting)
+        XCTAssertTrue(reloaded.notifySessionFinished)
+        XCTAssertFalse(reloaded.notifySessionFailed)
+        XCTAssertEqual(reloaded.menuBarStatusMode, .lowestQuota)
+    }
+
+    @MainActor
+    func testNotificationPreferencesCorruptStorageFallback() {
+        // Corrupt boolean fields with strings/arrays
+        testDefaults.set("notABool", forKey: LoomSettings.notificationsEnabledKey)
+        testDefaults.set(["corrupt", "data"], forKey: LoomSettings.notifyQuota15PercentKey)
+        testDefaults.set("badVal", forKey: LoomSettings.notifyQuota5PercentKey)
+        testDefaults.set(12345, forKey: LoomSettings.notifyQuotaResetKey)
+        testDefaults.set("invalid", forKey: LoomSettings.notifySessionWaitingKey)
+        testDefaults.set(["finished"], forKey: LoomSettings.notifySessionFinishedKey)
+        testDefaults.set("fail", forKey: LoomSettings.notifySessionFailedKey)
+        testDefaults.set("invalidMenuBarMode", forKey: LoomSettings.menuBarStatusModeKey)
+
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertFalse(reloaded.notificationsEnabled, "Corrupted notificationsEnabled must fall back to default false")
+        XCTAssertTrue(reloaded.notifyQuota15Percent, "Corrupted notifyQuota15Percent must fall back to default true")
+        XCTAssertTrue(reloaded.notifyQuota5Percent, "Corrupted notifyQuota5Percent must fall back to default true")
+        XCTAssertTrue(reloaded.notifyQuotaReset, "Corrupted notifyQuotaReset must fall back to default true")
+        XCTAssertTrue(reloaded.notifySessionWaiting, "Corrupted notifySessionWaiting must fall back to default true")
+        XCTAssertFalse(reloaded.notifySessionFinished, "Corrupted notifySessionFinished must fall back to default false")
+        XCTAssertTrue(reloaded.notifySessionFailed, "Corrupted notifySessionFailed must fall back to default true")
+        XCTAssertEqual(reloaded.menuBarStatusMode, .iconOnly, "Corrupted menuBarStatusMode must fall back to default .iconOnly")
+    }
+
+    @MainActor
+    func testMenuBarStatusModeSanitization() {
+        let settings = LoomSettings(defaults: testDefaults)
+
+        settings.menuBarStatusMode = .activeSessionCount
+        XCTAssertEqual(settings.menuBarStatusMode, .activeSessionCount)
+        XCTAssertEqual(settings.menuBarStatusMode.displayName, "Active Sessions")
+        XCTAssertEqual(settings.menuBarStatusMode.id, "activeSessionCount")
+
+        settings.menuBarStatusMode = .lowestQuota
+        XCTAssertEqual(settings.menuBarStatusMode, .lowestQuota)
+        XCTAssertEqual(settings.menuBarStatusMode.displayName, "Lowest Quota")
+
+        settings.menuBarStatusMode = .iconOnly
+        XCTAssertEqual(settings.menuBarStatusMode, .iconOnly)
+        XCTAssertEqual(settings.menuBarStatusMode.displayName, "Icon Only")
+    }
+
+    @MainActor
+    func testNotificationPreferencesCodableEncodingAndDecoding() throws {
+        var original = NotificationPreferences()
+        original.notificationsEnabled = true
+        original.notifyQuota15Percent = false
+        original.notifyQuota5Percent = true
+        original.notifyQuotaReset = false
+        original.notifySessionWaiting = true
+        original.notifySessionFinished = true
+        original.notifySessionFailed = false
+        original.menuBarStatusMode = .activeSessionCount
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(original)
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(NotificationPreferences.self, from: data)
+
+        XCTAssertEqual(decoded, original)
+        XCTAssertTrue(decoded.notificationsEnabled)
+        XCTAssertFalse(decoded.notifyQuota15Percent)
+        XCTAssertTrue(decoded.notifyQuota5Percent)
+        XCTAssertFalse(decoded.notifyQuotaReset)
+        XCTAssertTrue(decoded.notifySessionWaiting)
+        XCTAssertTrue(decoded.notifySessionFinished)
+        XCTAssertFalse(decoded.notifySessionFailed)
+        XCTAssertEqual(decoded.menuBarStatusMode, .activeSessionCount)
+    }
+
+    @MainActor
+    func testNotificationPreferencesBackwardCompatibilityWithMissingFields() throws {
+        // Empty JSON object must decode to all default values without throwing
+        let emptyJSON = "{}".data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(NotificationPreferences.self, from: emptyJSON)
+
+        XCTAssertFalse(decoded.notificationsEnabled)
+        XCTAssertTrue(decoded.notifyQuota15Percent)
+        XCTAssertTrue(decoded.notifyQuota5Percent)
+        XCTAssertTrue(decoded.notifyQuotaReset)
+        XCTAssertTrue(decoded.notifySessionWaiting)
+        XCTAssertFalse(decoded.notifySessionFinished)
+        XCTAssertTrue(decoded.notifySessionFailed)
+        XCTAssertEqual(decoded.menuBarStatusMode, .iconOnly)
+
+        // Partial JSON object
+        let partialJSON = """
+        {
+            "notificationsEnabled": true,
+            "notifyQuota15Percent": false
+        }
+        """.data(using: .utf8)!
+        let partialDecoded = try decoder.decode(NotificationPreferences.self, from: partialJSON)
+        XCTAssertTrue(partialDecoded.notificationsEnabled)
+        XCTAssertFalse(partialDecoded.notifyQuota15Percent)
+        XCTAssertTrue(partialDecoded.notifyQuota5Percent, "Missing field must fall back to default")
+        XCTAssertEqual(partialDecoded.menuBarStatusMode, .iconOnly, "Missing mode must fall back to default")
+    }
+
+    @MainActor
+    func testLoomSettingsCodableEncodingAndDecoding() throws {
+        let settings = LoomSettings(defaults: testDefaults)
+        settings.showInDock = true
+        settings.refreshIntervalSeconds = 120
+        settings.notificationsEnabled = true
+        settings.notifyQuota15Percent = false
+        settings.menuBarStatusMode = .lowestQuota
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(settings)
+
+        let decoder = JSONDecoder()
+        let decodedSettings = try decoder.decode(LoomSettings.self, from: data)
+
+        XCTAssertTrue(decodedSettings.showInDock)
+        XCTAssertEqual(decodedSettings.refreshIntervalSeconds, 120)
+        XCTAssertTrue(decodedSettings.notificationsEnabled)
+        XCTAssertFalse(decodedSettings.notifyQuota15Percent)
+        XCTAssertEqual(decodedSettings.menuBarStatusMode, .lowestQuota)
+    }
+
+    @MainActor
+    func testLoomSettingsCodableBackwardCompatibility() throws {
+        // Older JSON representation without notification keys
+        let legacyJSON = """
+        {
+            "showInDock": true,
+            "refreshIntervalSeconds": 120,
+            "enabledProviderIDs": ["codex"],
+            "defaultProviderID": "codex",
+            "includeRecentSessions": true,
+            "hideFinishedAfter": "1h",
+            "hideProjectPaths": false,
+            "showVersionInMenuBar": false
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(LoomSettings.self, from: legacyJSON)
+
+        XCTAssertTrue(decoded.showInDock)
+        XCTAssertEqual(decoded.refreshIntervalSeconds, 120)
+        XCTAssertEqual(decoded.enabledProviderIDs, [.codex])
+        // Backward compatible defaults for new fields:
+        XCTAssertFalse(decoded.notificationsEnabled)
+        XCTAssertTrue(decoded.notifyQuota15Percent)
+        XCTAssertTrue(decoded.notifyQuota5Percent)
+        XCTAssertTrue(decoded.notifyQuotaReset)
+        XCTAssertTrue(decoded.notifySessionWaiting)
+        XCTAssertFalse(decoded.notifySessionFinished)
+        XCTAssertTrue(decoded.notifySessionFailed)
+        XCTAssertEqual(decoded.menuBarStatusMode, .iconOnly)
     }
 
     @MainActor
@@ -237,6 +468,14 @@ final class SettingsTests: XCTestCase {
         settings.hideFinishedAfter = .twentyFourHours
         settings.hideProjectPaths = true
         settings.showVersionInMenuBar = true
+        settings.notificationsEnabled = true
+        settings.notifyQuota15Percent = false
+        settings.notifyQuota5Percent = false
+        settings.notifyQuotaReset = false
+        settings.notifySessionWaiting = false
+        settings.notifySessionFinished = true
+        settings.notifySessionFailed = false
+        settings.menuBarStatusMode = .lowestQuota
 
         var dockNotified = false
         var refreshNotified = false
@@ -246,6 +485,14 @@ final class SettingsTests: XCTestCase {
         var hideFinishedNotified = false
         var privacyNotified = false
         var versionNotified = false
+        var notificationsEnabledNotified = false
+        var quota15Notified = false
+        var quota5Notified = false
+        var quotaResetNotified = false
+        var waitingNotified = false
+        var finishedNotified = false
+        var failedNotified = false
+        var menuBarModeNotified = false
 
         settings.onShowInDockChanged = { _ in dockNotified = true }
         settings.onRefreshIntervalChanged = { _ in refreshNotified = true }
@@ -255,6 +502,14 @@ final class SettingsTests: XCTestCase {
         settings.onHideFinishedAfterChanged = { _ in hideFinishedNotified = true }
         settings.onHideProjectPathsChanged = { _ in privacyNotified = true }
         settings.onShowVersionInMenuBarChanged = { _ in versionNotified = true }
+        settings.onNotificationsEnabledChanged = { _ in notificationsEnabledNotified = true }
+        settings.onNotifyQuota15PercentChanged = { _ in quota15Notified = true }
+        settings.onNotifyQuota5PercentChanged = { _ in quota5Notified = true }
+        settings.onNotifyQuotaResetChanged = { _ in quotaResetNotified = true }
+        settings.onNotifySessionWaitingChanged = { _ in waitingNotified = true }
+        settings.onNotifySessionFinishedChanged = { _ in finishedNotified = true }
+        settings.onNotifySessionFailedChanged = { _ in failedNotified = true }
+        settings.onMenuBarStatusModeChanged = { _ in menuBarModeNotified = true }
 
         settings.resetToDefaults()
 
@@ -266,6 +521,14 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.hideFinishedAfter, .never)
         XCTAssertFalse(settings.hideProjectPaths)
         XCTAssertFalse(settings.showVersionInMenuBar)
+        XCTAssertFalse(settings.notificationsEnabled)
+        XCTAssertTrue(settings.notifyQuota15Percent)
+        XCTAssertTrue(settings.notifyQuota5Percent)
+        XCTAssertTrue(settings.notifyQuotaReset)
+        XCTAssertTrue(settings.notifySessionWaiting)
+        XCTAssertFalse(settings.notifySessionFinished)
+        XCTAssertTrue(settings.notifySessionFailed)
+        XCTAssertEqual(settings.menuBarStatusMode, .iconOnly)
 
         XCTAssertTrue(dockNotified)
         XCTAssertTrue(refreshNotified)
@@ -275,6 +538,14 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(hideFinishedNotified)
         XCTAssertTrue(privacyNotified)
         XCTAssertTrue(versionNotified)
+        XCTAssertTrue(notificationsEnabledNotified)
+        XCTAssertTrue(quota15Notified)
+        XCTAssertTrue(quota5Notified)
+        XCTAssertTrue(quotaResetNotified)
+        XCTAssertTrue(waitingNotified)
+        XCTAssertTrue(finishedNotified)
+        XCTAssertTrue(failedNotified)
+        XCTAssertTrue(menuBarModeNotified)
     }
 
     @MainActor

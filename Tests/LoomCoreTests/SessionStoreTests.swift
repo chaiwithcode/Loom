@@ -212,6 +212,57 @@ final class FastClaudeProvider: AgentProvider, Sendable {
     }
 }
 
+final class SpyAgentProvider: AgentProvider, Sendable {
+    let id: ProviderID
+    let displayName: String
+    private let discoverCounter = OSAllocatedUnfairLock(initialState: 0)
+    private let usageCounter = OSAllocatedUnfairLock(initialState: 0)
+    private let sessionsLock = OSAllocatedUnfairLock(initialState: [AgentSession]())
+    private let usageLock = OSAllocatedUnfairLock(initialState: ProviderUsageSnapshot?.none)
+
+    init(
+        id: ProviderID,
+        displayName: String,
+        sessions: [AgentSession] = [],
+        usage: ProviderUsageSnapshot? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.sessionsLock.withLock { $0 = sessions }
+        self.usageLock.withLock { $0 = usage }
+    }
+
+    var discoverCallCount: Int {
+        discoverCounter.withLock { $0 }
+    }
+
+    var fetchUsageCallCount: Int {
+        usageCounter.withLock { $0 }
+    }
+
+    func setSessions(_ s: [AgentSession]) {
+        sessionsLock.withLock { $0 = s }
+    }
+
+    func setUsage(_ u: ProviderUsageSnapshot?) {
+        usageLock.withLock { $0 = u }
+    }
+
+    func availability() async -> ProviderAvailability {
+        .available
+    }
+
+    func discoverSessions() async throws -> [AgentSession] {
+        discoverCounter.withLock { $0 += 1 }
+        return sessionsLock.withLock { $0 }
+    }
+
+    func fetchUsage() async throws -> ProviderUsageSnapshot? {
+        usageCounter.withLock { $0 += 1 }
+        return usageLock.withLock { $0 }
+    }
+}
+
 // MARK: - Unit Tests
 
 final class SessionStoreTests: XCTestCase {
@@ -976,4 +1027,204 @@ final class SessionStoreTests: XCTestCase {
         await emptyRosterStore.refresh()
         XCTAssertEqual(emptyRosterStore.emptySessionReason, .noActiveSessions)
     }
+
+    // MARK: - Lightweight vs Heavy Polling Tests
+
+    @MainActor
+    func testLivenessRefreshOnlyQueriesSessionsWithoutFetchingUsage() async {
+        let spy = SpyAgentProvider(
+            id: .codex,
+            displayName: "Codex",
+            sessions: [AgentSession(id: "s1", provider: .codex, state: .working)]
+        )
+        let store = SessionStore(providers: [spy])
+
+        await store.refreshLiveness()
+
+        XCTAssertEqual(spy.discoverCallCount, 1, "refreshLiveness must query discoverSessions")
+        XCTAssertEqual(spy.fetchUsageCallCount, 0, "refreshLiveness must NOT query fetchUsage")
+        XCTAssertNotNil(store.lastLivenessRefreshedAt)
+        XCTAssertNil(store.lastQuotaRefreshedAt)
+        XCTAssertEqual(store.allSessions.count, 1)
+        XCTAssertFalse(store.isRefreshing)
+    }
+
+    @MainActor
+    func testQuotaRefreshOnlyQueriesUsageWithoutDiscoveringSessions() async {
+        let usage = ProviderUsageSnapshot(
+            providerID: .codex,
+            updatedAt: Date(),
+            planType: "pro",
+            primaryBucket: UsageBucket(identifier: "5h", label: "5h", usedFraction: 0.2),
+            secondaryBucket: nil,
+            additionalGroups: [],
+            isStale: false,
+            errorMessage: nil
+        )
+        let spy = SpyAgentProvider(
+            id: .codex,
+            displayName: "Codex",
+            usage: usage
+        )
+        let store = SessionStore(providers: [spy])
+
+        await store.refreshQuota()
+
+        XCTAssertEqual(spy.discoverCallCount, 0, "refreshQuota must NOT query discoverSessions")
+        XCTAssertEqual(spy.fetchUsageCallCount, 1, "refreshQuota must query fetchUsage")
+        XCTAssertNil(store.lastLivenessRefreshedAt)
+        XCTAssertNotNil(store.lastQuotaRefreshedAt)
+        XCTAssertNotNil(store.snapshot(for: .codex)?.usage)
+        XCTAssertFalse(store.isRefreshing)
+    }
+
+    @MainActor
+    func testUnifiedRefreshQueriesBothLivenessAndQuota() async {
+        let usage = ProviderUsageSnapshot(
+            providerID: .codex,
+            updatedAt: Date(),
+            planType: "pro",
+            primaryBucket: UsageBucket(identifier: "5h", label: "5h", usedFraction: 0.1),
+            secondaryBucket: nil,
+            additionalGroups: [],
+            isStale: false,
+            errorMessage: nil
+        )
+        let spy = SpyAgentProvider(
+            id: .codex,
+            displayName: "Codex",
+            sessions: [AgentSession(id: "s1", provider: .codex, state: .working)],
+            usage: usage
+        )
+        let store = SessionStore(providers: [spy])
+
+        await store.refresh()
+
+        XCTAssertEqual(spy.discoverCallCount, 1, "Unified refresh must discover sessions")
+        XCTAssertEqual(spy.fetchUsageCallCount, 1, "Unified refresh must fetch usage")
+        XCTAssertNotNil(store.lastLivenessRefreshedAt)
+        XCTAssertNotNil(store.lastQuotaRefreshedAt)
+        XCTAssertEqual(store.allSessions.count, 1)
+        XCTAssertNotNil(store.snapshot(for: .codex)?.usage)
+        XCTAssertFalse(store.isRefreshing)
+    }
+
+    @MainActor
+    func testSeparatedPeriodicTimersIndependentlyFire() async throws {
+        let spy = SpyAgentProvider(id: .codex, displayName: "Codex")
+        let store = SessionStore(providers: [spy])
+
+        // Fast liveness timer (50ms), slow quota timer (5s)
+        store.startPeriodicRefresh(livenessInterval: 0.05, quotaInterval: 5.0)
+
+        try await Task.sleep(nanoseconds: 160_000_000) // 160ms
+        store.stopPeriodicRefresh(cancelInFlight: true)
+
+        XCTAssertGreaterThanOrEqual(spy.discoverCallCount, 2, "Fast liveness loop should have fired at least 2 times")
+        XCTAssertEqual(spy.fetchUsageCallCount, 0, "Slow quota loop should not have fired within 160ms")
+    }
+
+    // MARK: - Monitoring Event Hook Tests
+
+    @MainActor
+    func testMonitoringEventHookDispatchesSessionTransitions() async {
+        let session = AgentSession(id: "s1", provider: .codex, state: .working)
+        let spy = SpyAgentProvider(id: .codex, displayName: "Codex", sessions: [session])
+        let store = SessionStore(providers: [spy])
+
+        let receivedEvents = OSAllocatedUnfairLock(initialState: [MonitoringEvent]())
+        store.onMonitoringEvent = { event in
+            receivedEvents.withLock { $0.append(event) }
+        }
+
+        // Cycle 1: Seeds initial baseline (no events emitted on initial seed)
+        await store.refreshLiveness()
+        XCTAssertEqual(receivedEvents.withLock { $0.count }, 0, "Initial scan should seed baseline without firing events")
+
+        // Cycle 2: Transition session from .working to confirmed .waiting with positive evidence
+        let waitingSession = AgentSession(
+            id: "s1",
+            provider: .codex,
+            state: .waiting,
+            summary: "Awaiting user input",
+            discoveryEvidence: ["Turn complete: awaiting user prompt input"]
+        )
+        spy.setSessions([waitingSession])
+
+        await store.refreshLiveness()
+
+        let events = receivedEvents.withLock { $0 }
+        XCTAssertEqual(events.count, 1, "Transition to waiting should fire exactly one monitoring event")
+        if case .sessionStateTransition(let sess, let from, let to) = events.first {
+            XCTAssertEqual(sess.id, "s1")
+            XCTAssertEqual(from, .working)
+            XCTAssertEqual(to, .waiting)
+        } else {
+            XCTFail("Expected .sessionStateTransition event but got \(String(describing: events.first))")
+        }
+    }
+
+    @MainActor
+    func testMonitoringEventHookDispatchesQuotaThresholdCrossing() async {
+        let bucket = UsageBucket(identifier: "5h", label: "5h Window", usedFraction: 0.90) // 10% remaining (< 15%)
+        let usage = ProviderUsageSnapshot(
+            providerID: .codex,
+            updatedAt: Date(),
+            planType: "pro",
+            primaryBucket: bucket,
+            secondaryBucket: nil,
+            additionalGroups: [],
+            isStale: false,
+            errorMessage: nil
+        )
+        let spy = SpyAgentProvider(id: .codex, displayName: "Codex", usage: usage)
+        let store = SessionStore(providers: [spy])
+
+        let receivedEvents = OSAllocatedUnfairLock(initialState: [MonitoringEvent]())
+        store.onMonitoringEvent = { event in
+            receivedEvents.withLock { $0.append(event) }
+        }
+
+        await store.refreshQuota()
+
+        let events = receivedEvents.withLock { $0 }
+        XCTAssertFalse(events.isEmpty, "Quota dropping below 15% remaining must emit quotaThresholdCrossed event")
+        let crossedEvents = events.compactMap { event -> MonitoringEvent? in
+            if case .quotaThresholdCrossed = event { return event }
+            return nil
+        }
+        XCTAssertEqual(crossedEvents.count, 1)
+        if case .quotaThresholdCrossed(let prov, let bkt, let remaining, _, let thresh) = crossedEvents.first {
+            XCTAssertEqual(prov, .codex)
+            XCTAssertEqual(bkt, "5h")
+            XCTAssertEqual(thresh, .fifteenPercent)
+            XCTAssertEqual(remaining, 10.0, accuracy: 0.1)
+        }
+    }
+
+    #if canImport(AppKit)
+    @MainActor
+    func testWakeNotificationTriggersImmediateRefresh() async {
+        let spy = SpyAgentProvider(id: .codex, displayName: "Codex")
+        let store = SessionStore(providers: [spy])
+
+        XCTAssertEqual(spy.discoverCallCount, 0)
+        XCTAssertEqual(spy.fetchUsageCallCount, 0)
+        XCTAssertNotNil(store.providerSnapshots)
+
+        // Post didWakeNotification to NSWorkspace notification center
+        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+
+        // Yield to allow wake observer task to run on MainActor
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        // Give async Task brief moment to initiate
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        XCTAssertGreaterThanOrEqual(spy.discoverCallCount, 1, "Wake notification must trigger immediate discovery")
+        XCTAssertGreaterThanOrEqual(spy.fetchUsageCallCount, 1, "Wake notification must trigger immediate quota fetch")
+    }
+    #endif
 }

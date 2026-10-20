@@ -41,6 +41,17 @@ public struct SessionRowView: View {
         return "\(title), \(session.state.displayName), \(status)"
     }
 
+    private var accentBorderColor: Color? {
+        switch session.state {
+        case .waiting:
+            return Color.orange.opacity(0.40)
+        case .failed:
+            return Color.red.opacity(0.40)
+        default:
+            return nil
+        }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
@@ -48,59 +59,76 @@ public struct SessionRowView: View {
                     isExpanded.toggle()
                 }
             } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                    // Line 1: Provider name (left) and State badge (right)
+                VStack(alignment: .leading, spacing: 7) {
+                    // Line 1: Repository / Project name (prominent) + State badge & Chevron
                     HStack(alignment: .center, spacing: 8) {
-                        Text(session.provider.displayName)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                        Text(projectTitle)
+                            .font(.system(size: 14.5, weight: .bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .help(projectTitle)
 
                         Spacer(minLength: 4)
 
-                        HStack(spacing: 5) {
+                        // Semantic state badge
+                        HStack(spacing: 4) {
                             StateIndicatorView(state: session.state)
                                 .frame(width: 8, height: 8)
                             Text(session.state.displayName)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 10.5, weight: .semibold))
                                 .foregroundStyle(stateColor(for: session.state))
                         }
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(stateColor(for: session.state).opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                        .background(stateColor(for: session.state).opacity(0.12), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 10.5, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .accessibilityHidden(true)
                     }
 
-                    // Line 2: Project / Repository name (prominent)
-                    Text(projectTitle)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .help(projectTitle)
+                    // Line 2: Branch pill, Host App badge, Process count & Relative Activity
+                    HStack(spacing: 6) {
+                        if let branch = session.branch, !branch.isEmpty {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.triangle.branch")
+                                    .font(.system(size: 9))
+                                Text(branch)
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        }
 
-                    // Line 3: Host application · X processes
-                    HStack(spacing: 5) {
                         if let hostApp = session.hostApp {
                             Text(hostApp.displayName)
+                                .font(.system(size: 10.5, weight: .medium))
                                 .foregroundStyle(.secondary)
-                            Text("·")
-                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1.5)
+                                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                         }
-                        let pCount = session.processCount
-                        Text(pCount == 1 ? "1 process" : "\(pCount) processes")
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.system(size: 12, weight: .medium))
 
-                    // Line 4: Current activity summary (if available)
+                        let pCount = session.processCount
+                        Text(pCount == 1 ? "1 proc" : "\(pCount) procs")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+
+                        Spacer(minLength: 4)
+
+                        activityLine
+                    }
+
+                    // Line 3: Current activity summary (if present)
                     if let summary = session.summary, !summary.isEmpty {
                         HStack(spacing: 5) {
                             Image(systemName: activityIcon(for: session.state))
-                                .font(.system(size: 10))
+                                .font(.system(size: 9.5))
                                 .foregroundStyle(stateColor(for: session.state))
                             Text(hideProjectPaths ? "Activity details hidden" : summary)
                                 .font(.system(size: 11, weight: .regular))
@@ -109,68 +137,59 @@ public struct SessionRowView: View {
                                 .truncationMode(.tail)
                         }
                     }
-
-                    // Line 5: Activity line
-                    activityLine
                 }
-                .padding(14)
+                .padding(12)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(sessionHeaderAccessibilityLabel)
             .accessibilityHint(isExpanded ? "Collapse session details" : "Expand session details")
 
+            // Expandable Process Inspector & Actions
             if isExpanded {
                 Divider()
                 sessionDetails
-                    .padding(14)
+                    .padding(12)
             }
         }
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.primary.opacity(0.035))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.09), lineWidth: 1)
-        }
+        .loomCard(cornerRadius: 10, accentBorderColor: accentBorderColor)
     }
 
     @ViewBuilder
     private var activityLine: some View {
         if let lastActivity = session.lastActivityAt {
             TimelineView(.periodic(from: .now, by: 30)) { context in
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Image(systemName: "clock")
-                        .font(.system(size: 10))
-                    Text("Active \(relativeActivity(lastActivity, now: context.date))")
+                        .font(.system(size: 9))
+                    Text(relativeActivity(lastActivity, now: context.date))
                 }
-                .font(.system(size: 11))
+                .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
             }
         } else if let started = session.startedAt {
             TimelineView(.periodic(from: .now, by: 60)) { context in
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Image(systemName: "clock")
-                        .font(.system(size: 10))
+                        .font(.system(size: 9))
                     Text("Started \(relativeActivity(started, now: context.date))")
                 }
-                .font(.system(size: 11))
+                .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
             }
         } else {
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Image(systemName: "circle.fill")
                     .font(.system(size: 5))
                 Text("Loom session")
             }
-            .font(.system(size: 11))
+            .font(.system(size: 10.5))
             .foregroundStyle(.secondary)
         }
     }
 
     private var sessionDetails: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             DetailRow(label: "Provider", value: session.provider.displayName)
             DetailRow(label: "State", value: session.state.displayName)
 
@@ -199,12 +218,12 @@ public struct SessionRowView: View {
             // Associated processes breakdown & hierarchy
             if !session.associatedProcesses.isEmpty {
                 Divider().padding(.vertical, 2)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text("Process Tree (\(session.associatedProcesses.count))")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(.secondary)
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 3) {
                         ForEach(session.associatedProcesses, id: \.pid) { proc in
                             processRow(proc)
                         }
@@ -217,9 +236,9 @@ public struct SessionRowView: View {
             // Discovery Evidence
             if !session.discoveryEvidence.isEmpty || session.providerSessionID != nil {
                 Divider().padding(.vertical, 2)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text("Discovery Evidence")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(.secondary)
 
                     if let sid = session.providerSessionID, !sid.isEmpty {
@@ -228,7 +247,7 @@ public struct SessionRowView: View {
 
                     if hideProjectPaths {
                         Text("• Evidence details hidden by privacy setting")
-                            .font(.system(size: 12))
+                            .font(.system(size: 11.5))
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(session.discoveryEvidence, id: \.self) { ev in
@@ -236,7 +255,7 @@ public struct SessionRowView: View {
                                 Text("•")
                                     .foregroundStyle(.secondary)
                                 Text(ev)
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 11.5))
                                     .foregroundStyle(.primary)
                             }
                         }
@@ -244,25 +263,9 @@ public struct SessionRowView: View {
                 }
             }
 
-            // Action: Reveal in Finder
-            if let path = session.projectPath?.path {
-                Divider().padding(.vertical, 3)
-                if FileManager.default.fileExists(atPath: path) {
-                    Button {
-                        NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
-                    } label: {
-                        Label("Reveal in Finder", systemImage: "folder")
-                            .font(.system(size: 13))
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                } else {
-                    Label("Folder not found on disk", systemImage: "folder.badge.questionmark")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+            // Productivity Quick Actions (Focus Host App, Reveal in Finder, Copy metadata)
+            Divider().padding(.vertical, 2)
+            SessionActionsView(session: session, hideProjectPaths: hideProjectPaths)
         }
     }
 
@@ -274,23 +277,23 @@ public struct SessionRowView: View {
 
         return HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text("PID \(proc.pid)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 65, alignment: .leading)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(displayText)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(.primary)
 
                 if let ppid = proc.parentPID {
                     Text("PPID \(ppid)")
-                        .font(.system(size: 10))
+                        .font(.system(size: 9.5))
                         .foregroundStyle(.secondary.opacity(0.8))
                 }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 1.5)
     }
 
     private func timestamp(_ date: Date) -> String {
@@ -336,7 +339,7 @@ private struct DetailRow: View {
     let value: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
             Text(label)
                 .foregroundStyle(.secondary)
                 .frame(width: 86, alignment: .leading)
@@ -346,7 +349,7 @@ private struct DetailRow: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .font(.system(size: 13))
+        .font(.system(size: 12))
     }
 }
 
@@ -372,7 +375,7 @@ private struct StateIndicatorView: View {
                 Image(systemName: "questionmark.circle").foregroundStyle(.secondary)
             }
         }
-        .font(.system(size: 10))
+        .font(.system(size: 9))
         .accessibilityHidden(true)
     }
 }

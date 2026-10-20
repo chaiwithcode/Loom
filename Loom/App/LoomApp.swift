@@ -8,10 +8,12 @@
 
 import SwiftUI
 import AppKit
+import UserNotifications
 import LoomCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = NotificationCoordinator.shared
         DockController.shared.updateActivationPolicy()
         if ProcessInfo.processInfo.arguments.contains("--show-settings") && DemoFixture.resolve().isDemo {
             DockController.shared.showSettings()
@@ -63,6 +65,11 @@ struct LoomApp: App {
                 await initialStore?.refresh()
             }
         }
+
+        let coordinator = NotificationCoordinator.shared
+        coordinator.configure(settings: initialSettings, store: initialStore)
+        coordinator.setupCategories()
+        UNUserNotificationCenter.current().delegate = coordinator
     }
 
     var body: some Scene {
