@@ -48,14 +48,14 @@ public struct ProviderPresentation: Sendable, Equatable, Identifiable {
                 providerID: .claude,
                 displayName: "Claude Code",
                 iconAssetName: "provider-claude",
-                iconRenderingMode: .template
+                iconRenderingMode: .original
             )
         case "antigravity", "gemini-antigravity", "agy":
             return ProviderPresentation(
                 providerID: .antigravity,
                 displayName: "Antigravity",
                 iconAssetName: "provider-antigravity",
-                iconRenderingMode: .template
+                iconRenderingMode: .original
             )
         default:
             return ProviderPresentation(
@@ -144,12 +144,13 @@ public enum ProviderIconImage {
             }
         }
 
-        // E. Check standard app bundle locations on system
-        let candidateAppDirs = [
-            "/Applications/Loom.app/Contents/Resources",
-            ".build/Loom.app/Contents/Resources"
+        // E. Prefer current repository assets for test harnesses / command-line probes
+        let repoSearchDirs = [
+            "Resources",
+            "../Resources",
+            "../../Resources"
         ]
-        for dir in candidateAppDirs {
+        for dir in repoSearchDirs {
             for ext in exts {
                 let path = "\(dir)/\(name).\(ext)"
                 if fm.fileExists(atPath: path) {
@@ -158,13 +159,12 @@ public enum ProviderIconImage {
             }
         }
 
-        // F. Fallback for test harnesses / command-line probes running relative to repo root
-        let repoSearchDirs = [
-            "Resources",
-            "../Resources",
-            "../../Resources"
+        // F. Check built and installed apps only after repository fallbacks
+        let candidateAppDirs = [
+            ".build/Loom.app/Contents/Resources",
+            "/Applications/Loom.app/Contents/Resources"
         ]
-        for dir in repoSearchDirs {
+        for dir in candidateAppDirs {
             for ext in exts {
                 let path = "\(dir)/\(name).\(ext)"
                 if fm.fileExists(atPath: path) {

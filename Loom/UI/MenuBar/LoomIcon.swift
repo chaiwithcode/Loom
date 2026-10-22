@@ -111,20 +111,15 @@ extension View {
 
 struct LoomPanelMaterial: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let baseColor = (colorScheme == .dark)
-            ? Color(red: 0.14, green: 0.14, blue: 0.15)
-            : Color(red: 0.96, green: 0.96, blue: 0.97)
-
         if reduceTransparency {
-            baseColor
+            Color(nsColor: .windowBackgroundColor)
+        } else if #available(macOS 26.0, *) {
+            // The MenuBarExtra window owns the panel backdrop on Tahoe.
+            Color.clear
         } else {
-            ZStack {
-                baseColor
-                Rectangle().fill(.ultraThinMaterial)
-            }
+            Rectangle().fill(.ultraThinMaterial)
         }
     }
 }

@@ -14,8 +14,8 @@ import LoomCore
 import Loom
 
 @main struct Probe {
- @MainActor static func settle(_ host: NSView) async {
-  for _ in 0..<18 {
+ @MainActor static func settle(_ host: NSView, cycles: Int = 18) async {
+  for _ in 0..<cycles {
    host.layoutSubtreeIfNeeded()
    try? await Task.sleep(nanoseconds: 15_000_000)
   }
@@ -43,9 +43,10 @@ import Loom
   func inspect(_ v: NSView) {
    if v is NSProgressIndicator { return }
    let frame = v.convert(v.bounds, to: nil)
-   if frame.width >= 4 && frame.width <= 15 && frame.height >= 4 && frame.height <= 15
-      && frame.origin.x >= 12 && frame.origin.x <= 25
-      && frame.origin.y >= 45 && frame.origin.y <= 120 {
+   let distFromTop = window.contentLayoutRect.height - frame.midY
+   if frame.width >= 4 && frame.width <= 18 && frame.height >= 4 && frame.height <= 18
+      && frame.origin.x >= 12 && frame.origin.x <= 30
+      && distFromTop >= 250 && distFromTop <= 400 {
     candidates.append((v, frame))
    }
    for sub in v.subviews { inspect(sub) }
@@ -130,10 +131,9 @@ import Loom
    let segPoint = NSPoint(x: (CGFloat(segment) + 0.5) * segWidth, y: seg.bounds.midY)
    let winPoint = seg.convert(segPoint, to: nil)
    print("Found NSSegmentedControl frame in window: \(seg.convert(seg.bounds, to: nil)), click point: \(winPoint), segmentCount: \(seg.segmentCount)")
-   seg.selectedSegment = segment
-   if let action = seg.action {
-    _ = seg.sendAction(action, to: seg.target)
-   }
+   assert(!seg.isHidden && seg.alphaValue > 0.9, "Navigation must use a visible native segmented control")
+   let top = window.contentLayoutRect.height - winPoint.y
+   click(window, top: top, x: winPoint.x)
    return
   }
   let width = window.contentLayoutRect.width
@@ -734,9 +734,9 @@ import Loom
   // SECTION 7: Popover Bounds & Multi-Provider Selector
   // -------------------------------------------------------------------------
   print("--- Validating Popover Bounds & Multi-Provider Selector ---")
-  let manyCodex = (1...24).map { AgentSession(id: "codex\($0)", provider: .codex, projectName: "CodexProject\($0)", state: .working) }
+  let manyCodex = (1...24).map { AgentSession(id: "codex\($0)", provider: .codex, projectName: "CodexProject\($0)", state: $0 == 1 ? .waiting : .working) }
   let codexProv = MockAgentProvider(id: .codex, displayName: "Codex", sessions: manyCodex)
-  let claudeProv = MockAgentProvider(id: .claude, displayName: "Claude", sessions: [])
+  let claudeProv = MockAgentProvider(id: .claude, displayName: "Claude Code", sessions: [])
   claudeProv.setAvailability(.unavailable(reason: "Claude Code CLI not installed"))
   let manyAgy = (1...20).map { AgentSession(id: "agy\($0)", provider: .antigravity, projectName: "AgyProject\($0)", state: .working) }
   let agyProv = MockAgentProvider(id: .antigravity, displayName: "Antigravity", sessions: manyAgy)
@@ -753,7 +753,7 @@ import Loom
 
   assert(multiStore.providerSnapshots.count == 3)
   assert(multiStore.providerSnapshots[0].displayName == "Codex" && multiStore.providerSnapshots[0].sessions.count == 24)
-  assert(multiStore.providerSnapshots[1].displayName == "Claude" && multiStore.providerSnapshots[1].sessions.count == 0)
+  assert(multiStore.providerSnapshots[1].displayName == "Claude Code" && multiStore.providerSnapshots[1].sessions.count == 0)
   assert(multiStore.providerSnapshots[2].displayName == "Antigravity" && multiStore.providerSnapshots[2].sessions.count == 20)
 
   let multiScrolls = scrollViews(in: multiHost)
@@ -769,36 +769,38 @@ import Loom
 
   // Click Antigravity
   clickProvider(window, index: 2, total: 3)
-  await settle(multiHost)
+  await settle(multiHost, cycles: 42)
   save(multiHost, "multi-agy-selected")
 
+  // Wait through the provider spring and ScrollView identity replacement before measuring.
   let agyScrolls = scrollViews(in: multiHost)
+  assert(agyScrolls.count == 3, "Provider transition must leave one scroll view per tab")
   let agyAgentsScroll = agyScrolls.max { ($0.documentView?.frame.height ?? 0) < ($1.documentView?.frame.height ?? 0) }!
   let agyOffset = agyAgentsScroll.contentView.bounds.origin.y
-  assert(agyOffset == 0, "Switching from deeply scrolled Codex to long Antigravity must land at top (0), not stale Codex offset \(codexScrolledOffset)")
+  assert(agyOffset == 0, "Switching from deeply scrolled Codex to long Antigravity must land at top (0), got \(agyOffset); prior Codex offset \(codexScrolledOffset)")
 
   // Click unavailable Claude
   clickProvider(window, index: 1, total: 3)
-  await settle(multiHost)
+  await settle(multiHost, cycles: 42)
   save(multiHost, "multi-claude-selected")
   let claudeHeight = window.contentLayoutRect.height
   assert(claudeHeight < cap - 200, "Empty/unavailable Claude must be compact")
 
   // Rapid switching
   clickProvider(window, index: 0, total: 3)
-  await settle(multiHost)
+  await settle(multiHost, cycles: 42)
   save(multiHost, "multi-rapid-codex")
 
   clickProvider(window, index: 2, total: 3)
-  await settle(multiHost)
+  await settle(multiHost, cycles: 42)
   save(multiHost, "multi-rapid-agy")
 
   clickProvider(window, index: 1, total: 3)
-  await settle(multiHost)
+  await settle(multiHost, cycles: 42)
   save(multiHost, "multi-rapid-claude")
 
   clickProvider(window, index: 2, total: 3)
-  await settle(multiHost)
+  await settle(multiHost, cycles: 42)
 
   // Refresh preserving selection
   await multiStore.refresh()
@@ -813,8 +815,9 @@ import Loom
   await settle(multiHost)
   save(multiHost, "multi-roundtrip-agy")
 
-  // Width checks (360pt, 380pt, 480pt) conforming to macOS menu-bar constraints
-  for width in [CGFloat(360), CGFloat(380), CGFloat(480)] {
+  // Three full provider names, multi-digit counts, attention and an empty provider
+  // must remain available across the supported menu widths.
+  for width in [CGFloat(320), CGFloat(380), CGFloat(420), CGFloat(520)] {
    multiHost.rootView = AnyView(MenuBarRootView(store: multiStore).id("multi-width-\(Int(width))").frame(width: width))
    window.setContentSize(NSSize(width: width, height: 800))
    await settle(multiHost)

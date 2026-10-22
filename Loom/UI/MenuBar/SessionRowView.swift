@@ -15,6 +15,7 @@ public struct SessionRowView: View {
     public let showProvider: Bool
     public let hideProjectPaths: Bool
     @State private var isExpanded: Bool
+    @State private var isHovered = false
 
     public init(
         session: AgentSession,
@@ -129,6 +130,7 @@ public struct SessionRowView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .onHover { isHovered = $0 }
             .accessibilityLabel(sessionHeaderAccessibilityLabel)
             .accessibilityHint(isExpanded ? "Collapse session details" : "Expand session details")
 
@@ -142,7 +144,8 @@ public struct SessionRowView: View {
         }
         .loomRow(
             isAttention: session.state == .waiting || session.state == .failed,
-            isSelected: isExpanded
+            isSelected: isExpanded,
+            isHovered: isHovered
         )
     }
 
@@ -302,12 +305,13 @@ public struct SessionRowView: View {
 
     private func stateColor(for state: AgentState) -> Color {
         switch state {
-        case .starting: return .teal
+        case .starting: return .blue
         case .working: return .blue
         case .waiting: return .orange
-        case .finished: return .green
+        case .finished: return .secondary
         case .failed: return .red
-        case .idle, .unknown: return .secondary
+        case .idle: return .purple
+        case .unknown: return .secondary
         }
     }
 
@@ -350,17 +354,17 @@ private struct StateIndicatorView: View {
         Group {
             switch state {
             case .starting:
-                Circle().fill(.teal).frame(width: 8, height: 8)
+                Circle().fill(.blue).frame(width: 8, height: 8)
             case .working:
                 Circle().fill(.blue).frame(width: 8, height: 8)
             case .waiting:
                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
             case .finished:
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.secondary)
             case .failed:
                 Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
             case .idle:
-                Circle().strokeBorder(Color.secondary, lineWidth: 1.5).frame(width: 8, height: 8)
+                Circle().strokeBorder(Color.purple, lineWidth: 1.5).frame(width: 8, height: 8)
             case .unknown:
                 Image(systemName: "questionmark.circle").foregroundStyle(.secondary)
             }

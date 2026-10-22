@@ -87,8 +87,21 @@
 		A00000000000000000000184 /* ProviderIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000183 /* ProviderIconView.swift */; };
 		A00000000000000000000186 /* ProviderPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000185 /* ProviderPresentationTests.swift */; };
 		A00000000000000000000192 /* provider-codex.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000191 /* provider-codex.png */; };
-		A00000000000000000000194 /* provider-claude.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000193 /* provider-claude.png */; };
-		A00000000000000000000196 /* provider-antigravity.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000195 /* provider-antigravity.png */; };
+		A00000000000000000000194 /* provider-claude.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000193 /* provider-claude.pdf */; };
+		A00000000000000000000196 /* provider-antigravity.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000195 /* provider-antigravity.pdf */; };
+		D00000000000000000000003 /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000002 /* NotificationCoordinator.swift */; };
+		D00000000000000000000005 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000004 /* StatusItemController.swift */; };
+		D00000000000000000000007 /* QuotaThresholdEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000006 /* QuotaThresholdEvaluator.swift */; };
+		D00000000000000000000009 /* NotificationHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000008 /* NotificationHistoryStore.swift */; };
+		D0000000000000000000000B /* SessionTransitionDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000000A /* SessionTransitionDetector.swift */; };
+		D0000000000000000000000D /* NotificationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000000C /* NotificationPolicy.swift */; };
+		D0000000000000000000000F /* MonitoringEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000000E /* MonitoringEvent.swift */; };
+		D00000000000000000000011 /* NotificationsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000010 /* NotificationsSettingsTab.swift */; };
+		D00000000000000000000013 /* SessionActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000012 /* SessionActionsView.swift */; };
+		D00000000000000000000015 /* LoomGlassStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000014 /* LoomGlassStyles.swift */; };
+		D00000000000000000000017 /* SessionFilterBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000016 /* SessionFilterBar.swift */; };
+		D00000000000000000000019 /* DiagnosticsDisclosureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000018 /* DiagnosticsDisclosureView.swift */; };
+		D00000000000000000000101 /* LICENSE.lobehub in Resources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000100 /* LICENSE.lobehub */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -220,8 +233,21 @@
 		A00000000000000000000183 /* ProviderIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderIconView.swift; sourceTree = "<group>"; };
 		A00000000000000000000185 /* ProviderPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderPresentationTests.swift; sourceTree = "<group>"; };
 		A00000000000000000000191 /* provider-codex.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-codex.png; sourceTree = "<group>"; };
-		A00000000000000000000193 /* provider-claude.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-claude.png; sourceTree = "<group>"; };
-		A00000000000000000000195 /* provider-antigravity.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-antigravity.png; sourceTree = "<group>"; };
+		A00000000000000000000193 /* provider-claude.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = provider-claude.pdf; sourceTree = "<group>"; };
+		A00000000000000000000195 /* provider-antigravity.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = provider-antigravity.pdf; sourceTree = "<group>"; };
+		D00000000000000000000002 /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
+		D00000000000000000000004 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		D00000000000000000000006 /* QuotaThresholdEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaThresholdEvaluator.swift; sourceTree = "<group>"; };
+		D00000000000000000000008 /* NotificationHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationHistoryStore.swift; sourceTree = "<group>"; };
+		D0000000000000000000000A /* SessionTransitionDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTransitionDetector.swift; sourceTree = "<group>"; };
+		D0000000000000000000000C /* NotificationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPolicy.swift; sourceTree = "<group>"; };
+		D0000000000000000000000E /* MonitoringEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitoringEvent.swift; sourceTree = "<group>"; };
+		D00000000000000000000010 /* NotificationsSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsTab.swift; sourceTree = "<group>"; };
+		D00000000000000000000012 /* SessionActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActionsView.swift; sourceTree = "<group>"; };
+		D00000000000000000000014 /* LoomGlassStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomGlassStyles.swift; sourceTree = "<group>"; };
+		D00000000000000000000016 /* SessionFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFilterBar.swift; sourceTree = "<group>"; };
+		D00000000000000000000018 /* DiagnosticsDisclosureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsDisclosureView.swift; sourceTree = "<group>"; };
+		D00000000000000000000100 /* LICENSE.lobehub */ = {isa = PBXFileReference; lastKnownFileType = text; path = ProviderSources/LICENSE.lobehub; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -295,6 +321,8 @@
 		A00000000000000000000011 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				D00000000000000000000004 /* StatusItemController.swift */,
+				D00000000000000000000002 /* NotificationCoordinator.swift */,
 				B00000000000000000000002 /* Loom/Providers/ProviderStorageLocations.swift */,
 				A00000000000000000000020 /* LoomApp.swift */,
 				A000000000000000000000F3 /* DockController.swift */,
@@ -314,6 +342,10 @@
 		A00000000000000000000013 /* MenuBar */ = {
 			isa = PBXGroup;
 			children = (
+				D00000000000000000000018 /* DiagnosticsDisclosureView.swift */,
+				D00000000000000000000016 /* SessionFilterBar.swift */,
+				D00000000000000000000014 /* LoomGlassStyles.swift */,
+				D00000000000000000000012 /* SessionActionsView.swift */,
 				A00000000000000000000021 /* MenuBarRootView.swift */,
 				A00000000000000000000022 /* ProviderSectionView.swift */,
 				A00000000000000000000023 /* SessionRowView.swift */,
@@ -327,6 +359,7 @@
 		A00000000000000000000014 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				D00000000000000000000001 /* Notifications */,
 				A00000000000000000000015 /* Models */,
 				A00000000000000000000016 /* Protocols */,
 				A00000000000000000000017 /* Store */,
@@ -425,10 +458,11 @@
 		A0000000000000000000001C /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				D00000000000000000000100 /* LICENSE.lobehub */,
 				A0000000000000000000002D /* Loom.icns */,
 				A00000000000000000000191 /* provider-codex.png */,
-				A00000000000000000000193 /* provider-claude.png */,
-				A00000000000000000000195 /* provider-antigravity.png */,
+				A00000000000000000000193 /* provider-claude.pdf */,
+				A00000000000000000000195 /* provider-antigravity.pdf */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -466,6 +500,7 @@
 		A000000000000000000000FB /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				D00000000000000000000010 /* NotificationsSettingsTab.swift */,
 				B00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift */,
 				A000000000000000000000F5 /* SettingsView.swift */,
 			);
@@ -519,6 +554,18 @@
 				A00000000000000000000163 /* LoomWidget.entitlements */,
 			);
 			path = LoomWidget;
+			sourceTree = "<group>";
+		};
+		D00000000000000000000001 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				D0000000000000000000000E /* MonitoringEvent.swift */,
+				D0000000000000000000000C /* NotificationPolicy.swift */,
+				D0000000000000000000000A /* SessionTransitionDetector.swift */,
+				D00000000000000000000008 /* NotificationHistoryStore.swift */,
+				D00000000000000000000006 /* QuotaThresholdEvaluator.swift */,
+			);
+			path = Notifications;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -656,10 +703,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D00000000000000000000101 /* LICENSE.lobehub in Resources */,
 				A00000000000000000000086 /* Loom.icns in Resources */,
 				A00000000000000000000192 /* provider-codex.png in Resources */,
-				A00000000000000000000194 /* provider-claude.png in Resources */,
-				A00000000000000000000196 /* provider-antigravity.png in Resources */,
+				A00000000000000000000194 /* provider-claude.pdf in Resources */,
+				A00000000000000000000196 /* provider-antigravity.pdf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -670,6 +718,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0000000000000000000000F /* MonitoringEvent.swift in Sources */,
+				D0000000000000000000000D /* NotificationPolicy.swift in Sources */,
+				D0000000000000000000000B /* SessionTransitionDetector.swift in Sources */,
+				D00000000000000000000009 /* NotificationHistoryStore.swift in Sources */,
+				D00000000000000000000007 /* QuotaThresholdEvaluator.swift in Sources */,
 				C00000000000000000000002 /* Loom/Providers/ProviderStorageLocations.swift in Sources */,
 				C00000000000000000000001 /* Loom/Core/Storage/StorageScanner.swift in Sources */,
 				C00000000000000000000000 /* Loom/Core/Models/ProviderIssue.swift in Sources */,
@@ -720,6 +773,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D00000000000000000000019 /* DiagnosticsDisclosureView.swift in Sources */,
+				D00000000000000000000017 /* SessionFilterBar.swift in Sources */,
+				D00000000000000000000015 /* LoomGlassStyles.swift in Sources */,
+				D00000000000000000000013 /* SessionActionsView.swift in Sources */,
+				D00000000000000000000011 /* NotificationsSettingsTab.swift in Sources */,
+				D00000000000000000000005 /* StatusItemController.swift in Sources */,
+				D00000000000000000000003 /* NotificationCoordinator.swift in Sources */,
 				C00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift in Sources */,
 				A00000000000000000000080 /* LoomApp.swift in Sources */,
 				A00000000000000000000081 /* MenuBarRootView.swift in Sources */,

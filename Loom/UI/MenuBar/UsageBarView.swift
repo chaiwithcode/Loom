@@ -158,36 +158,47 @@ public struct UsageBarView: View {
                         .foregroundStyle(pacing.color)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1.5)
-                        .background(pacing.color.opacity(0.12), in: Capsule())
+                        .background(pacing.color.opacity(0.10), in: Capsule())
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(pacing.color.opacity(0.20), lineWidth: 0.5)
+                        )
                         .help("Quota consumption pacing within current window")
                     }
                 }
 
-                // Progress Bar
+                // Quota is a data measure: a quiet semantic track and a solid remaining fill.
                 GeometryReader { geometry in
+                    let barWidth = geometry.size.width
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.primary.opacity(0.08))
-                        if let fraction = bucket.remainingFraction {
+                        Capsule()
+                            .fill(Color.primary.opacity(0.12))
+
+                        if let fraction = bucket.remainingFraction, fraction > 0, barWidth > 0 {
+                            let activeWidth = min(barWidth, max(0, barWidth * CGFloat(fraction)))
                             Capsule()
                                 .fill(barColor)
-                                .frame(width: max(0, min(geometry.size.width, geometry.size.width * CGFloat(fraction))))
+                                .frame(width: activeWidth, height: 5)
                         }
                     }
                 }
                 .frame(height: 5)
                 .accessibilityHidden(true)
 
-                // Readout line: Percentage on leading, Exact reset time on trailing
+                // Bottom line: Percentage on leading, Exact reset time on trailing (with zero truncation)
                 HStack(alignment: .firstTextBaseline) {
                     if let percent = bucket.remainingPercent {
                         Text("\(percent)% left")
                             .font(.system(size: 12, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(barColor)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .layoutPriority(1)
                     } else {
                         Text("Unavailable")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
 
                     Spacer(minLength: 8)
@@ -196,6 +207,8 @@ public struct UsageBarView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
                         .help(bucket.formattedResetTime(relativeTo: context.date)?.capitalizedFirst ?? "")
                 }
 
@@ -208,9 +221,13 @@ public struct UsageBarView: View {
                             .font(.system(size: 9.5, weight: .medium))
                     }
                     .foregroundStyle(.orange)
-                    .padding(.horizontal, 5)
+                    .padding(.horizontal, 5.5)
                     .padding(.vertical, 1.5)
-                    .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 4))
+                    .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(Color.orange.opacity(0.20), lineWidth: 0.5)
+                    )
                     .help(staleReason ?? "Previously fetched quota; current data could not be confirmed")
                 }
 

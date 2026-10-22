@@ -23,7 +23,7 @@ final class ProviderPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.id, .claude)
         XCTAssertEqual(presentation.displayName, "Claude Code")
         XCTAssertEqual(presentation.iconAssetName, "provider-claude")
-        XCTAssertEqual(presentation.iconRenderingMode, .template)
+        XCTAssertEqual(presentation.iconRenderingMode, .original)
     }
 
     func testAntigravityPresentation() {
@@ -31,7 +31,7 @@ final class ProviderPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.id, .antigravity)
         XCTAssertEqual(presentation.displayName, "Antigravity")
         XCTAssertEqual(presentation.iconAssetName, "provider-antigravity")
-        XCTAssertEqual(presentation.iconRenderingMode, .template)
+        XCTAssertEqual(presentation.iconRenderingMode, .original)
     }
 
     func testUnknownProviderFallback() {
@@ -89,6 +89,8 @@ final class ProviderPresentationTests: XCTestCase {
             // 4. Verify template flag matches presentation mode
             if isTemplate {
                 XCTAssertTrue(img.isTemplate, "Template image for '\(assetName)' must have isTemplate set to true")
+            } else {
+                XCTAssertFalse(img.isTemplate, "Brand artwork must preserve its original colours")
             }
 
             // 5. Provider-specific assertions
@@ -97,14 +99,11 @@ final class ProviderPresentationTests: XCTestCase {
                 XCTAssertEqual(presentation.iconRenderingMode, .original)
                 XCTAssertEqual(img.size.width, 104.0)
                 XCTAssertEqual(img.size.height, 104.0)
-            case .claude:
-                XCTAssertEqual(presentation.iconRenderingMode, .template)
+            case .claude, .antigravity:
+                XCTAssertEqual(presentation.iconRenderingMode, .original)
+                XCTAssertEqual(resolvedURL?.pathExtension, "pdf")
                 XCTAssertEqual(img.size.width, 128.0)
                 XCTAssertEqual(img.size.height, 128.0)
-            case .antigravity:
-                XCTAssertEqual(presentation.iconRenderingMode, .template)
-                XCTAssertGreaterThanOrEqual(img.size.width, 22.0)
-                XCTAssertGreaterThanOrEqual(img.size.height, 22.0)
             default:
                 break
             }

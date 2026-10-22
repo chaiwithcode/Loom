@@ -67,30 +67,21 @@ public struct MenuBarRootView: View {
                     MenuBarHeaderView(store: store, settings: settings, selectedTab: selectedTab)
                         .padding(.horizontal, 14)
                         .padding(.top, 10)
-                        .padding(.bottom, 6)
+                        .padding(.bottom, 7)
 
-                    // Native macOS Segmented Control
-                    Picker("", selection: $selectedTab) {
-                        Text("Sessions").tag(MenuTab.agents)
-                        Text("Usage").tag(MenuTab.usage)
-                        Text("Storage").tag(MenuTab.storage)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .controlSize(.regular)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 8)
-                    .accessibilityIdentifier("main-tab-picker")
+                    // Native segmented navigation
+                    FloatingGlassSegmentedControl(selectedTab: $selectedTab)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
                 }
                 .background(MenuHeightReader(part: "header"))
 
+                Divider().opacity(0.4)
+
                 if selectedTab == .agents && !store.enabledSnapshots.isEmpty {
-                    Divider().opacity(0.4)
                     providerSelector
                         .background(MenuHeightReader(part: "selector"))
                 }
-
-                Divider().opacity(0.4)
 
                 // Preserve separate scroll/disclosure state without letting the inactive
                 // tab determine the menu height or participate in accessibility/input.
@@ -151,13 +142,16 @@ public struct MenuBarRootView: View {
                                     }
                                 }
                             }
-                            .padding(16)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+                            .padding(.top, tab == .agents ? 8 : 16)
                             .fixedSize(horizontal: false, vertical: true)
                             .background(MenuHeightReader(part: tab.rawValue))
                         }
                         .id(scrollId(for: tab))
                         .frame(height: viewportHeight(for: tab))
                         .opacity(selectedTab == tab ? 1 : 0)
+                        .environment(\.loomGlassEnabled, selectedTab == tab)
                         .allowsHitTesting(selectedTab == tab)
                         .accessibilityHidden(selectedTab != tab)
                         .zIndex(selectedTab == tab ? 1 : 0)
@@ -214,14 +208,34 @@ public struct MenuBarRootView: View {
 
     @ViewBuilder
     private var providerSelector: some View {
-        HStack(spacing: 5) {
-            ForEach(store.enabledSnapshots) { snapshot in
-                providerButton(for: snapshot)
+        let snapshots = store.enabledSnapshots
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 4) {
+                ForEach(snapshots) { snapshot in
+                    providerButton(for: snapshot)
+                }
             }
-            Spacer(minLength: 0)
+            .fixedSize(horizontal: true, vertical: false)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 4) {
+                    ForEach(Array(snapshots.prefix(2))) { snapshot in
+                        providerButton(for: snapshot)
+                    }
+                }
+                if snapshots.count > 2 {
+                    HStack(spacing: 4) {
+                        ForEach(Array(snapshots.dropFirst(2))) { snapshot in
+                            providerButton(for: snapshot)
+                        }
+                    }
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 3)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Provider selector")
     }
@@ -231,57 +245,22 @@ public struct MenuBarRootView: View {
         let sessionCount = filteredSessions(for: snapshot).count
         let needsAttention = snapshot.sessions.contains { $0.state == .waiting || $0.state == .failed }
 
-        return Button {
-            selectedProviderID = snapshot.id
-        } label: {
-            HStack(spacing: 4) {
-                ProviderIconView(providerID: snapshot.id, size: 11)
-
-                Text(snapshot.displayName)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-
-                if needsAttention {
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 5, height: 5)
-                        .help("This provider has sessions requiring attention")
-                }
-
-                Text("\(sessionCount)")
-                    .font(.system(size: 9.5, weight: isSelected ? .semibold : .medium, design: .rounded))
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+        return ProviderFilterPill(
+            snapshot: snapshot,
+            sessionCount: sessionCount,
+            needsAttention: needsAttention,
+            isSelected: isSelected
+        ) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                selectedProviderID = snapshot.id
             }
-            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3.5)
-            .background {
-                if isSelected {
-                    Capsule()
-                        .fill(Color.primary.opacity(0.10))
-                }
-            }
-            .overlay {
-                if isSelected {
-                    Capsule()
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                }
-            }
-            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(snapshot.displayName), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")\(needsAttention ? ", needs attention" : "")")
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .accessibilityValue(isSelected ? "Selected" : "")
-        .accessibilityIdentifier("provider-tab-\(snapshot.id.rawValue)")
     }
 
     private func viewportHeight(for tab: MenuTab) -> CGFloat {
         let extraChrome: CGFloat
         if tab == .agents && !store.enabledSnapshots.isEmpty {
-            extraChrome = selectorHeight + 1
+            extraChrome = selectorHeight
         } else {
             extraChrome = 0
         }
@@ -422,6 +401,83 @@ public struct MenuBarRootView: View {
 
 private enum MenuTab: String, CaseIterable {
     case agents, usage, storage
+
+    var title: String {
+        switch self {
+        case .agents: return "Sessions"
+        case .usage: return "Usage"
+        case .storage: return "Storage"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .agents: return "bolt.horizontal.circle"
+        case .usage: return "gauge.with.dots.needle.33percent"
+        case .storage: return "internaldrive"
+        }
+    }
+}
+
+private struct FloatingGlassSegmentedControl: View {
+    @Binding var selectedTab: MenuTab
+
+    var body: some View {
+        Picker("Section", selection: $selectedTab) {
+            ForEach(MenuTab.allCases, id: \.self) { tab in
+                Text(tab.title).tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .controlSize(.regular)
+        .accessibilityIdentifier("main-tab-picker")
+    }
+}
+
+private struct ProviderFilterPill: View {
+    let snapshot: ProviderSnapshot
+    let sessionCount: Int
+    let needsAttention: Bool
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                ProviderIconView(providerID: snapshot.id, size: 12)
+
+                Text(snapshot.displayName)
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+
+                if needsAttention {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 5, height: 5)
+                        .help("This provider has sessions requiring attention")
+                }
+
+                Text("\(sessionCount)")
+                    .font(.system(size: 10, weight: isSelected ? .semibold : .medium, design: .rounded))
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+            }
+            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .loomFloatingLens(isSelected: isSelected, isHovered: isHovered, cornerRadius: 12)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(snapshot.displayName), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")\(needsAttention ? ", needs attention" : "")")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityValue(isSelected ? "Selected" : "")
+        .accessibilityIdentifier("provider-tab-\(snapshot.id.rawValue)")
+        .onHover { isHovered = $0 }
+    }
 }
 
 private struct StorageComparativeBar: View {
@@ -444,6 +500,31 @@ private struct StorageComparativeBar: View {
         }
         .frame(height: 3.5)
         .accessibilityElement(children: .ignore)
+    }
+}
+
+private struct HeaderGlassButton: View {
+    let icon: String
+    var isActive: Bool = false
+    var isDisabled: Bool = false
+    let helpText: String
+    let accessibilityLabel: String
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(isActive ? Color.accentColor : (isDisabled ? Color.secondary.opacity(0.4) : (isHovered ? Color.primary : Color.secondary)))
+                .frame(width: 24, height: 24)
+        }
+        .loomToolbarButtonStyle()
+        .controlSize(.small)
+        .disabled(isDisabled)
+        .help(helpText)
+        .accessibilityLabel(accessibilityLabel)
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -501,54 +582,43 @@ private struct MenuBarHeaderView: View {
 
             Spacer(minLength: 6)
 
-            // Header Toolbar Actions
-            HStack(spacing: 2) {
+            // Native header actions
+            HStack(spacing: 6) {
                 // Quick Privacy Toggle
-                Button {
+                HeaderGlassButton(
+                    icon: (settings?.hideProjectPaths ?? false) ? "eye.slash.fill" : "eye",
+                    isActive: settings?.hideProjectPaths ?? false,
+                    helpText: (settings?.hideProjectPaths ?? false) ? "Project paths hidden (click to show)" : "Hide project paths",
+                    accessibilityLabel: "Toggle project path privacy"
+                ) {
                     if let settings {
                         settings.hideProjectPaths.toggle()
                     }
-                } label: {
-                    Image(systemName: (settings?.hideProjectPaths ?? false) ? "eye.slash.fill" : "eye")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle((settings?.hideProjectPaths ?? false) ? Color.accentColor : Color.secondary)
-                        .frame(width: 22, height: 22)
                 }
-                .buttonStyle(.plain)
-                .help((settings?.hideProjectPaths ?? false) ? "Project paths hidden (click to show)" : "Hide project paths")
-                .accessibilityLabel("Toggle project path privacy")
 
                 // Manual Refresh
-                Button {
+                HeaderGlassButton(
+                    icon: "arrow.clockwise",
+                    isDisabled: store.isRefreshing,
+                    helpText: "Refresh (⌘R)",
+                    accessibilityLabel: "Refresh sessions"
+                ) {
                     Task {
                         await store.refresh()
                         if selectedTab == .storage {
                             await store.refreshStorage(force: true)
                         }
                     }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 22, height: 22)
                 }
-                .buttonStyle(.plain)
-                .disabled(store.isRefreshing)
-                .help("Refresh (⌘R)")
-                .accessibilityLabel("Refresh sessions")
 
                 // Settings
-                Button {
+                HeaderGlassButton(
+                    icon: "gearshape",
+                    helpText: "Open Settings (⌘,)",
+                    accessibilityLabel: "Settings"
+                ) {
                     DockController.shared.showSettings(store: store)
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 22, height: 22)
                 }
-                .buttonStyle(.plain)
-                .help("Open Settings (⌘,)")
-                .accessibilityLabel("Settings")
             }
         }
     }
@@ -604,7 +674,6 @@ private struct MenuBarFooterView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
     }
 
     private func updatedLabel(_ date: Date, now: Date) -> String {

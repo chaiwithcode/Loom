@@ -114,6 +114,90 @@ public enum HostAppResolver {
     }
 }
 
+// MARK: - Compact Native Actions
+
+private struct MicroGlassSurfaceModifier: ViewModifier {
+    let isHovered: Bool
+    let isEnabled: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.loomGlassEnabled) private var glassEnabled
+
+    init(isHovered: Bool, isEnabled: Bool = true) {
+        self.isHovered = isHovered
+        self.isEnabled = isEnabled
+    }
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        Group {
+            if !glassEnabled {
+                base(content: content)
+            } else if reduceTransparency {
+                base(content: content)
+                    .background(Color(nsColor: .controlBackgroundColor), in: shape)
+            } else {
+                systemSurface(content: content, shape: shape)
+            }
+        }
+        .overlay {
+            if contrast == .increased {
+                shape.strokeBorder(Color.primary.opacity(0.6), lineWidth: 1)
+            }
+        }
+        .opacity(isEnabled ? 1 : 0.45)
+    }
+
+    private func base(content: Content) -> some View {
+        content
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3.5)
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func systemSurface(content: Content, shape: RoundedRectangle) -> some View {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            base(content: content).glassEffect(.regular.interactive(), in: shape)
+        } else {
+            base(content: content).background(.ultraThinMaterial, in: shape)
+        }
+        #else
+        base(content: content).background(.ultraThinMaterial, in: shape)
+        #endif
+    }
+}
+
+private struct MicroGlassActionButton: View {
+    let title: String
+    let systemImage: String
+    let isEnabled: Bool
+    let helpText: String
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 10.5, weight: .medium))
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+            .modifier(MicroGlassSurfaceModifier(isHovered: isHovered, isEnabled: isEnabled))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .onHover { isHovered = $0 }
+        .help(helpText)
+        .accessibilityLabel(accessibilityLabel)
+    }
+}
+
 // MARK: - Session Actions View
 
 public struct SessionActionsView: View {
@@ -121,6 +205,7 @@ public struct SessionActionsView: View {
     public let hideProjectPaths: Bool
 
     @State private var feedbackText: String? = nil
+    @State private var isCopyHovered: Bool = false
 
     public init(session: AgentSession, hideProjectPaths: Bool = false) {
         self.session = session
@@ -155,42 +240,38 @@ public struct SessionActionsView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                // Action 1: Focus Host App
-                Button {
+                // Action 1: Focus Host App (Micro-glass button with hover state)
+                MicroGlassActionButton(
+                    title: "Focus \(hostAppName)",
+                    systemImage: "arrow.up.forward.app",
+                    isEnabled: hasResolvedHost,
+                    helpText: hasResolvedHost ? "Activate \(hostAppName) on this Mac" : "Host application is not currently running",
+                    accessibilityLabel: "Focus host application \(hostAppName)"
+                ) {
                     let success = HostAppResolver.focusHostApp(for: session)
                     if success {
                         flashFeedback("Focused \(hostAppName)")
                     } else {
                         flashFeedback("Could not focus \(hostAppName)")
                     }
-                } label: {
-                    Label("Focus \(hostAppName)", systemImage: "arrow.up.forward.app")
-                        .font(.system(size: 11, weight: .medium))
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(!hasResolvedHost)
-                .help(hasResolvedHost ? "Activate \(hostAppName) on this Mac" : "Host application is not currently running")
-                .accessibilityLabel("Focus host application \(hostAppName)")
 
-                // Action 2: Reveal in Finder
-                Button {
+                // Action 2: Reveal in Finder (Micro-glass button with hover state)
+                MicroGlassActionButton(
+                    title: "Finder",
+                    systemImage: "folder",
+                    isEnabled: pathExistsOnDisk,
+                    helpText: pathExistsOnDisk ? "Reveal repository folder in Finder" : (resolvedProjectPath == nil ? "No repository path available" : "Folder not found on disk"),
+                    accessibilityLabel: "Reveal repository in Finder"
+                ) {
                     if Self.revealInFinder(for: session) {
                         flashFeedback("Revealed in Finder")
                     } else {
                         flashFeedback("Path not found on disk")
                     }
-                } label: {
-                    Label("Finder", systemImage: "folder")
-                        .font(.system(size: 11, weight: .medium))
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(!pathExistsOnDisk)
-                .help(pathExistsOnDisk ? "Reveal repository folder in Finder" : (resolvedProjectPath == nil ? "No repository path available" : "Folder not found on disk"))
-                .accessibilityLabel("Reveal repository in Finder")
 
-                // Action 3: Copy Menu (PID, Path, Session ID)
+                // Action 3: Copy Menu (PID, Path, Session ID, All Metadata) with Micro-glass styling & chevron
                 Menu {
                     if let pid = effectivePID {
                         Button {
@@ -220,22 +301,58 @@ public struct SessionActionsView: View {
                             Label("Copy Session ID", systemImage: "tag")
                         }
                     }
+
+                    Divider()
+
+                    Button {
+                        if Self.copySessionMetadata(for: session, hideProjectPaths: hideProjectPaths) {
+                            flashFeedback("Copied Metadata")
+                        }
+                    } label: {
+                        Label("Copy All Metadata", systemImage: "text.badge.plus")
+                    }
                 } label: {
-                    Label("Copy…", systemImage: "doc.on.doc")
-                        .font(.system(size: 11, weight: .medium))
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 10.5, weight: .medium))
+                        Text("Copy")
+                            .font(.system(size: 11, weight: .medium))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 7.5, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .foregroundStyle(Color.primary)
+                    .modifier(MicroGlassSurfaceModifier(isHovered: isCopyHovered, isEnabled: true))
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                .onHover { isCopyHovered = $0 }
                 .help("Copy session metadata to clipboard")
+                .accessibilityLabel("Copy session metadata options")
 
                 Spacer(minLength: 0)
 
-                // Feedback indicator
+                // Feedback indicator pill
                 if let feedback = feedbackText {
-                    Text(feedback)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .transition(.opacity)
+                    let isError = feedback.contains("Could not") || feedback.contains("not found")
+                    HStack(spacing: 3.5) {
+                        Image(systemName: isError ? "exclamationmark.circle" : "checkmark")
+                            .font(.system(size: 8, weight: .bold))
+                        Text(feedback)
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(isError ? Color.orange : Color.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2.5)
+                    .background(
+                        isError ? Color.orange.opacity(0.08) : Color.primary.opacity(0.06),
+                        in: Capsule()
+                    )
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(isError ? Color.orange.opacity(0.20) : Color.primary.opacity(0.08), lineWidth: 0.5)
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
             }
         }
@@ -290,6 +407,38 @@ public struct SessionActionsView: View {
         }
         NSPasteboard.general.clearContents()
         return NSPasteboard.general.setString(sid, forType: .string)
+    }
+
+    public static func copySessionMetadata(for session: AgentSession, hideProjectPaths: Bool = false) -> Bool {
+        var lines: [String] = []
+        lines.append("Provider: \(session.provider.displayName)")
+        if hideProjectPaths {
+            if let name = session.projectName, !name.isEmpty {
+                lines.append("Project: \(name)")
+            }
+        } else {
+            if let path = session.formattedProjectPath ?? session.projectPath?.path {
+                lines.append("Repository: \(path)")
+            } else if let name = session.projectName, !name.isEmpty {
+                lines.append("Project: \(name)")
+            }
+        }
+        if let branch = session.branch, !branch.isEmpty {
+            lines.append("Branch: \(branch)")
+        }
+        lines.append("State: \(session.state.displayName)")
+        if let pid = session.pid {
+            lines.append("PID: \(pid)")
+        }
+        if let host = session.hostApp {
+            lines.append("Host: \(host.displayName)")
+        }
+        if let sid = session.providerSessionID, !sid.isEmpty {
+            lines.append("Session ID: \(sid)")
+        }
+        let text = lines.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        return NSPasteboard.general.setString(text, forType: .string)
     }
 
     public static func revealInFinder(for session: AgentSession) -> Bool {
@@ -365,6 +514,12 @@ public struct SessionActionsContextMenu: View {
             } label: {
                 Label("Copy Session ID", systemImage: "tag")
             }
+        }
+
+        Button {
+            _ = SessionActionsView.copySessionMetadata(for: session, hideProjectPaths: hideProjectPaths)
+        } label: {
+            Label("Copy Session Summary", systemImage: "text.badge.plus")
         }
 
         Divider()
