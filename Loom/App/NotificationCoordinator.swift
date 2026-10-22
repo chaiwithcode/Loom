@@ -107,9 +107,8 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
         settings.onHideProjectPathsChanged = { [weak self] _ in
             self?.updatePolicyFromSettings()
         }
-        settings.onEnabledProvidersChanged = { [weak self] _ in
-            self?.updatePolicyFromSettings()
-        }
+        // LoomApp owns provider enablement so it can update monitoring.
+        // Notification policy reads enabled providers before each evaluation.
 
         if let store {
             connect(to: store)

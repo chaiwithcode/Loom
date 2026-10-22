@@ -247,14 +247,19 @@ private struct ProvidersSettingsTab: View {
     var body: some View {
         SettingsForm {
             SettingsSection {
-                Picker("Default Provider", selection: $settings.defaultProviderID) {
-                    ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
-                        Text(id.displayName).tag(id)
+                HStack {
+                    Text("Default Provider")
+                    Spacer(minLength: 16)
+                    Picker("Default Provider", selection: $settings.defaultProviderID) {
+                        ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
+                            Text(id.displayName).tag(id)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("picker-default-provider")
+                    .accessibilityLabel("Default Provider")
                 }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("picker-default-provider")
-                .accessibilityLabel("Default Provider")
             }
 
             SettingsSection("Monitoring") {
@@ -385,14 +390,19 @@ private struct SessionsSettingsTab: View {
                 .accessibilityLabel("Include recent sessions")
                 .padding(.vertical, 4)
 
-                Picker("Hide finished after", selection: $settings.hideFinishedAfter) {
-                    ForEach(HideFinishedInterval.allCases) { interval in
-                        Text(interval.displayName).tag(interval)
+                HStack {
+                    Text("Hide finished after")
+                    Spacer(minLength: 16)
+                    Picker("Hide finished after", selection: $settings.hideFinishedAfter) {
+                        ForEach(HideFinishedInterval.allCases) { interval in
+                            Text(interval.displayName).tag(interval)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("picker-hide-finished-after")
+                    .accessibilityLabel("Hide finished after")
                 }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("picker-hide-finished-after")
-                .accessibilityLabel("Hide finished after")
                 .padding(.vertical, 4)
                 .disabled(!settings.includeRecentSessions)
             }
@@ -483,11 +493,6 @@ private struct AboutSettingsTab: View {
                 .font(.callout)
                 .buttonStyle(.link)
             }
-
-            Text("© 2026 Deepak Sharma. MIT License.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
         }
     }
 }

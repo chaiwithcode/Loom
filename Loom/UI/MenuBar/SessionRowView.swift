@@ -102,8 +102,16 @@ public struct SessionRowView: View {
                                     .foregroundStyle(.tertiary)
                             }
 
-                            if let summary = session.summary, !summary.isEmpty {
-                                Text(hideProjectPaths ? "Active" : summary)
+                            if hideProjectPaths {
+                                if session.processCount > 0 {
+                                    Text("\(session.processCount) \(session.processCount == 1 ? "process" : "processes")")
+                                        .font(.system(size: 10.5))
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    activityLine
+                                }
+                            } else if let summary = session.summary, !summary.isEmpty {
+                                Text(summary)
                                     .font(.system(size: 10.5))
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)

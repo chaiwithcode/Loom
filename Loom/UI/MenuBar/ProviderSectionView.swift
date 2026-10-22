@@ -69,7 +69,25 @@ public struct ProviderSectionView: View {
     }
 
     private var activeSessions: [AgentSession] {
-        visibleSessions.filter { $0.state == .working || $0.state == .starting || $0.state == .idle || $0.state == .unknown }
+        visibleSessions
+            .filter { $0.state == .working || $0.state == .starting || $0.state == .idle || $0.state == .unknown }
+            .sorted { lhs, rhs in
+                let lhsRank = activeSessionRank(lhs)
+                let rhsRank = activeSessionRank(rhs)
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+                let lhsDate = lhs.lastActivityAt ?? lhs.startedAt ?? .distantPast
+                let rhsDate = rhs.lastActivityAt ?? rhs.startedAt ?? .distantPast
+                if lhsDate != rhsDate { return lhsDate > rhsDate }
+                return lhs.id < rhs.id
+            }
+    }
+
+    private func activeSessionRank(_ session: AgentSession) -> Int {
+        switch session.state {
+        case .working, .starting: return 0
+        case .idle: return 1
+        default: return 2
+        }
     }
 
     private var finishedSessions: [AgentSession] {
