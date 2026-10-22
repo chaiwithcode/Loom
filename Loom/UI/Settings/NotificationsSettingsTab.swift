@@ -24,210 +24,214 @@ public struct NotificationsSettingsTab: View {
     }
 
     public var body: some View {
-        ScrollView {
-            Form {
-                Section {
-                    Toggle(isOn: $settings.notificationsEnabled) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Enable Notifications")
-                                .font(.body)
-                                .fontWeight(.medium)
-                            Text("Receive native macOS alerts for quota thresholds and agent session states.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("toggle-enable-notifications")
-                    .accessibilityLabel("Enable Notifications")
-                    .padding(.vertical, 4)
-                    .onChange(of: settings.notificationsEnabled) { _, enabled in
-                        if enabled {
-                            Task {
-                                _ = await NotificationCoordinator.shared.requestAuthorization()
-                                await refreshStatus()
-                            }
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(statusIndicatorColor)
-                            .frame(width: 8, height: 8)
-                        Text(statusIndicatorLabel)
+        SettingsForm {
+            SettingsSection {
+                Toggle(isOn: $settings.notificationsEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable Notifications")
+                            .font(.body)
+                            .fontWeight(.medium)
+                        Text("Receive native macOS alerts for quota thresholds and agent session states.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("label-permission-status")
-
-                        Spacer()
-
-                        if authorizationStatus == .denied {
-                            Button("Open System Settings") {
-                                openSystemSettings()
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .accessibilityIdentifier("button-open-system-settings")
-                            .accessibilityLabel("Open System Settings")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("toggle-enable-notifications")
+                .accessibilityLabel("Enable Notifications")
+                .padding(.vertical, 4)
+                .onChange(of: settings.notificationsEnabled) { _, enabled in
+                    if enabled {
+                        Task {
+                            _ = await NotificationCoordinator.shared.requestAuthorization()
+                            await refreshStatus()
                         }
                     }
-                    .padding(.vertical, 2)
+                }
+
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(statusIndicatorColor)
+                        .frame(width: 8, height: 8)
+                    Text(statusIndicatorLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("label-permission-status")
+
+                    Spacer()
 
                     if authorizationStatus == .denied {
-                        Text("Notifications are disabled for Loom in macOS System Settings. Allow notifications in System Settings to receive alerts.")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 2)
-                    }
-
-                    HStack {
-                        Button("Send Test Notification") {
-                            sendTestNotification()
+                        Button("Open System Settings") {
+                            openSystemSettings()
                         }
                         .buttonStyle(.bordered)
-                        .controlSize(.regular)
-                        .disabled(!settings.notificationsEnabled || authorizationStatus == .denied || isSendingTest)
-                        .accessibilityIdentifier("button-send-test-notification")
-                        .accessibilityLabel("Send Test Notification")
-
-                        if let statusFeedbackMessage {
-                            Text(statusFeedbackMessage)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        Spacer()
+                        .controlSize(.small)
+                        .accessibilityIdentifier("button-open-system-settings")
+                        .accessibilityLabel("Open System Settings")
                     }
-                    .padding(.vertical, 4)
+                }
+                .padding(.vertical, 2)
+
+                if authorizationStatus == .denied {
+                    Text("Notifications are disabled for Loom in macOS System Settings. Allow notifications in System Settings to receive alerts.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
                 }
 
-                Section("Quota Alerts") {
-                    Toggle(isOn: $settings.notifyQuota15Percent) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("15% quota remaining")
-                                .font(.body)
-                            Text("Notify when 5-hour or weekly quota drops below 15%.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                HStack {
+                    Button("Send Test Notification") {
+                        sendTestNotification()
                     }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("toggle-notify-quota-15")
-                    .accessibilityLabel("15% quota remaining")
-                    .disabled(!settings.notificationsEnabled)
-                    .padding(.vertical, 2)
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .disabled(!settings.notificationsEnabled || authorizationStatus == .denied || isSendingTest)
+                    .accessibilityIdentifier("button-send-test-notification")
+                    .accessibilityLabel("Send Test Notification")
 
-                    Toggle(isOn: $settings.notifyQuota5Percent) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("5% quota remaining")
-                                .font(.body)
-                            Text("Urgent warning when 5-hour or weekly quota drops below 5%.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("toggle-notify-quota-5")
-                    .accessibilityLabel("5% quota remaining")
-                    .disabled(!settings.notificationsEnabled)
-                    .padding(.vertical, 2)
-
-                    Toggle(isOn: $settings.notifyQuotaReset) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Quota reset / replenished")
-                                .font(.body)
-                            Text("Notify when a rate-limit window rolls over and fresh quota is observed.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("toggle-notify-quota-reset")
-                    .accessibilityLabel("Quota reset or replenished")
-                    .disabled(!settings.notificationsEnabled)
-                    .padding(.vertical, 2)
-                }
-
-                Section("Session Alerts") {
-                    Toggle(isOn: $settings.notifySessionWaiting) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Needs human input")
-                                .font(.body)
-                            Text("Notify when an agent pauses and is waiting for user confirmation or input.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("toggle-notify-session-waiting")
-                    .accessibilityLabel("Needs human input")
-                    .disabled(!settings.notificationsEnabled)
-                    .padding(.vertical, 2)
-
-                    Toggle(isOn: $settings.notifySessionFinished) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Session finished")
-                                .font(.body)
-                            Text("Notify when an agent completes its run successfully.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("toggle-notify-session-finished")
-                    .accessibilityLabel("Session finished")
-                    .disabled(!settings.notificationsEnabled)
-                    .padding(.vertical, 2)
-
-                    Toggle(isOn: $settings.notifySessionFailed) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Session failed")
-                                .font(.body)
-                            Text("Notify when an agent process exits unexpectedly with an error.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityIdentifier("toggle-notify-session-failed")
-                    .accessibilityLabel("Session failed")
-                    .disabled(!settings.notificationsEnabled)
-                    .padding(.vertical, 2)
-                }
-
-                Section("Notification History") {
-                    if historyRecords.isEmpty {
-                        Text("No notifications yet. Recent alerts will appear here.")
+                    if let statusFeedbackMessage {
+                        Text(statusFeedbackMessage)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("notification-history-empty")
-                    } else {
-                        ForEach(historyRecords) { record in
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(Self.providerLabel(record.provider))
-                                        .fontWeight(.medium)
-                                    Text(Self.eventLabel(record.eventType))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 4)
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text(record.timestamp, style: .date)
-                                    Text(record.timestamp, style: .time)
-                                    Text(Self.deliveryLabel(record.deliveredStatus))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .font(.caption)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+            }
+
+            SettingsSection("Quota Alerts") {
+                Toggle(isOn: $settings.notifyQuota15Percent) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("15% quota remaining")
+                            .font(.body)
+                        Text("Notify when 5-hour or weekly quota drops below 15%.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("toggle-notify-quota-15")
+                .accessibilityLabel("15% quota remaining")
+                .disabled(!settings.notificationsEnabled)
+                .padding(.vertical, 2)
+
+                Toggle(isOn: $settings.notifyQuota5Percent) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("5% quota remaining")
+                            .font(.body)
+                        Text("Urgent warning when 5-hour or weekly quota drops below 5%.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("toggle-notify-quota-5")
+                .accessibilityLabel("5% quota remaining")
+                .disabled(!settings.notificationsEnabled)
+                .padding(.vertical, 2)
+
+                Toggle(isOn: $settings.notifyQuotaReset) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Quota reset / replenished")
+                            .font(.body)
+                        Text("Notify when a rate-limit window rolls over and fresh quota is observed.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("toggle-notify-quota-reset")
+                .accessibilityLabel("Quota reset or replenished")
+                .disabled(!settings.notificationsEnabled)
+                .padding(.vertical, 2)
+            }
+
+            SettingsSection("Session Alerts") {
+                Toggle(isOn: $settings.notifySessionWaiting) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Needs human input")
+                            .font(.body)
+                        Text("Notify when an agent pauses and is waiting for user confirmation or input.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("toggle-notify-session-waiting")
+                .accessibilityLabel("Needs human input")
+                .disabled(!settings.notificationsEnabled)
+                .padding(.vertical, 2)
+
+                Toggle(isOn: $settings.notifySessionFinished) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Session finished")
+                            .font(.body)
+                        Text("Notify when an agent completes its run successfully.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("toggle-notify-session-finished")
+                .accessibilityLabel("Session finished")
+                .disabled(!settings.notificationsEnabled)
+                .padding(.vertical, 2)
+
+                Toggle(isOn: $settings.notifySessionFailed) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Session failed")
+                            .font(.body)
+                        Text("Notify when an agent process exits unexpectedly with an error.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("toggle-notify-session-failed")
+                .accessibilityLabel("Session failed")
+                .disabled(!settings.notificationsEnabled)
+                .padding(.vertical, 2)
+            }
+
+            SettingsSection("Notification History") {
+                if historyRecords.isEmpty {
+                    Text("No notifications yet. Recent alerts will appear here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("notification-history-empty")
+                } else {
+                    ForEach(historyRecords) { record in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(Self.providerLabel(record.provider))
+                                    .fontWeight(.medium)
+                                Text(Self.eventLabel(record.eventType))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityIdentifier("notification-history-row")
+                            Spacer(minLength: 4)
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(record.timestamp, style: .date)
+                                Text(record.timestamp, style: .time)
+                                Text(Self.deliveryLabel(record.deliveredStatus))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.caption)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("notification-history-row")
                     }
                 }
             }
-            .formStyle(.grouped)
         }
         .task {
             historyRecords = historyStore.recentRecords

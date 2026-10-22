@@ -19,8 +19,8 @@ struct StorageSettingsTab: View {
     private let providers = ProviderStorageLocations.local()
 
     var body: some View {
-        Form {
-            Section {
+        SettingsForm {
+            SettingsSection {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Local data on disk").font(.headline)
@@ -37,7 +37,7 @@ struct StorageSettingsTab: View {
                 }
             }
             ForEach(providers) { provider in
-                Section(provider.name) {
+                SettingsSection(provider.name) {
                     if let results = measurements[provider.id] {
                         let bytes = results.reduce(Int64(0)) { $0 + $1.bytes }
                         let complete = results.allSatisfy { $0.status == .complete || $0.status == .missing }
@@ -74,7 +74,6 @@ struct StorageSettingsTab: View {
                 }
             }
         }
-        .formStyle(.grouped)
         .task(id: scanID) { await scan() }
     }
 
