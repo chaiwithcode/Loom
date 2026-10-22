@@ -88,7 +88,7 @@
 		A00000000000000000000186 /* ProviderPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000185 /* ProviderPresentationTests.swift */; };
 		A00000000000000000000192 /* provider-codex.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000191 /* provider-codex.png */; };
 		A00000000000000000000194 /* provider-claude.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000193 /* provider-claude.pdf */; };
-		A00000000000000000000196 /* provider-antigravity.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000195 /* provider-antigravity.pdf */; };
+		A00000000000000000000196 /* provider-antigravity.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000195 /* provider-antigravity.png */; };
 		D00000000000000000000003 /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000002 /* NotificationCoordinator.swift */; };
 		D00000000000000000000005 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000004 /* StatusItemController.swift */; };
 		D00000000000000000000007 /* QuotaThresholdEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000006 /* QuotaThresholdEvaluator.swift */; };
@@ -234,7 +234,7 @@
 		A00000000000000000000185 /* ProviderPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderPresentationTests.swift; sourceTree = "<group>"; };
 		A00000000000000000000191 /* provider-codex.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-codex.png; sourceTree = "<group>"; };
 		A00000000000000000000193 /* provider-claude.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = provider-claude.pdf; sourceTree = "<group>"; };
-		A00000000000000000000195 /* provider-antigravity.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = provider-antigravity.pdf; sourceTree = "<group>"; };
+		A00000000000000000000195 /* provider-antigravity.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-antigravity.png; sourceTree = "<group>"; };
 		D00000000000000000000002 /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
 		D00000000000000000000004 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		D00000000000000000000006 /* QuotaThresholdEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaThresholdEvaluator.swift; sourceTree = "<group>"; };
@@ -462,7 +462,7 @@
 				A0000000000000000000002D /* Loom.icns */,
 				A00000000000000000000191 /* provider-codex.png */,
 				A00000000000000000000193 /* provider-claude.pdf */,
-				A00000000000000000000195 /* provider-antigravity.pdf */,
+				A00000000000000000000195 /* provider-antigravity.png */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -707,7 +707,7 @@
 				A00000000000000000000086 /* Loom.icns in Resources */,
 				A00000000000000000000192 /* provider-codex.png in Resources */,
 				A00000000000000000000194 /* provider-claude.pdf in Resources */,
-				A00000000000000000000196 /* provider-antigravity.pdf in Resources */,
+				A00000000000000000000196 /* provider-antigravity.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

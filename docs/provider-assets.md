@@ -48,10 +48,10 @@ This document records the origin, verification, and trademark ownership of third
 - **Revision**: `21b2144f4ebe87ead9b7c0e10067759ae261b03e`
 - **Retrieved**: 2026-10-21
 - **Source file**: `Resources/ProviderSources/antigravity.svg` (original SVG bytes retained)
-- **App resource**: `Resources/provider-antigravity.pdf`
-- **Transformation**: SVG exported to a transparent vector PDF with `rsvg-convert`; no recolouring or background tile added.
-- **Rendering**: Original colours, not macOS template tinting. PDF is decoded by AppKit; SVG needs no runtime library.
+- **App resource**: `Resources/provider-antigravity.png`
+- **Transformation**: SVG exported to a transparent 256 × 256 PNG with `rsvg-convert`; no recolouring or background tile added. The PDF export rendered fully transparent in AppKit because of its complex mask/filter content.
+- **Rendering**: Original colours, not macOS template tinting. PNG is decoded by AppKit; the original SVG remains the editable source.
 - **SVG SHA-256**: `652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca`
-- **PDF SHA-256**: `454e01c49d9f79b2c01b81ed5db719da452bff1c1505b349a54744f63715a8a4`
+- **PNG SHA-256**: `27199854d93034707ed5c0a4e78ba6a78926ed92586d0e49d4a910dd6110d8ec`
 - **Collection license**: MIT; notice preserved in `Resources/ProviderSources/LICENSE.lobehub`.
 - **Trademark ownership**: Antigravity and its logo remain trademarks of Google LLC. Use identifies a supported provider and implies no affiliation or endorsement.

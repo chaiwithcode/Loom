@@ -78,7 +78,7 @@ if [[ -f "${ROOT_DIR}/Resources/Loom.icns" ]]; then
 fi
 
 # Remove superseded template resources from bundles reused by incremental builds.
-rm -f "${RESOURCES_DIR}/provider-claude.png" "${RESOURCES_DIR}/provider-antigravity.png"
+rm -f "${RESOURCES_DIR}/provider-claude.png" "${RESOURCES_DIR}/provider-antigravity.pdf"
 for asset in "${ROOT_DIR}/Resources/provider-"*.png "${ROOT_DIR}/Resources/provider-"*.pdf; do
     if [[ -f "${asset}" ]]; then
         cp "${asset}" "${RESOURCES_DIR}/"
