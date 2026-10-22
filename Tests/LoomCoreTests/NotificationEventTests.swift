@@ -591,7 +591,7 @@ final class NotificationEventTests: XCTestCase {
     // MARK: - Notification History Store Tests
 
     func testNotificationHistoryStoreBoundedRingBuffer() {
-        let store = NotificationHistoryStore(maxCapacity: 5)
+        let store = NotificationHistoryStore(maxCapacity: 5, defaults: isolatedHistoryDefaults())
         XCTAssertEqual(store.count, 0)
 
         // Append 8 items into capacity 5
@@ -610,7 +610,7 @@ final class NotificationEventTests: XCTestCase {
     }
 
     func testNotificationHistoryStoreSensitiveDataScrubbing() {
-        let store = NotificationHistoryStore()
+        let store = NotificationHistoryStore(defaults: isolatedHistoryDefaults())
 
         store.record(
             title: "Codex Alert",
@@ -628,5 +628,50 @@ final class NotificationEventTests: XCTestCase {
         XCTAssertTrue(record.body.contains("sk-[REDACTED]"))
         XCTAssertFalse(record.body.contains("eyJhbGciOi"), "Bearer token must be redacted")
         XCTAssertTrue(record.body.contains("Bearer [REDACTED]"))
+    }
+
+    func testNotificationHistoryPersistsNewestFirstWithinCapacity() {
+        let defaults = isolatedHistoryDefaults()
+        let first = NotificationHistoryStore(maxCapacity: 2, defaults: defaults)
+        for number in 1...3 {
+            first.append(NotificationRecord(
+                id: "\(number)",
+                timestamp: Date(timeIntervalSince1970: TimeInterval(number)),
+                title: "Alert /Users/private/repo/\(number)",
+                body: "Transcript from /Users/private/repo/\(number)",
+                eventType: "test"
+            ))
+        }
+        let reopened = NotificationHistoryStore(maxCapacity: 2, defaults: defaults)
+        XCTAssertEqual(reopened.recentRecords.map(\.id), ["3", "2"])
+        XCTAssertEqual(reopened.recentRecords.map(\.title), ["Notification", "Notification"])
+        XCTAssertTrue(reopened.recentRecords.allSatisfy { $0.body.isEmpty })
+        let diskText = String(data: defaults.data(forKey: "com.loom.notificationHistory.v1") ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertFalse(diskText.contains("/Users/private"))
+        reopened.clear()
+        XCTAssertTrue(NotificationHistoryStore(defaults: defaults).records.isEmpty)
+    }
+
+    func testNotificationHistoryRewritesOlderPrivateCopyOnLoad() throws {
+        let defaults = isolatedHistoryDefaults()
+        let legacy = NotificationRecord(
+            title: "Private /Users/private/repository",
+            body: "Transcript /Users/private/repository",
+            provider: .codex,
+            eventType: "sessionStateTransition"
+        )
+        defaults.set(try JSONEncoder().encode([legacy]), forKey: "com.loom.notificationHistory.v1")
+        let loaded = NotificationHistoryStore(defaults: defaults)
+        XCTAssertEqual(loaded.count, 1)
+        let diskText = String(data: defaults.data(forKey: "com.loom.notificationHistory.v1") ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertFalse(diskText.contains("/Users/private"))
+    }
+
+    private func isolatedHistoryDefaults() -> UserDefaults {
+        let name = "LoomHistoryTest.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: name) else {
+            fatalError("Unable to create isolated history defaults")
+        }
+        return defaults
     }
 }

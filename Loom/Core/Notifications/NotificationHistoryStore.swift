@@ -82,25 +82,38 @@ public struct NotificationRecord: Identifiable, Hashable, Equatable, Sendable, C
 /// Strictly enforces privacy by scrubbing sensitive auth tokens, API keys, and long shell command transcripts.
 public final class NotificationHistoryStore: @unchecked Sendable {
     public static let defaultMaxCapacity = 50
+    public static let didChangeNotification = Notification.Name("com.loom.notificationHistoryDidChange")
+    private static let storageKey = "com.loom.notificationHistory.v1"
 
     private let lock = NSLock()
     private var buffer: [NotificationRecord] = []
+    private let defaults: UserDefaults
     public let maxCapacity: Int
 
-    public init(maxCapacity: Int = defaultMaxCapacity) {
+    public init(
+        maxCapacity: Int = defaultMaxCapacity,
+        defaults: UserDefaults = UserDefaults(suiteName: SharedAppGroup.appGroupIdentifier) ?? .standard
+    ) {
         self.maxCapacity = max(1, maxCapacity)
+        self.defaults = defaults
+        if let data = defaults.data(forKey: Self.storageKey),
+           let decoded = try? JSONDecoder().decode([NotificationRecord].self, from: data) {
+            buffer = Array(decoded.suffix(self.maxCapacity))
+            persistLocked()
+        }
     }
 
     /// Appends a new notification record, dropping the oldest entry if maxCapacity is reached.
     public func append(_ record: NotificationRecord) {
         lock.lock()
-        defer { lock.unlock() }
-
         let sanitized = sanitize(record)
         buffer.append(sanitized)
         if buffer.count > maxCapacity {
             buffer.removeFirst(buffer.count - maxCapacity)
         }
+        persistLocked()
+        lock.unlock()
+        publishChange()
     }
 
     /// Convenience builder to record a delivered notification directly.
@@ -147,8 +160,35 @@ public final class NotificationHistoryStore: @unchecked Sendable {
     /// Clears all historical records from the store.
     public func clear() {
         lock.lock()
-        defer { lock.unlock() }
         buffer.removeAll()
+        persistLocked()
+        lock.unlock()
+        publishChange()
+    }
+
+    private func persistLocked() {
+        // Audit history needs event metadata only. Never write notification copy,
+        // which may contain a project path or provider transcript, to disk.
+        let metadata = buffer.map { record in
+            NotificationRecord(
+                id: record.id,
+                timestamp: record.timestamp,
+                title: "Notification",
+                body: "",
+                provider: record.provider,
+                eventType: record.eventType,
+                deliveredStatus: record.deliveredStatus
+            )
+        }
+        if let data = try? JSONEncoder().encode(metadata) {
+            defaults.set(data, forKey: Self.storageKey)
+        }
+    }
+
+    private func publishChange() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.didChangeNotification, object: self)
+        }
     }
 
     // MARK: - Privacy & Sensitive Data Sanitization

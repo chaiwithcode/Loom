@@ -540,7 +540,11 @@ struct NotificationProbe {
     static func testBoundedNotificationHistory() throws {
         print("Check 9: Bounded notification history caps entries at max capacity")
         let capacity = 10
-        let history = NotificationHistoryStore(maxCapacity: capacity)
+        let suiteName = "LoomHistoryProbe.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            fatalError("Unable to create isolated history defaults")
+        }
+        let history = NotificationHistoryStore(maxCapacity: capacity, defaults: defaults)
 
         // Record 25 entries
         for i in 1...25 {

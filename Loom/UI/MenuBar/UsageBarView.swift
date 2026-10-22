@@ -45,70 +45,12 @@ public struct UsageBarView: View {
         return "Cached \(minutes / 60)h ago"
     }
 
-    private enum PacingStatus {
-        case onPace
-        case accelerated
-        case lightUsage
-
-        var label: String {
-            switch self {
-            case .onPace: return "On pace"
-            case .accelerated: return "Accelerated"
-            case .lightUsage: return "Light"
-            }
-        }
-
-        var color: Color {
-            switch self {
-            case .onPace: return .green
-            case .accelerated: return .orange
-            case .lightUsage: return .teal
-            }
-        }
-
-        var icon: String {
-            switch self {
-            case .onPace: return "checkmark.circle"
-            case .accelerated: return "bolt.fill"
-            case .lightUsage: return "leaf"
-            }
-        }
-    }
-
-    /// Evaluates quota consumption pacing based only on reliable observed data and known window duration.
-    private func pacingStatus(at now: Date) -> PacingStatus? {
-        guard let used = bucket.usedFraction,
-              let resetsAt = bucket.resetsAt,
-              resetsAt > now else {
-            return nil
-        }
-
-        let windowDurationSeconds: Double
-        if let durationMins = bucket.windowDurationMins, durationMins > 0 {
-            windowDurationSeconds = Double(durationMins * 60)
-        } else if bucket.identifier.contains("5h") {
-            windowDurationSeconds = 5 * 3600
-        } else if bucket.identifier.contains("week") || bucket.identifier.contains("7d") {
-            windowDurationSeconds = 7 * 86400
-        } else {
-            return nil
-        }
-
-        let remainingSeconds = resetsAt.timeIntervalSince(now)
-        guard remainingSeconds > 0 && remainingSeconds <= windowDurationSeconds else {
-            return nil
-        }
-
-        let elapsedFraction = (windowDurationSeconds - remainingSeconds) / windowDurationSeconds
-        let diff = used - elapsedFraction
-
-        if diff > 0.15 {
-            return .accelerated
-        } else if diff < -0.15 {
-            return .lightUsage
-        } else {
-            return .onPace
-        }
+    private func pacingStatus(at now: Date) -> QuotaPacing? {
+        guard !isStale, errorMessage == nil, let pacing = bucket.observedPacing,
+              pacing.resetsAt > now,
+              now.timeIntervalSince(pacing.observedAt) >= 0,
+              now.timeIntervalSince(pacing.observedAt) <= 600 else { return nil }
+        return pacing
     }
 
     /// Formats exact reset date and time.
@@ -150,20 +92,20 @@ public struct UsageBarView: View {
 
                     if let pacing = pacingStatus(at: context.date) {
                         HStack(spacing: 3) {
-                            Image(systemName: pacing.icon)
+                            Image(systemName: "chart.line.uptrend.xyaxis")
                                 .font(.system(size: 8, weight: .semibold))
-                            Text(pacing.label)
+                            Text("\((pacing.usedFractionPerHour * 100).formatted(.number.precision(.fractionLength(0...1))))%/h")
                                 .font(.system(size: 9.5, weight: .medium))
                         }
-                        .foregroundStyle(pacing.color)
+                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1.5)
-                        .background(pacing.color.opacity(0.10), in: Capsule())
+                        .background(Color.secondary.opacity(0.10), in: Capsule())
                         .overlay(
                             Capsule()
-                                .strokeBorder(pacing.color.opacity(0.20), lineWidth: 0.5)
+                                .strokeBorder(Color.secondary.opacity(0.20), lineWidth: 0.5)
                         )
-                        .help("Quota consumption pacing within current window")
+                        .help("Observed consumption rate over the last \(Int(pacing.sampleInterval)) seconds; this is not a forecast.")
                     }
                 }
 

@@ -41,8 +41,8 @@ public enum MenuBarStatusEvaluator {
         mode: MenuBarStatusMode,
         snapshots: [ProviderSnapshot]
     ) -> MenuBarStatusResult {
-        let enabledSnapshots = snapshots.filter(\.isEnabled)
-        let allSessions = enabledSnapshots.flatMap(\.sessions)
+        let healthySnapshots = snapshots.filter { $0.isEnabled && $0.availability.isAvailable }
+        let allSessions = healthySnapshots.flatMap(\.sessions)
 
         // 1. Active working or starting agents count
         let activeCount = allSessions.filter { session in
@@ -57,9 +57,10 @@ public enum MenuBarStatusEvaluator {
         // 3. Lowest quota percentage:
         // Must be non-stale, non-errored, and supported.
         var validRemainingPercentages: [Int] = []
-        for snapshot in enabledSnapshots {
+        for snapshot in healthySnapshots {
             guard let usage = snapshot.usage,
                   !usage.isStale,
+                  Date().timeIntervalSince(usage.updatedAt) < 600,
                   snapshot.usageErrorMessage == nil,
                   usage.errorMessage == nil else {
                 continue

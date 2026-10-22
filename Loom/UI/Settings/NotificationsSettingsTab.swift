@@ -15,9 +15,12 @@ public struct NotificationsSettingsTab: View {
     @State private var authorizationStatus: NotificationAuthorizationStatus = .notDetermined
     @State private var isSendingTest = false
     @State private var statusFeedbackMessage: String?
+    @State private var historyRecords: [NotificationRecord] = []
+    private let historyStore: NotificationHistoryStore
 
-    public init(settings: LoomSettings) {
+    @MainActor public init(settings: LoomSettings, historyStore: NotificationHistoryStore? = nil) {
         self.settings = settings
+        self.historyStore = historyStore ?? NotificationCoordinator.shared.historyStore
     }
 
     public var body: some View {
@@ -192,11 +195,74 @@ public struct NotificationsSettingsTab: View {
                     .disabled(!settings.notificationsEnabled)
                     .padding(.vertical, 2)
                 }
+
+                Section("Notification History") {
+                    if historyRecords.isEmpty {
+                        Text("No notifications yet. Recent alerts will appear here.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("notification-history-empty")
+                    } else {
+                        ForEach(historyRecords) { record in
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(Self.providerLabel(record.provider))
+                                        .fontWeight(.medium)
+                                    Text(Self.eventLabel(record.eventType))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 4)
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(record.timestamp, style: .date)
+                                    Text(record.timestamp, style: .time)
+                                    Text(Self.deliveryLabel(record.deliveredStatus))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .font(.caption)
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("notification-history-row")
+                        }
+                    }
+                }
             }
             .formStyle(.grouped)
         }
         .task {
+            historyRecords = historyStore.recentRecords
             await refreshStatus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NotificationHistoryStore.didChangeNotification)) { notification in
+            guard let changedStore = notification.object as? NotificationHistoryStore,
+                  changedStore === historyStore else { return }
+            historyRecords = historyStore.recentRecords
+        }
+    }
+
+    private static func eventLabel(_ rawValue: String) -> String {
+        switch rawValue {
+        case "quotaThresholdCrossed": return "Quota warning"
+        case "quotaReplenished": return "Quota replenished"
+        case "sessionStateTransition": return "Session state changed"
+        case "test": return "Test alert"
+        default: return "Notification"
+        }
+    }
+
+    private static func providerLabel(_ provider: ProviderID?) -> String {
+        guard let provider else { return "Loom" }
+        if provider == .codex { return "Codex" }
+        if provider == .claude { return "Claude Code" }
+        if provider == .antigravity { return "Antigravity" }
+        return "Agent"
+    }
+
+    private static func deliveryLabel(_ status: NotificationRecord.DeliveryStatus) -> String {
+        switch status {
+        case .delivered: return "Queued"
+        case .suppressed: return "Suppressed"
+        case .failed: return "Failed"
         }
     }
 

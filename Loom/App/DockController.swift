@@ -118,6 +118,8 @@ public final class DockController: NSObject, NSApplicationDelegate {
         window.minSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: minContentSize)).size
         window.center()
         window.title = "Loom Settings"
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.contentView = NSHostingView(rootView: contentView)
         window.isReleasedWhenClosed = false
         window.delegate = self

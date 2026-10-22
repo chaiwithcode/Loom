@@ -17,23 +17,31 @@ public struct MenuBarRootView: View {
     @State private var contentHeights: [MenuTab: CGFloat] = [.agents: 180, .usage: 180, .storage: 180]
     @State private var selectedTab: MenuTab
     @State private var selectedProviderID: ProviderID?
+    @State private var searchText = ""
+    @State private var selectedFilter: SessionFilterCriterion = .all
+    @State private var expandedSessionIds: Set<String>
+    @State private var agentScrollOffsets: [String: CGFloat] = [:]
     @State private var chromeHeight: CGFloat = 162
     @State private var selectorHeight: CGFloat = 36
+    @State private var filterHeight: CGFloat = 80
     @State private var availableHeight: CGFloat = 720
-    private let defaultExpandedSessionIds: Set<String>
 
     public init(
         store: SessionStore,
         settings: LoomSettings? = nil,
         isUsageExpanded: Bool = false,
         expandedSessionIds: Set<String> = [],
-        selectedProviderID: ProviderID? = nil
+        selectedProviderID: ProviderID? = nil,
+        initialSearchText: String = "",
+        initialFilter: SessionFilterCriterion = .all
     ) {
         self.store = store
         self.settings = settings
         self._selectedTab = State(initialValue: isUsageExpanded ? .usage : .agents)
-        self.defaultExpandedSessionIds = expandedSessionIds
+        self._expandedSessionIds = State(initialValue: expandedSessionIds)
         self._selectedProviderID = State(initialValue: selectedProviderID)
+        self._searchText = State(initialValue: initialSearchText)
+        self._selectedFilter = State(initialValue: initialFilter)
     }
 
     private var resolvedSelectedProviderID: ProviderID? {
@@ -60,6 +68,27 @@ public struct MenuBarRootView: View {
         return snapshot.sessions
     }
 
+    private func matchingSessions(for snapshot: ProviderSnapshot) -> [AgentSession] {
+        SessionFilterEngine.filterSessions(
+            filteredSessions(for: snapshot),
+            query: searchText,
+            filter: selectedFilter,
+            hideProjectPaths: settings?.hideProjectPaths ?? false
+        )
+    }
+
+    private func filterCounts(for snapshot: ProviderSnapshot) -> [SessionFilterCriterion: Int] {
+        let eligible = filteredSessions(for: snapshot)
+        return Dictionary(uniqueKeysWithValues: SessionFilterCriterion.allCases.map { criterion in
+            (criterion, SessionFilterEngine.filterSessions(
+                eligible,
+                query: searchText,
+                filter: criterion,
+                hideProjectPaths: settings?.hideProjectPaths ?? false
+            ).count)
+        })
+    }
+
     public var body: some View {
         LoomGlassContainer {
             VStack(spacing: 0) {
@@ -81,6 +110,14 @@ public struct MenuBarRootView: View {
                 if selectedTab == .agents && !store.enabledSnapshots.isEmpty {
                     providerSelector
                         .background(MenuHeightReader(part: "selector"))
+                    if let snapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
+                        SessionFilterBar(
+                            searchText: $searchText,
+                            selectedFilter: $selectedFilter,
+                            counts: filterCounts(for: snapshot)
+                        )
+                        .background(MenuHeightReader(part: "filters"))
+                    }
                 }
 
                 // Preserve separate scroll/disclosure state without letting the inactive
@@ -123,8 +160,19 @@ public struct MenuBarRootView: View {
                                             snapshot: selectedSnapshot,
                                             showsSessions: true,
                                             showsUsage: false,
-                                            expandedSessionIds: defaultExpandedSessionIds,
-                                            settings: settings
+                                            expandedSessionIds: expandedSessionIds,
+                                            settings: settings,
+                                            sessions: matchingSessions(for: selectedSnapshot),
+                                            searchText: searchText,
+                                            selectedFilter: selectedFilter,
+                                            onClearFilters: {
+                                                searchText = ""
+                                                selectedFilter = .all
+                                            },
+                                            onSessionExpansionChange: { id, expanded in
+                                                if expanded { expandedSessionIds.insert(id) }
+                                                else { expandedSessionIds.remove(id) }
+                                            }
                                         )
                                     }
                                 } else if tab == .usage {
@@ -133,7 +181,7 @@ public struct MenuBarRootView: View {
                                             snapshot: snapshot,
                                             showsSessions: false,
                                             showsUsage: true,
-                                            expandedSessionIds: defaultExpandedSessionIds,
+                                            expandedSessionIds: expandedSessionIds,
                                             settings: settings
                                         )
                                         if snapshot.id != store.enabledSnapshots.last?.id {
@@ -147,6 +195,20 @@ public struct MenuBarRootView: View {
                             .padding(.top, tab == .agents ? 8 : 16)
                             .fixedSize(horizontal: false, vertical: true)
                             .background(MenuHeightReader(part: tab.rawValue))
+                            .background {
+                                if tab == .agents {
+                                    let scrollKey = scrollId(for: tab)
+                                    MenuScrollRestorer(
+                                        key: scrollKey,
+                                        offset: agentScrollOffsets[scrollKey] ?? 0,
+                                        onScroll: { offset in
+                                            if scrollKey == scrollId(for: tab) {
+                                                agentScrollOffsets[scrollKey] = offset
+                                            }
+                                        }
+                                    )
+                                }
+                            }
                         }
                         .id(scrollId(for: tab))
                         .frame(height: viewportHeight(for: tab))
@@ -183,6 +245,10 @@ public struct MenuBarRootView: View {
             if let header = heights["header"], let footer = heights["footer"] {
                 let height = header + footer + 2 // The two dividers.
                 if abs(chromeHeight - height) > 0.5 { chromeHeight = height }
+            }
+            if let filters = heights["filters"], filters > 0,
+               abs(filterHeight - filters) > 0.5 {
+                filterHeight = filters
             }
             if let selector = heights["selector"], selector > 0,
                abs(selectorHeight - selector) > 0.5 {
@@ -260,7 +326,7 @@ public struct MenuBarRootView: View {
     private func viewportHeight(for tab: MenuTab) -> CGFloat {
         let extraChrome: CGFloat
         if tab == .agents && !store.enabledSnapshots.isEmpty {
-            extraChrome = selectorHeight
+            extraChrome = selectorHeight + filterHeight
         } else {
             extraChrome = 0
         }
@@ -270,7 +336,7 @@ public struct MenuBarRootView: View {
     private func scrollId(for tab: MenuTab) -> String {
         switch tab {
         case .agents:
-            return "scroll-agents-\(resolvedSelectedProviderID?.rawValue ?? "none")"
+            return "scroll-agents-\(resolvedSelectedProviderID?.rawValue ?? "none")-\(selectedFilter.rawValue)-\(searchText.isEmpty ? "normal" : "search")"
         case .usage:
             return "scroll-usage"
         case .storage:
@@ -734,6 +800,80 @@ private struct MenuHeightReader: View {
     var body: some View {
         GeometryReader { geometry in
             Color.clear.preference(key: MenuHeightKey.self, value: [part: geometry.size.height])
+        }
+    }
+}
+
+// Keep an independent pixel offset for each provider/category (and the active
+// search surface). The scroll view is recreated on a key change, then restored
+// after AppKit has attached its clip view and laid out the new content.
+private struct MenuScrollRestorer: NSViewRepresentable {
+    let key: String
+    let offset: CGFloat
+    let onScroll: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> OffsetView {
+        OffsetView()
+    }
+
+    func updateNSView(_ view: OffsetView, context: Context) {
+        view.configure(key: key, offset: offset, onScroll: onScroll)
+    }
+
+    final class OffsetView: NSView {
+        private var key = ""
+        private var offset: CGFloat = 0
+        private var onScroll: ((CGFloat) -> Void)?
+        private weak var observedClip: NSClipView?
+        private var observation: NSObjectProtocol?
+        private var isRestoring = false
+
+        override func viewDidMoveToSuperview() {
+            super.viewDidMoveToSuperview()
+            DispatchQueue.main.async { [weak self] in self?.attachIfNeeded() }
+        }
+
+        func configure(key: String, offset: CGFloat, onScroll: @escaping (CGFloat) -> Void) {
+            if self.key != key {
+                isRestoring = true
+                self.key = key
+                self.offset = offset
+                observedClip = nil
+                if let observation { NotificationCenter.default.removeObserver(observation) }
+                observation = nil
+            }
+            self.onScroll = onScroll
+            DispatchQueue.main.async { [weak self] in self?.attachIfNeeded() }
+        }
+
+        private func attachIfNeeded() {
+            guard let scroll = enclosingScrollView else { return }
+            let clip = scroll.contentView
+            guard observedClip !== clip else { return }
+            if let observation { NotificationCenter.default.removeObserver(observation) }
+            observedClip = clip
+            clip.postsBoundsChangedNotifications = true
+            observation = NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification, object: clip, queue: .main
+            ) { [weak self, weak clip] _ in
+                guard let self, let clip, !self.isRestoring else { return }
+                let y = clip.bounds.origin.y
+                if abs((self.offset) - y) > 0.5 {
+                    self.offset = y
+                    self.onScroll?(y)
+                }
+            }
+            DispatchQueue.main.async { [weak self, weak scroll] in
+                guard let self, let scroll else { return }
+                let maximum = max(0, (scroll.documentView?.bounds.height ?? 0) - scroll.contentView.bounds.height)
+                scroll.contentView.scroll(to: NSPoint(x: 0, y: min(max(0, self.offset), maximum)))
+                scroll.reflectScrolledClipView(scroll.contentView)
+                self.isRestoring = false
+            }
+        }
+
+        deinit {
+            if let observation { NotificationCenter.default.removeObserver(observation) }
         }
     }
 }

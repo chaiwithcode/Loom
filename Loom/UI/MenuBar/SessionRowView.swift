@@ -16,17 +16,20 @@ public struct SessionRowView: View {
     public let hideProjectPaths: Bool
     @State private var isExpanded: Bool
     @State private var isHovered = false
+    private let onExpansionChange: ((Bool) -> Void)?
 
     public init(
         session: AgentSession,
         isExpanded: Bool = false,
         showProvider: Bool = false,
-        hideProjectPaths: Bool = false
+        hideProjectPaths: Bool = false,
+        onExpansionChange: ((Bool) -> Void)? = nil
     ) {
         self.session = session
         self.showProvider = showProvider
         self.hideProjectPaths = hideProjectPaths
         self._isExpanded = State(initialValue: isExpanded)
+        self.onExpansionChange = onExpansionChange
     }
 
     private var projectTitle: String {
@@ -58,6 +61,7 @@ public struct SessionRowView: View {
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     isExpanded.toggle()
+                    onExpansionChange?(isExpanded)
                 }
             } label: {
                 HStack(alignment: .center, spacing: 8) {

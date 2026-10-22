@@ -49,7 +49,7 @@ public enum SessionFilterEngine {
         case .working:
             guard session.state == .working || session.state == .starting else { return false }
         case .recent:
-            guard session.state == .idle || session.state == .finished || session.state == .unknown else { return false }
+            guard session.state == .finished else { return false }
         }
 
         // 2. Search query matching
@@ -59,12 +59,13 @@ public enum SessionFilterEngine {
         let q = trimmed.lowercased()
 
         // Match against project name
-        if let name = session.projectName, name.lowercased().contains(q) {
+        let displayedProjectName = LoomSettings.safeProjectName(for: session, hidePaths: hideProjectPaths)
+        if displayedProjectName.lowercased().contains(q) {
             return true
         }
 
         // Match against repository directory name
-        if let folderName = session.projectPath?.lastPathComponent, folderName.lowercased().contains(q) {
+        if !hideProjectPaths, let folderName = session.projectPath?.lastPathComponent, folderName.lowercased().contains(q) {
             return true
         }
 
@@ -74,7 +75,7 @@ public enum SessionFilterEngine {
         }
 
         // Match against activity summary
-        if let summary = session.summary, summary.lowercased().contains(q) {
+        if !hideProjectPaths, let summary = session.summary, summary.lowercased().contains(q) {
             return true
         }
 
@@ -94,10 +95,11 @@ public enum SessionFilterEngine {
         }
 
         // Match against provider session ID or logical ID
-        if let sid = session.providerSessionID, sid.lowercased().contains(q) {
+        if let sid = session.providerSessionID,
+           (!hideProjectPaths || !looksLikePath(sid)), sid.lowercased().contains(q) {
             return true
         }
-        if session.id.lowercased().contains(q) {
+        if (!hideProjectPaths || !looksLikePath(session.id)), session.id.lowercased().contains(q) {
             return true
         }
 
@@ -112,6 +114,10 @@ public enum SessionFilterEngine {
         }
 
         return false
+    }
+
+    private static func looksLikePath(_ value: String) -> Bool {
+        value.contains("/") || value.contains("~")
     }
 
     /// Pure, deterministic filter that preserves snapshot order without modifying source snapshots.
@@ -154,33 +160,31 @@ public struct PrivacyQuickToggle: View {
 public struct SessionFilterBar: View {
     @Binding var searchText: String
     @Binding var selectedFilter: SessionFilterCriterion
-    var settings: LoomSettings?
     var counts: [SessionFilterCriterion: Int] = [:]
 
     public init(
         searchText: Binding<String>,
         selectedFilter: Binding<SessionFilterCriterion>,
-        settings: LoomSettings? = nil,
         counts: [SessionFilterCriterion: Int] = [:]
     ) {
         self._searchText = searchText
         self._selectedFilter = selectedFilter
-        self.settings = settings
         self.counts = counts
     }
 
     public var body: some View {
         VStack(spacing: 8) {
-            // Search field row + Privacy toggle
+            // Search field
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
 
-                    TextField("Search repo, branch, activity…", text: $searchText)
+                    TextField("Search project, branch, host, ID…", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12))
+                        .accessibilityIdentifier("session-search-field")
 
                     if !searchText.isEmpty {
                         Button {
@@ -202,18 +206,27 @@ public struct SessionFilterBar: View {
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
                 )
 
-                if let settings {
-                    PrivacyQuickToggle(settings: settings)
-                        .padding(.horizontal, 2)
-                }
             }
 
-            // Filter pills row
-            HStack(spacing: 6) {
-                ForEach(SessionFilterCriterion.allCases) { criterion in
-                    filterPill(criterion)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(SessionFilterCriterion.allCases) { criterion in
+                        filterPill(criterion)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                .fixedSize(horizontal: true, vertical: false)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        filterPill(.all)
+                        filterPill(.needsAttention)
+                    }
+                    HStack(spacing: 6) {
+                        filterPill(.working)
+                        filterPill(.recent)
+                    }
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -258,7 +271,8 @@ public struct SessionFilterBar: View {
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(criterion.displayName) filter\(count != nil ? ", \(count!) sessions" : "")")
+        .accessibilityLabel("\(criterion.displayName) filter, \(count ?? 0) sessions")
+        .accessibilityIdentifier("session-filter-\(criterion.rawValue)")
     }
 }
 
@@ -346,7 +360,7 @@ public struct SessionFilterEmptyStateView: View {
         case .working:
             return "No local agent processes are currently executing tasks."
         case .recent:
-            return "Finished or idle agent sessions will appear here."
+            return "Finished agent sessions within your retention period will appear here."
         }
     }
 }

@@ -76,11 +76,7 @@ struct LoomApp: App {
         MenuBarExtra {
             MenuBarRootView(store: store, settings: settings)
         } label: {
-            HStack(spacing: 4) {
-                Image(nsImage: LoomIcon.menuBarImage)
-                    .renderingMode(.template)
-            }
-            .accessibilityLabel("Loom")
+            MenuBarStatusLabel(store: store, settings: settings)
         }
         .menuBarExtraStyle(.window)
         .commands {

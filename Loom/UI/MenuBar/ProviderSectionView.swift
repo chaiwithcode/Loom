@@ -15,8 +15,12 @@ public struct ProviderSectionView: View {
     public let showsUsage: Bool
     public let expandedSessionIds: Set<String>
     public let settings: LoomSettings?
+    public let sessions: [AgentSession]?
+    public let searchText: String
+    public let selectedFilter: SessionFilterCriterion
+    public let onClearFilters: (() -> Void)?
+    public let onSessionExpansionChange: ((String, Bool) -> Void)?
     @State private var isShowingAdditionalQuotas = false
-    @State private var isShowingDiagnostics = false
     @State private var isShowingRecentFinished = false
 
     public init(
@@ -24,13 +28,23 @@ public struct ProviderSectionView: View {
         showsSessions: Bool = true,
         showsUsage: Bool = true,
         expandedSessionIds: Set<String> = [],
-        settings: LoomSettings? = nil
+        settings: LoomSettings? = nil,
+        sessions: [AgentSession]? = nil,
+        searchText: String = "",
+        selectedFilter: SessionFilterCriterion = .all,
+        onClearFilters: (() -> Void)? = nil,
+        onSessionExpansionChange: ((String, Bool) -> Void)? = nil
     ) {
         self.snapshot = snapshot
         self.showsSessions = showsSessions
         self.showsUsage = showsUsage
         self.expandedSessionIds = expandedSessionIds
         self.settings = settings
+        self.sessions = sessions
+        self.searchText = searchText
+        self.selectedFilter = selectedFilter
+        self.onClearFilters = onClearFilters
+        self.onSessionExpansionChange = onSessionExpansionChange
     }
 
     private var status: (label: String, color: Color) {
@@ -43,6 +57,7 @@ public struct ProviderSectionView: View {
     }
 
     private var visibleSessions: [AgentSession] {
+        if let sessions { return sessions }
         if let settings {
             return snapshot.sessions.filter { settings.shouldInclude(session: $0) }
         }
@@ -112,7 +127,8 @@ public struct ProviderSectionView: View {
                                 SessionRowView(
                                     session: session,
                                     isExpanded: expandedSessionIds.contains(session.id),
-                                    hideProjectPaths: settings?.hideProjectPaths ?? false
+                                    hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                    onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
                                 )
                             }
                         }
@@ -132,7 +148,8 @@ public struct ProviderSectionView: View {
                                 SessionRowView(
                                     session: session,
                                     isExpanded: expandedSessionIds.contains(session.id),
-                                    hideProjectPaths: settings?.hideProjectPaths ?? false
+                                    hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                    onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
                                 )
                             }
                         }
@@ -146,7 +163,8 @@ public struct ProviderSectionView: View {
                                     SessionRowView(
                                         session: session,
                                         isExpanded: expandedSessionIds.contains(session.id),
-                                        hideProjectPaths: settings?.hideProjectPaths ?? false
+                                        hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                        onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
                                     )
                                 }
                             }
@@ -158,7 +176,8 @@ public struct ProviderSectionView: View {
                                         SessionRowView(
                                             session: session,
                                             isExpanded: expandedSessionIds.contains(session.id),
-                                            hideProjectPaths: settings?.hideProjectPaths ?? false
+                                            hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                            onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
                                         )
                                     }
                                 }
@@ -175,6 +194,12 @@ public struct ProviderSectionView: View {
                             .tint(.secondary)
                         }
                     }
+                } else if sessions != nil {
+                    SessionFilterEmptyStateView(
+                        query: searchText,
+                        filter: selectedFilter,
+                        onClearFilters: onClearFilters
+                    )
                 } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil && !snapshot.isRefreshing {
                     Text("No active sessions")
                         .font(.system(size: 12))
@@ -182,34 +207,10 @@ public struct ProviderSectionView: View {
                         .padding(.vertical, 4)
                 }
 
-                // Expose Developer Discovery Diagnostics
-                if let diag = snapshot.diagnostics {
-                    DisclosureGroup(isExpanded: $isShowingDiagnostics) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            diagRow("Processes detected", value: "\(diag.processesDetected)")
-                            diagRow("Logical sessions", value: "\(diag.logicalSessions)")
-                            diagRow("Workspaces resolved", value: "\(diag.workspacesResolved)/\(max(diag.logicalSessions, 1))")
-                            diagRow("Metadata status", value: diag.metadataStatus.rawValue.capitalized)
-                            if let dur = diag.discoveryDurationMsFormatted {
-                                diagRow("Discovery duration", value: dur)
-                            }
-                            if let err = diag.metadataError {
-                                let errVal = (settings?.hideProjectPaths ?? false) ? "Error details hidden by privacy setting" : err
-                                diagRow("Metadata error", value: errVal)
-                            }
-                        }
-                        .padding(.top, 6)
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "wrench.and.screwdriver")
-                                .font(.system(size: 11))
-                            Text("Discovery Diagnostics")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .foregroundStyle(.secondary)
-                    }
-                    .tint(.secondary)
-                }
+                DiagnosticsDisclosureView(
+                    snapshot: snapshot,
+                    hideProjectPaths: settings?.hideProjectPaths ?? false
+                )
             }
 
             if showsUsage, let usage = snapshot.usage, !usage.additionalGroups.isEmpty {
@@ -284,20 +285,6 @@ public struct ProviderSectionView: View {
             return "Details hidden by privacy setting"
         }
         return text
-    }
-
-    private func diagRow(_ label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .frame(width: 140, alignment: .leading)
-            Text(value)
-                .foregroundStyle(.primary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .font(.system(size: 12))
     }
 
     private var providerHeader: some View {

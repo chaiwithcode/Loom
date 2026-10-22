@@ -223,6 +223,28 @@ struct OCRResult {
             testDefaults.removePersistentDomain(forName: suiteName)
         }
 
+        // Exercise the production status evaluator without relying on a live provider.
+        let statusSession = AgentSession(id: "status-session", provider: .codex, state: .working)
+        let statusUsage = ProviderUsageSnapshot(
+            providerID: .codex,
+            primaryBucket: UsageBucket(identifier: "5h", label: "5-hour", usedFraction: 0.88)
+        )
+        let statusSnapshot = ProviderSnapshot(
+            providerID: .codex,
+            displayName: "Codex",
+            availability: .available,
+            sessions: [statusSession],
+            usage: statusUsage
+        )
+        assert(MenuBarStatusEvaluator.evaluate(mode: .iconOnly, snapshots: [statusSnapshot]).text == nil)
+        assert(MenuBarStatusEvaluator.evaluate(mode: .activeSessionCount, snapshots: [statusSnapshot]).text == "1")
+        assert(MenuBarStatusEvaluator.evaluate(mode: .lowestQuota, snapshots: [statusSnapshot]).text == "12%")
+        var failedStatusSnapshot = statusSnapshot
+        failedStatusSnapshot.availability = .error(reason: "Provider unavailable")
+        assert(MenuBarStatusEvaluator.evaluate(mode: .lowestQuota, snapshots: [failedStatusSnapshot]).text == nil)
+        assert(MenuBarStatusEvaluator.evaluate(mode: .activeSessionCount, snapshots: [failedStatusSnapshot]).text == nil)
+        print("  PASS: Production menu bar modes omit unavailable provider data")
+
         // =====================================================================
         // Test 1: Guard unconfigured opening (isolated controller instance)
         // =====================================================================
@@ -657,6 +679,7 @@ struct OCRResult {
         assert(containsToken("Show Loom in Dock", in: joinedTab0), "General tab renders Show Loom in Dock")
         assert(!containsToken("Show version in menu bar", in: joinedTab0), "Retired version toggle is absent")
         assert(containsToken("Refresh Interval", in: joinedTab0), "General tab renders Refresh Interval")
+        assert(containsToken("Status Display", in: joinedTab0), "General tab exposes the menu bar status mode picker")
 
         if containsToken("Restore Defaults", in: joinedTab0) {
             print("  Restore Defaults visible within viewport at 480x360")
@@ -735,13 +758,56 @@ struct OCRResult {
                 let scrolledRep = saveOpaque(tabNotificationsHost, "tab-3-notifications-scrolled")
                 let scrolledResults = try recognizeText(in: scrolledRep)
                 let joinedScrolled = normalizeAndJoinReadingOrder(scrolledResults)
-                assert(containsToken("Session Alerts", in: joinedScrolled), "Session Alerts reachable via native scrolling on Notifications tab at 480x360")
+                assert(containsToken("Needs human input", in: joinedScrolled) && containsToken("Session failed", in: joinedScrolled), "Session alert controls reachable via native scrolling on Notifications tab at 480x360")
             } else {
                 assertionFailure("Session Alerts not found and scroll view does not overflow")
             }
         } else {
             assertionFailure("Session Alerts not found in Notifications tab")
         }
+
+        // Render a private, isolated history fixture in the real Settings view.
+        let historyFixture = NotificationHistoryStore(maxCapacity: 3, defaults: testDefaults)
+        historyFixture.append(NotificationRecord(
+            title: "Secret /Users/private/repository",
+            body: "Transcript at /Users/private/repository",
+            provider: .codex,
+            eventType: "quotaThresholdCrossed",
+            deliveredStatus: .delivered
+        ))
+        settings.hideProjectPaths = true
+        let historyHost = NSHostingView(rootView: NotificationsSettingsTab(settings: settings, historyStore: historyFixture).frame(width: 520, height: 420))
+        probeWindow.contentView = historyHost
+        await settle(historyHost)
+        if let scroll = scrollView(in: historyHost) {
+            let clip = scroll.contentView
+            let bottom = max(0, (scroll.documentView?.bounds.height ?? 0) - clip.bounds.height)
+            clip.scroll(to: NSPoint(x: 0, y: bottom))
+            scroll.reflectScrolledClipView(clip)
+            await settle(historyHost)
+        }
+        let historyImage = saveOpaque(historyHost, "notifications-history-private")
+        let historyText = normalizeAndJoinReadingOrder(try recognizeText(in: historyImage))
+        assert(containsToken("Notification History", in: historyText), "Notification History must be reachable")
+        assert(containsToken("Quota warning", in: historyText), "History must show the event type")
+        assert(!historyText.contains("/Users/private"), "History must not expose older private paths")
+        historyFixture.append(NotificationRecord(
+            title: "Another private /Users/private/repository",
+            body: "Private transcript", provider: .antigravity,
+            eventType: "quotaReplenished", deliveredStatus: .suppressed
+        ))
+        await settle(historyHost)
+        if let scroll = scrollView(in: historyHost) {
+            let clip = scroll.contentView
+            clip.scroll(to: NSPoint(x: 0, y: max(0, (scroll.documentView?.bounds.height ?? 0) - clip.bounds.height)))
+            scroll.reflectScrolledClipView(clip)
+            await settle(historyHost)
+        }
+        let updatedHistory = normalizeAndJoinReadingOrder(try recognizeText(in: saveOpaque(historyHost, "notifications-history-live-update")))
+        assert(containsToken("Quota replenished", in: updatedHistory), "An appended record must update already-open history")
+        assert(containsToken("Suppressed", in: updatedHistory), "History must report delivery disposition")
+        assert(!updatedHistory.contains("/Users/private"), "Live history update must remain private")
+        settings.hideProjectPaths = false
 
         // Tab 4: Storage
         let tab3Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .storage).frame(width: 480, height: 360))

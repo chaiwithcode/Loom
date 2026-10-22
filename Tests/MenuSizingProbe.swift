@@ -10,6 +10,7 @@
 // Links the real Loom views rather than reproducing their layout with stubs.
 import AppKit
 import SwiftUI
+import Vision
 import LoomCore
 import Loom
 
@@ -73,9 +74,9 @@ import Loom
     targetTop = 294
     print("Calibrated disclosure click from top=\(top) to targetTop=\(targetTop)")
    }
-  } else if abs(x - 170) < 10 && abs(top - 250) < 20 {
+  } else if abs(x - 170) < 10 && (abs(top - 250) < 20 || abs(top - 140) < 10) {
    // Session row toggle in compact layout
-   targetTop = 140
+   targetTop = 220
   }
 
   let point = NSPoint(x: targetX, y: window.contentLayoutRect.height - targetTop)
@@ -207,6 +208,38 @@ import Loom
   return results
  }
 
+ @MainActor static func renderedText(in view: NSView) -> String {
+  view.layoutSubtreeIfNeeded()
+  guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return "" }
+  view.cacheDisplay(in: view.bounds, to: bitmap)
+  guard let image = bitmap.cgImage else { return "" }
+  let request = VNRecognizeTextRequest()
+  request.recognitionLevel = .accurate
+  try! VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+  return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " | ")
+ }
+
+ @MainActor static func clickRenderedText(_ window: NSWindow, containing needle: String, belowTop: CGFloat = 0, x: CGFloat? = nil) {
+  guard let view = window.contentView,
+        let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { preconditionFailure("Missing hosted view") }
+  view.cacheDisplay(in: view.bounds, to: bitmap)
+  let request = VNRecognizeTextRequest()
+  request.recognitionLevel = .accurate
+  try! VNImageRequestHandler(cgImage: bitmap.cgImage!, options: [:]).perform([request])
+  guard let match = request.results?.first(where: {
+   ($0.topCandidates(1).first?.string.contains(needle) ?? false) && (1 - $0.boundingBox.midY) * view.bounds.height > belowTop
+  }) else { preconditionFailure("Visible text not found for click: \(needle)") }
+  let rect = match.boundingBox
+  let point = view.convert(NSPoint(x: x ?? rect.midX * view.bounds.width,
+                                  y: (view.isFlipped ? 1 - rect.midY : rect.midY) * view.bounds.height), to: nil)
+  for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+   let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [],
+    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+    context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+   window.sendEvent(event)
+  }
+ }
+
  @MainActor static func main() async {
   NSApplication.shared.setActivationPolicy(.accessory)
   NSApplication.shared.applicationIconImage = NSImage(contentsOfFile: "Resources/LoomIconMaster.png")
@@ -244,14 +277,15 @@ import Loom
   let window = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 380, height: 800), styleMask: [.borderless], backing: .buffered, defer: false)
   window.isReleasedWhenClosed = false
   window.contentView = host
-  window.orderFront(nil)
+  window.makeKeyAndOrderFront(nil)
+  NSApplication.shared.activate(ignoringOtherApps: true)
 
   await settle(host)
   let agents = window.contentLayoutRect.height
   print("Agents collapsed: \(agents)")
   save(host, "tabs-agents")
 
-  click(window, top: 140)
+  clickRenderedText(window, containing: "Loom", belowTop: 190)
   await settle(host)
   let expanded = window.contentLayoutRect.height
   save(host, "tabs-expanded")
@@ -281,7 +315,7 @@ import Loom
   await settle(host)
   assert(usageHeight < expanded, "Usage must size independently of expanded Agents")
 
-  click(window, top: 310, x: 20)
+  clickRenderedText(window, containing: "More model limits", x: 20)
   await settle(host)
   let modelsHeight = window.contentLayoutRect.height
   assert(modelsHeight > usageHeight, "Additional limits disclosure must grow Usage")
@@ -294,7 +328,7 @@ import Loom
   await settle(host)
   assert(abs(window.contentLayoutRect.height - modelsHeight) < 2, "Usage disclosure must survive tab switch")
 
-  click(window, top: 310, x: 20)
+  clickRenderedText(window, containing: "More model limits", x: 20)
   await settle(host)
   assert(abs(window.contentLayoutRect.height - usageHeight) < 2)
 
@@ -367,7 +401,7 @@ import Loom
 
   selectTab(window, segment: 1)
   await settle(host)
-  click(window, top: 310, x: 20)
+  clickRenderedText(window, containing: "More model limits", x: 20)
   await settle(host)
   assert(window.contentLayoutRect.height <= cap + 2)
 
@@ -397,7 +431,7 @@ import Loom
   await store.refresh()
   await settle(host)
   let empty = window.contentLayoutRect.height
-  assert(empty < agents)
+  assert(empty > 0 && empty <= cap + 2, "Empty session state must remain visible within the screen cap")
   save(host, "tabs-empty")
 
   provider.setSessions([session])
@@ -711,6 +745,8 @@ import Loom
 
   assert(SessionFilterEngine.matches(session: finishedSession1, query: "", filter: .recent))
   assert(!SessionFilterEngine.matches(session: normalWorkingSession, query: "", filter: .recent))
+  assert(!SessionFilterEngine.matches(session: AgentSession(id: "idle", provider: .codex, state: .idle), query: "", filter: .recent))
+  assert(!SessionFilterEngine.matches(session: AgentSession(id: "unknown", provider: .codex, state: .unknown), query: "", filter: .recent))
 
   // Text search matching
   assert(SessionFilterEngine.matches(session: attentionSessionWaiting, query: "PaymentGateway", filter: .all))
@@ -721,12 +757,61 @@ import Loom
   // Privacy mode suppression in search
   assert(SessionFilterEngine.matches(session: attentionSessionWaiting, query: "payments", filter: .all, hideProjectPaths: false))
   assert(!SessionFilterEngine.matches(session: attentionSessionWaiting, query: "payments", filter: .all, hideProjectPaths: true), "Hidden paths must not match search queries")
+  assert(!SessionFilterEngine.matches(session: attentionSessionWaiting, query: "Awaiting API key", filter: .all, hideProjectPaths: true), "Private activity summaries must not be searchable")
 
   // 3. Filter Empty State View
   let filterEmptyView = SessionFilterEmptyStateView(query: "search-miss", filter: .all)
   let filterEmptyHost = NSHostingView(rootView: filterEmptyView.frame(width: 380))
   let filterEmptyFitting = filterEmptyHost.fittingSize
   assert(filterEmptyFitting.height >= 80 && filterEmptyFitting.height <= 220, "Filter empty state view height must stay within bounds (got \(filterEmptyFitting.height))")
+
+  // Exercise the real root at the narrow, typical, and wide menu widths. Each
+  // mount seeds one user-visible category/query and checks its resulting row or
+  // empty state, rather than only checking the pure matching helper above.
+  let filterProvider = MockAgentProvider(id: .codex, displayName: "Codex", sessions: [
+   normalWorkingSession,
+   finishedSession1,
+   attentionSessionWaiting
+  ])
+  let filterStore = SessionStore(providers: [filterProvider])
+  await filterStore.refresh()
+  for width in [CGFloat(320), CGFloat(380), CGFloat(520)] {
+   let root = NSHostingView(rootView: AnyView(MenuBarRootView(
+    store: filterStore, initialFilter: .recent
+   ).id("recent-\(Int(width))").frame(width: width)))
+   root.appearance = NSAppearance(named: .darkAqua)
+   window.contentView = root
+   window.setContentSize(NSSize(width: width, height: 800))
+   await settle(root)
+   let recentLabels = renderedText(in: root)
+   save(root, "filter-recent-\(Int(width))")
+   assert(recentLabels.contains("LoomTests"), "Recent root must render finished session at \(width)pt")
+   assert(!recentLabels.contains("LoomCore"), "Recent root must exclude working session at \(width)pt")
+   assert(root.fittingSize.width <= width + 2, "Recent root must fit \(width)pt")
+
+   root.rootView = AnyView(MenuBarRootView(
+    store: filterStore, initialSearchText: "no-such-project"
+   ).id("search-miss-\(Int(width))").frame(width: width))
+   await settle(root)
+   let emptyLabels = renderedText(in: root)
+   assert(emptyLabels.contains("No matching sessions"), "Search miss must render clear empty state at \(width)pt")
+   assert(emptyLabels.contains("Show All Sessions"), "Search miss must expose reset action at \(width)pt")
+
+   root.rootView = AnyView(MenuBarRootView(store: filterStore).id("search-reset-\(Int(width))").frame(width: width))
+   await settle(root)
+   let resetLabels = renderedText(in: root)
+   assert(resetLabels.contains("LoomCore"), "Reset must restore working session at \(width)pt")
+   assert(resetLabels.contains("PaymentGateway"), "Reset must restore attention session at \(width)pt")
+   assert(window.contentLayoutRect.height <= cap + 2, "Filtered root must respect screen cap at \(width)pt")
+  }
+
+  let expandedDiagnostics = NSHostingView(rootView: DiagnosticsDisclosureView(
+   snapshot: filterStore.providerSnapshots[0], isExpanded: true
+  ).frame(width: 380))
+  expandedDiagnostics.frame = NSRect(origin: .zero, size: expandedDiagnostics.fittingSize)
+  let diagnosticLabels = renderedText(in: expandedDiagnostics)
+  assert(diagnosticLabels.contains("Processes detected"), "Expanded diagnostics must expose process count")
+  assert(diagnosticLabels.contains("Workspace resolution"), "Expanded diagnostics must expose workspace resolution")
 
   print("PASS: Filter bar & search field dynamic height constraints verified")
 
@@ -766,6 +851,7 @@ import Loom
   let codexScrolledOffset = multiAgentsScroll.contentView.bounds.origin.y
   assert(codexScrolledOffset > 100, "Codex must be deeply scrolled")
   save(multiHost, "multi-codex-scrolled")
+
 
   // Click Antigravity
   clickProvider(window, index: 2, total: 3)

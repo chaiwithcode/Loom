@@ -891,7 +891,7 @@ public final class SessionStore {
             snapshot.usage = snapshot.usage?.markedStale(error: nil)
             snapshot.usageErrorMessage = nil
         } else if let newUsage = result.usage {
-            snapshot.usage = newUsage
+            snapshot.usage = newUsage.withObservedPacing(comparedTo: snapshot.usage)
             snapshot.usageErrorMessage = nil
 
             let events = quotaEvaluator.evaluate(snapshot: newUsage)

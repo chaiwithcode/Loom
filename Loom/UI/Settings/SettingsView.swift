@@ -22,6 +22,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
 }
 
 public struct SettingsView: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Bindable var settings: LoomSettings
     var store: SessionStore?
     @State private var selectedTab: SettingsTab
@@ -50,8 +51,10 @@ public struct SettingsView: View {
             .pickerStyle(.segmented)
             .controlSize(.small)
             .labelsHidden()
+            .padding(7)
+            .loomGlassSurface(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal, 10)
-            .padding(.top, 12)
+            .padding(.top, 10)
             .padding(.bottom, 8)
             .accessibilityIdentifier("picker-settings-tabs")
 
@@ -81,6 +84,14 @@ public struct SettingsView: View {
 
             SettingsFooterView()
         }
+        .scrollContentBackground(.hidden)
+        .background {
+            if reduceTransparency {
+                Color(nsColor: .windowBackgroundColor)
+            } else {
+                SettingsWindowBackdrop()
+            }
+        }
         .frame(minWidth: 480, idealWidth: 540, maxWidth: 680, minHeight: 360, idealHeight: 480, maxHeight: 640)
     }
 }
@@ -101,7 +112,6 @@ public struct SettingsFooterView: View {
         .foregroundStyle(.secondary)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Made with love by Deepak (ChaiWithCode)")
         .accessibilityIdentifier("footer-made-with-love")
@@ -139,6 +149,17 @@ private struct GeneralSettingsTab: View {
                     .accessibilityIdentifier("picker-refresh-interval")
                     .accessibilityLabel("Refresh Interval")
                     .padding(.vertical, 4)
+                }
+
+                Section("Menu Bar") {
+                    Picker("Status Display", selection: $settings.menuBarStatusMode) {
+                        ForEach(MenuBarStatusMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("picker-menu-bar-status-mode")
+                    .accessibilityLabel("Menu bar status display")
                 }
 
                 SoftwareUpdatesSettingsSection()
@@ -415,4 +436,18 @@ private struct AboutSettingsTab: View {
             .padding(24)
         }
     }
+}
+
+
+/// AppKit owns the titled window; sample the desktop only behind its content.
+private struct SettingsWindowBackdrop: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
