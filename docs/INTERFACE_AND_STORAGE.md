@@ -54,7 +54,7 @@ Configured under **Settings → Notifications**:
 
 | Setting Key | Default | Description |
 | :--- | :--- | :--- |
-| `notificationsEnabled` | `false` | Master toggle. Enabling requests contextual notification authorization from macOS. |
+| `notificationsEnabled` | `true` | Master toggle. Existing opt-outs are preserved; macOS authorization is still required. |
 | `quotaWarning15Percent` | `true` | Alerts when any enabled provider's remaining quota crosses below 15%. |
 | `quotaWarning5Percent` | `true` | Alerts when any enabled provider's remaining quota crosses below 5%. |
 | `quotaReplenishedAlert` | `true` | Alerts when a fresh observation confirms quota recovery to ~100% in a new window. |
@@ -62,9 +62,9 @@ Configured under **Settings → Notifications**:
 | `sessionFinishedAlert` | `false` | Alerts when an active agent session concludes successfully. |
 | `sessionFailedAlert` | `true` | Alerts when an agent process exits abnormally or encounters a fatal provider error. |
 
-- **Contextual Permission Handling**: Loom never prompts for notification permissions on initial launch. Authorization is requested contextually only when the user toggles notifications on in Settings.
+- **Permission Handling**: Notifications default to enabled. On normal launch, Loom requests macOS authorization only if notifications are enabled and permission has not been decided. Existing opt-outs and macOS denials remain unchanged; demo launches do not request permission. Enabling notifications in Settings can also request authorization.
 - **System Settings Link**: If permissions are denied at the OS level, Settings displays an inline warning banner with a direct link to macOS System Settings.
-- **Test Notification**: An interactive **Send Test Notification** button allows immediate verification of system banner delivery and sound configuration.
+- **Debug Test Notification**: Debug builds include **Send Test Notification** for manual development verification. Release builds exclude the button and test-alert implementation.
 
 ### Notification History Storage (`NotificationHistoryStore`)
 

@@ -139,7 +139,7 @@ public final class LoomSettings {
     public nonisolated static let defaultHideProjectPaths = false
     public nonisolated static let defaultShowVersionInMenuBar = false
 
-    public nonisolated static let defaultNotificationsEnabled: Bool = false
+    public nonisolated static let defaultNotificationsEnabled: Bool = true
     public nonisolated static let defaultNotifyQuota15Percent: Bool = true
     public nonisolated static let defaultNotifyQuota5Percent: Bool = true
     public nonisolated static let defaultNotifyQuotaReset: Bool = true
@@ -451,7 +451,7 @@ public final class LoomSettings {
             self.showVersionInMenuBar = Self.defaultShowVersionInMenuBar
         }
 
-        // notificationsEnabled: validate boolean type, default false
+        // notificationsEnabled: validate boolean type, default true; preserve a stored opt-out
         if let num = defaults.object(forKey: Self.notificationsEnabledKey) as? NSNumber {
             self.notificationsEnabled = num.boolValue
         } else {

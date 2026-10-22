@@ -39,7 +39,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(settings.showVersionInMenuBar, "Default showVersionInMenuBar must be false")
 
         // Notification preferences defaults
-        XCTAssertFalse(settings.notificationsEnabled, "Default notificationsEnabled must be false (opt-in)")
+        XCTAssertTrue(settings.notificationsEnabled, "Default notificationsEnabled must be true")
         XCTAssertTrue(settings.notifyQuota15Percent, "Default notifyQuota15Percent must be true")
         XCTAssertTrue(settings.notifyQuota5Percent, "Default notifyQuota5Percent must be true")
         XCTAssertTrue(settings.notifyQuotaReset, "Default notifyQuotaReset must be true")
@@ -52,6 +52,7 @@ final class SettingsTests: XCTestCase {
     @MainActor
     func testNotificationPreferencesPersistenceAndCallbacks() {
         let settings = LoomSettings(defaults: testDefaults)
+        settings.notificationsEnabled = false
 
         var notifiedEnabled: Bool?
         var notified15: Bool?
@@ -126,7 +127,7 @@ final class SettingsTests: XCTestCase {
         testDefaults.set("invalidMenuBarMode", forKey: LoomSettings.menuBarStatusModeKey)
 
         let reloaded = LoomSettings(defaults: testDefaults)
-        XCTAssertFalse(reloaded.notificationsEnabled, "Corrupted notificationsEnabled must fall back to default false")
+        XCTAssertTrue(reloaded.notificationsEnabled, "Corrupted notificationsEnabled must fall back to default true")
         XCTAssertTrue(reloaded.notifyQuota15Percent, "Corrupted notifyQuota15Percent must fall back to default true")
         XCTAssertTrue(reloaded.notifyQuota5Percent, "Corrupted notifyQuota5Percent must fall back to default true")
         XCTAssertTrue(reloaded.notifyQuotaReset, "Corrupted notifyQuotaReset must fall back to default true")
@@ -191,7 +192,7 @@ final class SettingsTests: XCTestCase {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(NotificationPreferences.self, from: emptyJSON)
 
-        XCTAssertFalse(decoded.notificationsEnabled)
+        XCTAssertTrue(decoded.notificationsEnabled)
         XCTAssertTrue(decoded.notifyQuota15Percent)
         XCTAssertTrue(decoded.notifyQuota5Percent)
         XCTAssertTrue(decoded.notifyQuotaReset)
@@ -260,7 +261,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(decoded.refreshIntervalSeconds, 120)
         XCTAssertEqual(decoded.enabledProviderIDs, [.codex])
         // Backward compatible defaults for new fields:
-        XCTAssertFalse(decoded.notificationsEnabled)
+        XCTAssertTrue(decoded.notificationsEnabled)
         XCTAssertTrue(decoded.notifyQuota15Percent)
         XCTAssertTrue(decoded.notifyQuota5Percent)
         XCTAssertTrue(decoded.notifyQuotaReset)
@@ -468,7 +469,7 @@ final class SettingsTests: XCTestCase {
         settings.hideFinishedAfter = .twentyFourHours
         settings.hideProjectPaths = true
         settings.showVersionInMenuBar = true
-        settings.notificationsEnabled = true
+        settings.notificationsEnabled = false
         settings.notifyQuota15Percent = false
         settings.notifyQuota5Percent = false
         settings.notifyQuotaReset = false
@@ -521,7 +522,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.hideFinishedAfter, .never)
         XCTAssertFalse(settings.hideProjectPaths)
         XCTAssertFalse(settings.showVersionInMenuBar)
-        XCTAssertFalse(settings.notificationsEnabled)
+        XCTAssertTrue(settings.notificationsEnabled)
         XCTAssertTrue(settings.notifyQuota15Percent)
         XCTAssertTrue(settings.notifyQuota5Percent)
         XCTAssertTrue(settings.notifyQuotaReset)

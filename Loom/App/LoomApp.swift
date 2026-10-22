@@ -15,8 +15,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = NotificationCoordinator.shared
         DockController.shared.updateActivationPolicy()
-        if ProcessInfo.processInfo.arguments.contains("--show-settings") && DemoFixture.resolve().isDemo {
+        let fixture = DemoFixture.resolve()
+        if ProcessInfo.processInfo.arguments.contains("--show-settings") && fixture.isDemo {
             DockController.shared.showSettings()
+        }
+        if !fixture.isDemo {
+            Task { @MainActor in
+                guard let settings = DockController.shared.settings,
+                      settings.notificationsEnabled else { return }
+                let coordinator = NotificationCoordinator.shared
+                guard await coordinator.checkAuthorizationStatus() == .notDetermined,
+                      settings.notificationsEnabled else { return }
+                _ = await coordinator.requestAuthorization()
+            }
         }
     }
 

@@ -861,7 +861,7 @@ struct OCRResult {
         settings.hideFinishedAfter = .twentyFourHours
         settings.hideProjectPaths = true
         settings.showVersionInMenuBar = true
-        settings.notificationsEnabled = true
+        settings.notificationsEnabled = false
         settings.notifyQuota15Percent = false
         settings.notifyQuota5Percent = false
         settings.notifyQuotaReset = false
@@ -879,7 +879,7 @@ struct OCRResult {
         assert(settings.hideFinishedAfter == .never, "hideFinishedAfter must reset to never")
         assert(!settings.hideProjectPaths, "hideProjectPaths must reset to false")
         assert(!settings.showVersionInMenuBar, "showVersionInMenuBar must reset to false")
-        assert(!settings.notificationsEnabled, "notificationsEnabled must reset to false")
+        assert(settings.notificationsEnabled, "notificationsEnabled must reset to true")
         assert(settings.notifyQuota15Percent, "notifyQuota15Percent must reset to true")
         assert(settings.notifyQuota5Percent, "notifyQuota5Percent must reset to true")
         assert(settings.notifyQuotaReset, "notifyQuotaReset must reset to true")

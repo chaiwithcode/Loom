@@ -160,6 +160,7 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
         }
     }
 
+    #if DEBUG
     public func sendTestNotification() async throws {
         let status = await checkAuthorizationStatus()
         if status == .notDetermined {
@@ -208,6 +209,7 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
             deliveredStatus: .delivered
         ))
     }
+    #endif
 
     public func postNotification(
         title: String = "Loom",

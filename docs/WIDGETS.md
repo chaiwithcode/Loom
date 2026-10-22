@@ -12,11 +12,13 @@ Loom includes three native macOS desktop widgets provided by the `LoomWidgetExte
 
 3. **Loom Usage Overview** (`com.chaiwithcode.loom.usage-overview`):
    - **Supported Families**: Medium (`.systemMedium`), Large (`.systemLarge`)
-   - **Purpose**: Displays quota progress across all supported providers simultaneously without requiring provider switching:
-     - **Medium Layout**: 3 columns (one per provider: Codex, Claude Code, Antigravity) featuring provider names, compact quota rows, remaining progress bars, reset times, and `+N more` links when extra windows exist.
-     - **Large Layout**: Comprehensive grouped view by provider displaying standard quota windows alongside specific model limits (e.g. GPT-4o, o1, Gemini 1.5 Pro). Content exceeding display capacity cleanly caps with `+N more limits` linking directly into Loom without scrolling.
+   - **Purpose**: Combines session activity with quota headroom without requiring provider switching:
+     - **Medium Layout**: Active and total session counts include every monitored provider, alongside the tightest known quota for each enabled, quota-capable provider. Quotas remains the detailed per-window comparison widget.
+     - **Large Layout**: Grouped quota detail with full-width bars, window labels and reset times. A six-row budget reclaims unused provider rows, fitting the usual two Codex and four Antigravity limits. Larger sets retain honest `+N more limits` links into Loom.
      - **Truthful States**: Displays `Monitoring off` when disabled, `Quota not supported` for providers lacking usage APIs (e.g., Claude Code), `Quota unavailable` for missing values, and `Saved` / `Saved data` for cached observations.
      - **Remaining-Bar Direction**: Progress bars fill from the leading edge proportional to the remaining percentage, matching percentage text.
+
+Widget headers use the Loom icon followed by **Sessions**, **Quotas**, or **Overview**; gallery names and existing widget identities remain unchanged. Aggregate quota views omit providers whose quota reporting is known to be unsupported; explicitly selecting such a provider still explains the limitation. Sessions continues to include Claude Code. Fresh quota values and bars use the menu’s thresholds: green at 30% or above, amber from 10% to 29%, red below 10%; cached data stays neutral. macOS tinted widget modes may adapt these colors.
 
 Package checks can verify that the extension is present and correctly described; they do not prove that macOS has registered it or that it appears in the Notification Center gallery. Gallery visibility must be checked on a Mac after installing and launching the app.
 

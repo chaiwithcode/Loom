@@ -13,8 +13,10 @@ import LoomCore
 public struct NotificationsSettingsTab: View {
     @Bindable var settings: LoomSettings
     @State private var authorizationStatus: NotificationAuthorizationStatus = .notDetermined
+    #if DEBUG
     @State private var isSendingTest = false
     @State private var statusFeedbackMessage: String?
+    #endif
     @State private var historyRecords: [NotificationRecord] = []
     private let historyStore: NotificationHistoryStore
 
@@ -81,6 +83,7 @@ public struct NotificationsSettingsTab: View {
                         .padding(.top, 2)
                 }
 
+                #if DEBUG
                 HStack {
                     Button("Send Test Notification") {
                         sendTestNotification()
@@ -100,6 +103,7 @@ public struct NotificationsSettingsTab: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
+                #endif
             }
 
             SettingsSection("Quota Alerts") {
@@ -306,6 +310,7 @@ public struct NotificationsSettingsTab: View {
         }
     }
 
+    #if DEBUG
     private func sendTestNotification() {
         isSendingTest = true
         statusFeedbackMessage = "Sending test alert…"
@@ -319,4 +324,5 @@ public struct NotificationsSettingsTab: View {
             isSendingTest = false
         }
     }
+    #endif
 }
