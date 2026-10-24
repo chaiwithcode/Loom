@@ -144,7 +144,9 @@ mkdir -p "${SIM_DIR}"
   # Stage files into SIM_DIR/site
   mkdir -p "${SIM_DIR}/site/docs" "${SIM_DIR}/site/Resources"
   cp -R pages/. "${SIM_DIR}/site/"
-  [[ -f docs/loom-demo-thumbnail.png ]] && cp docs/loom-demo-thumbnail.png "${SIM_DIR}/site/docs/"
+  for asset in docs/menu-navigation-*.png docs/widget-showcase.png docs/loom-2.0-poster.png docs/loom-2.0-notifications.png docs/loom-2.0-captions.vtt; do
+    cp "$asset" "${SIM_DIR}/site/docs/"
+  done
   [[ -f Resources/LoomIconMaster.png ]] && cp Resources/LoomIconMaster.png "${SIM_DIR}/site/Resources/"
 
   # Simulate release trigger with tag v2.1.0
@@ -181,6 +183,9 @@ check "simulation: future v2.1.0 release stages v2.0.0 9x16 video" \
 
 check "simulation: website and styling remain intact in future release" \
     "[[ -s \"${SIM_DIR}/site/index.html\" && -s \"${SIM_DIR}/site/style.css\" ]]"
+
+check "simulation: all website images, captions, scripts and fragments resolve" \
+    "python3 scripts/verify-website.py \"${SIM_DIR}/site\""
 
 # 4. Negative tests: failure when assets missing
 FAIL_SIM_DIR="${TEST_TMP}/fail_sim"
