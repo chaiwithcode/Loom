@@ -1124,12 +1124,18 @@ final class SessionStoreTests: XCTestCase {
 
         // Fast liveness timer (50ms), slow quota timer (5s)
         store.startPeriodicRefresh(livenessInterval: 0.05, quotaInterval: 5.0)
+        defer { store.stopPeriodicRefresh(cancelInFlight: true) }
 
-        try await Task.sleep(nanoseconds: 160_000_000) // 160ms
-        store.stopPeriodicRefresh(cancelInFlight: true)
+        // Scheduling is not real-time on shared CI runners. Observe both fast
+        // polls within a bound that remains shorter than the quota interval.
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while spy.discoverCallCount < 2 && clock.now < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
 
         XCTAssertGreaterThanOrEqual(spy.discoverCallCount, 2, "Fast liveness loop should have fired at least 2 times")
-        XCTAssertEqual(spy.fetchUsageCallCount, 0, "Slow quota loop should not have fired within 160ms")
+        XCTAssertEqual(spy.fetchUsageCallCount, 0, "Slow quota loop should not fire during the bounded fast-poll wait")
     }
 
     // MARK: - Monitoring Event Hook Tests
