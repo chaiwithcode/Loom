@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${1:-${VERSION:-1.0}}"
 SHA256="${2:-${SHA256:-}}"
-SYNC_TAP="${SYNC_TAP:-0}"
+SYNC_TAP=0
 
 for arg in "$@"; do
     if [[ "${arg}" == "--sync" ]]; then
@@ -42,6 +42,7 @@ cask "chaiwithcode-loom" do
   homepage "https://github.com/chaiwithcode/Loom"
 
   auto_updates true
+  depends_on arch: :arm64
   depends_on macos: :sonoma
 
   app "Loom.app"
@@ -65,13 +66,13 @@ echo "==> Staged local cask at ${LOCAL_DIST_CASK}"
 
 # 2. Stage in homebrew-tap/ working tree if present
 LOCAL_REPO_TAP="${ROOT_DIR}/homebrew-tap"
-if [[ -d "${LOCAL_REPO_TAP}/Casks" ]]; then
+if [[ "${SYNC_TAP}" == "1" && -d "${LOCAL_REPO_TAP}/Casks" ]]; then
     generate_cask_ruby "${VERSION}" "${SHA256}" > "${LOCAL_REPO_TAP}/Casks/chaiwithcode-loom.rb"
     echo "==> Staged cask in local workspace at ${LOCAL_REPO_TAP}/Casks/chaiwithcode-loom.rb"
 fi
 
-# 3. Synchronize with remote chaiwithcode/homebrew-tap if --sync is requested
-if [[ "${SYNC_TAP}" == "1" ]] || [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+# 3. Synchronize with remote chaiwithcode/homebrew-tap only when --sync was passed.
+if [[ "${SYNC_TAP}" == "1" ]]; then
     echo "==> Synchronizing with remote GitHub tap chaiwithcode/homebrew-tap..."
     TAP_WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-tap-sync.XXXXXX")"
     trap 'rm -rf "${TAP_WORK_DIR}"' EXIT INT TERM

@@ -30,7 +30,7 @@ public struct SoftwareUpdatesSettingsSection: View {
     public init() {}
 
     public var body: some View {
-        Section("Software Updates") {
+        SettingsSection("Software Updates") {
             Toggle(isOn: Binding(
                 get: { updateController.automaticallyChecksForUpdates },
                 set: { updateController.automaticallyChecksForUpdates = $0 }
@@ -42,8 +42,9 @@ public struct SoftwareUpdatesSettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .toggleStyle(.checkbox)
+            .toggleStyle(.switch)
             .accessibilityIdentifier("toggle-auto-updates")
             .accessibilityLabel("Automatically check for updates")
             .padding(.vertical, 4)

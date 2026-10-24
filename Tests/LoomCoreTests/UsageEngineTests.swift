@@ -1075,6 +1075,109 @@ final class UsageEngineTests: XCTestCase {
             }
         }
     }
+    // MARK: - Observed quota pacing
+
+    private func pacingSnapshot(
+        used: Double? = 0.2, at: TimeInterval = 600, reset: TimeInterval? = 18000,
+        duration: Int? = 300, stale: Bool = false, error: String? = nil,
+        provider: ProviderID = .codex
+    ) -> ProviderUsageSnapshot {
+        ProviderUsageSnapshot(
+            providerID: provider, updatedAt: Date(timeIntervalSince1970: at),
+            primaryBucket: UsageBucket(identifier: "quota", label: "Quota", usedFraction: used,
+                                       resetsAt: reset.map { Date(timeIntervalSince1970: $0) },
+                                       windowDurationMins: duration),
+            isStale: stale, errorMessage: error
+        )
+    }
+
+    func testObservedPacingRequiresTwoDistinctFreshSamples() {
+        let before = pacingSnapshot(used: 0.2, at: 600)
+        let after = pacingSnapshot(used: 0.25, at: 900)
+        XCTAssertNil(before.withObservedPacing(comparedTo: nil).primaryBucket?.observedPacing)
+        let measured = after.withObservedPacing(comparedTo: before).primaryBucket?.observedPacing
+        XCTAssertEqual(measured?.usedFractionPerHour ?? -1, 0.6, accuracy: 0.000001)
+        XCTAssertEqual(measured?.sampleInterval, 300)
+        XCTAssertEqual(measured?.observedAt, after.updatedAt)
+        XCTAssertNil(before.withObservedPacing(comparedTo: before).primaryBucket?.observedPacing)
+        XCTAssertNil(before.withObservedPacing(comparedTo: after).primaryBucket?.observedPacing)
+        XCTAssertNil(pacingSnapshot(at: 610).withObservedPacing(comparedTo: before).primaryBucket?.observedPacing)
+    }
+
+    func testObservedPacingSuppressesStaleErrorsAndDifferentProviders() {
+        let before = pacingSnapshot(at: 600)
+        let after = pacingSnapshot(at: 900)
+        for invalid in [pacingSnapshot(at: 600, stale: true), pacingSnapshot(at: 600, error: "offline"),
+                        pacingSnapshot(at: 600, provider: .antigravity)] {
+            XCTAssertNil(after.withObservedPacing(comparedTo: invalid).primaryBucket?.observedPacing)
+        }
+        for invalid in [pacingSnapshot(at: 900, stale: true), pacingSnapshot(at: 900, error: "offline")] {
+            XCTAssertNil(invalid.withObservedPacing(comparedTo: before).primaryBucket?.observedPacing)
+        }
+    }
+
+    func testObservedPacingBreaksAcrossResetsAndCorrections() {
+        let before = pacingSnapshot(used: 0.4)
+        for after in [pacingSnapshot(used: 0.1, at: 900),
+                      pacingSnapshot(at: 900, reset: 19000),
+                      pacingSnapshot(at: 18000),
+                      pacingSnapshot(at: 900, duration: 240)] {
+            XCTAssertNil(after.withObservedPacing(comparedTo: before).primaryBucket?.observedPacing)
+        }
+        let nextWindow = pacingSnapshot(used: 0.1, at: 18600, reset: 36000)
+        XCTAssertNil(nextWindow.withObservedPacing(comparedTo: before).primaryBucket?.observedPacing)
+        XCTAssertNotNil(pacingSnapshot(used: 0.2, at: 18900, reset: 36000)
+            .withObservedPacing(comparedTo: nextWindow).primaryBucket?.observedPacing)
+    }
+
+    func testObservedPacingRequiresKnownTimingAndValidCounters() {
+        let before = pacingSnapshot()
+        for after in [pacingSnapshot(used: nil, at: 900), pacingSnapshot(at: 900, reset: nil),
+                      pacingSnapshot(at: 900, duration: nil), pacingSnapshot(at: 900, duration: 0)] {
+            XCTAssertNil(after.withObservedPacing(comparedTo: before).primaryBucket?.observedPacing)
+        }
+        XCTAssertNil(pacingSnapshot(at: 900).withObservedPacing(comparedTo: pacingSnapshot(used: nil))
+            .primaryBucket?.observedPacing)
+        XCTAssertNil(pacingSnapshot(at: 900).withObservedPacing(comparedTo: pacingSnapshot(at: -1))
+            .primaryBucket?.observedPacing)
+        XCTAssertEqual(pacingSnapshot(at: 900).withObservedPacing(comparedTo: before)
+            .primaryBucket?.observedPacing?.usedFractionPerHour, 0)
+    }
+
+    func testObservedPacingHandlesGroupedBucketsAndAmbiguousIDs() {
+        let before = pacingSnapshot()
+        let grouped = ProviderUsageSnapshot(providerID: .codex, updatedAt: Date(timeIntervalSince1970: 900),
+            additionalGroups: [UsageGroup(identifier: "g", label: "Models", buckets: [
+                UsageBucket(identifier: "quota", label: "Quota", usedFraction: 0.3,
+                            resetsAt: Date(timeIntervalSince1970: 18000), windowDurationMins: 300)
+            ])])
+        XCTAssertNotNil(grouped.withObservedPacing(comparedTo: before).additionalGroups.first?.buckets.first?.observedPacing)
+        let ambiguous = ProviderUsageSnapshot(providerID: .codex, updatedAt: before.updatedAt,
+            primaryBucket: before.primaryBucket, secondaryBucket: before.primaryBucket)
+        XCTAssertNil(grouped.withObservedPacing(comparedTo: ambiguous).additionalGroups.first?.buckets.first?.observedPacing)
+    }
+
+    @MainActor
+    func testStoreWiresPacingAndRequiresNewBaselineAfterFailure() async {
+        let provider = PacingTestProvider(usage: pacingSnapshot(used: 0.2, at: 600))
+        let store = SessionStore(providers: [provider])
+        await store.refresh()
+        XCTAssertNil(store.providerSnapshots.first?.usage?.primaryBucket?.observedPacing)
+        await provider.update(pacingSnapshot(used: 0.25, at: 900))
+        await store.refreshQuota()
+        XCTAssertEqual(store.providerSnapshots.first?.usage?.primaryBucket?.observedPacing?.usedFractionPerHour ?? -1,
+                       0.6, accuracy: 0.000001)
+        await provider.update(nil)
+        await store.refreshQuota()
+        XCTAssertEqual(store.providerSnapshots.first?.usage?.isStale, true)
+        await provider.update(pacingSnapshot(used: 0.3, at: 1200))
+        await store.refreshQuota()
+        XCTAssertNil(store.providerSnapshots.first?.usage?.primaryBucket?.observedPacing)
+        await provider.update(pacingSnapshot(used: 0.35, at: 1500))
+        await store.refreshQuota()
+        XCTAssertNotNil(store.providerSnapshots.first?.usage?.primaryBucket?.observedPacing)
+    }
+
 }
 
 // MARK: - Mock Transports & Test Doubles
@@ -1150,4 +1253,18 @@ final class DummyChallengeSender: NSObject, URLAuthenticationChallengeSender {
     func use(_ credential: URLCredential, for challenge: URLAuthenticationChallenge) {}
     func performDefaultHandling(for challenge: URLAuthenticationChallenge) {}
     func rejectProtectionSpaceAndContinue(with challenge: URLAuthenticationChallenge) {}
+
+}
+
+
+private actor PacingTestProvider: AgentProvider {
+    let id: ProviderID = .codex
+    let displayName = "Pacing fixture"
+    private var usage: ProviderUsageSnapshot?
+
+    init(usage: ProviderUsageSnapshot) { self.usage = usage }
+    func update(_ usage: ProviderUsageSnapshot?) { self.usage = usage }
+    func availability() async -> ProviderAvailability { .available }
+    func discoverSessions() async throws -> [AgentSession] { [] }
+    func fetchUsage() async throws -> ProviderUsageSnapshot? { usage }
 }

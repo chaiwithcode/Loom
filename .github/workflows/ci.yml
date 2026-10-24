@@ -20,6 +20,8 @@ jobs:
       # Keep test in source; this job does not claim live-database coverage.
       - name: Portable tests (live Antigravity discovery excluded)
         run: swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest'
+      - name: Dedicated regression tests
+        run: swift test --disable-sandbox --filter 'LoomRegressionTests.*'
       - name: Verify release and pages pipeline
         run: |
           bash scripts/verify-release-pipeline.sh

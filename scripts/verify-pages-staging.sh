@@ -37,8 +37,8 @@ check "pages.yml YAML syntax" \
 check "pages.yml isolates app release tag for appcast" \
     "grep -q 'RELEASE_TAG=' \"${WORKFLOW_FILE}\""
 
-check "pages.yml targets PROMO_RELEASE_TAG with default v1.0" \
-    "grep -q 'PROMO_RELEASE_TAG=\"\${PROMO_RELEASE_TAG:-v1.0}\"' \"${WORKFLOW_FILE}\""
+check "pages.yml targets PROMO_RELEASE_TAG with default v2.0.0" \
+    "grep -q 'PROMO_RELEASE_TAG=\"\${PROMO_RELEASE_TAG:-v2.0.0}\"' \"${WORKFLOW_FILE}\""
 
 check "pages.yml downloads appcast from current release" \
     "grep -A 5 'Downloading appcast.xml' \"${WORKFLOW_FILE}\" | grep -q 'gh release download \"\${RELEASE_TAG}\"'"
@@ -52,7 +52,13 @@ check "pages.yml requires appcast.xml and videos in REQUIRED_ASSETS" \
 check "pages.yml has no silent fallback to stale dist/appcast.xml" \
     "! grep -q 'dist/appcast.xml site/appcast.xml' \"${WORKFLOW_FILE}\""
 
-# 3. Dynamic Simulation: Future release v1.1 without promo videos
+check "website uses stable latest-release download paths" \
+    "grep -q 'https://github.com/chaiwithcode/Loom/releases/latest' pages/index.html && ! grep -q 'releases/download/v1.0' pages/index.html && ! grep -q 'releases/tag/v1.0' pages/index.html"
+
+check "website links demo media attribution notes" \
+    "grep -q 'docs/DEMO_MEDIA.md' pages/index.html"
+
+# 3. Dynamic Simulation: Future release v2.1.0 without promo videos
 TEST_TMP="$(mktemp -d "${TMPDIR:-/tmp}/loom-pages-sim.XXXXXX")"
 trap 'rm -rf "${TEST_TMP}"' EXIT INT TERM
 
@@ -97,28 +103,28 @@ done
 mkdir -p "${DIR}"
 
 # Simulation rules:
-# Release v1.1 has appcast.xml (v1.1) but NO promotional videos
-if [[ "${TARGET_TAG}" == "v1.1" ]]; then
+# Release v2.1.0 has appcast.xml but NO promotional videos
+if [[ "${TARGET_TAG}" == "v2.1.0" ]]; then
   if [[ "${PATTERN}" == "appcast.xml" ]]; then
-    echo "<rss><channel><item><sparkle:version>1.1.0</sparkle:version></item></channel></rss>" > "${DIR}/appcast.xml"
+    echo "<rss><channel><item><sparkle:version>2.1.0</sparkle:version></item></channel></rss>" > "${DIR}/appcast.xml"
     exit 0
   else
-    # Promotional videos NOT present in v1.1 release!
+    # Promotional videos NOT present in v2.1.0 release!
     echo "Simulated error: ${PATTERN} not found in release ${TARGET_TAG}" >&2
     exit 1
   fi
 fi
 
-# Release v1.0 has promotional videos and original appcast
-if [[ "${TARGET_TAG}" == "v1.0" ]]; then
+# Release v2.0.0 has promotional videos
+if [[ "${TARGET_TAG}" == "v2.0.0" ]]; then
   if [[ "${PATTERN}" == "appcast.xml" ]]; then
-    echo "<rss><channel><item><sparkle:version>1.0.0</sparkle:version></item></channel></rss>" > "${DIR}/appcast.xml"
+    echo "<rss><channel><item><sparkle:version>2.0.0</sparkle:version></item></channel></rss>" > "${DIR}/appcast.xml"
     exit 0
   elif [[ "${PATTERN}" == "Loom-Demo-16x9.mp4" ]]; then
-    echo "mock-16x9-video-content-from-v1.0" > "${DIR}/Loom-Demo-16x9.mp4"
+    echo "mock-16x9-video-content-from-v2.0.0" > "${DIR}/Loom-Demo-16x9.mp4"
     exit 0
   elif [[ "${PATTERN}" == "Loom-Demo-9x16.mp4" ]]; then
-    echo "mock-9x16-video-content-from-v1.0" > "${DIR}/Loom-Demo-9x16.mp4"
+    echo "mock-9x16-video-content-from-v2.0.0" > "${DIR}/Loom-Demo-9x16.mp4"
     exit 0
   fi
 fi
@@ -128,7 +134,7 @@ exit 1
 EOF
 chmod +x "${MOCK_BIN}/gh"
 
-# Run simulation of future v1.1 staging
+# Run simulation of future v2.1.0 staging
 SIM_DIR="${TEST_TMP}/sim_run"
 mkdir -p "${SIM_DIR}"
 (
@@ -141,12 +147,12 @@ mkdir -p "${SIM_DIR}"
   [[ -f docs/loom-demo-thumbnail.png ]] && cp docs/loom-demo-thumbnail.png "${SIM_DIR}/site/docs/"
   [[ -f Resources/LoomIconMaster.png ]] && cp Resources/LoomIconMaster.png "${SIM_DIR}/site/Resources/"
 
-  # Simulate release trigger with tag v1.1
-  RELEASE_TAG="v1.1"
+  # Simulate release trigger with tag v2.1.0
+  RELEASE_TAG="v2.1.0"
   gh release download "${RELEASE_TAG}" --repo "chaiwithcode/Loom" --pattern "appcast.xml" --dir "${SIM_DIR}/site" --clobber
 
-  # Simulate promo video fetch targeting v1.0
-  PROMO_RELEASE_TAG="v1.0"
+  # Simulate promo video fetch targeting v2.0.0
+  PROMO_RELEASE_TAG="v2.0.0"
   for video in "Loom-Demo-16x9.mp4" "Loom-Demo-9x16.mp4"; do
     gh release download "${PROMO_RELEASE_TAG}" --repo "chaiwithcode/Loom" --pattern "${video}" --dir "${SIM_DIR}/site" --clobber
   done
@@ -164,14 +170,14 @@ mkdir -p "${SIM_DIR}"
   done
 )
 
-check "simulation: future v1.1 release downloads v1.1 appcast" \
-    "grep -q '1.1.0' \"${SIM_DIR}/site/appcast.xml\""
+check "simulation: future v2.1.0 release downloads v2.1.0 appcast" \
+    "grep -q '2.1.0' \"${SIM_DIR}/site/appcast.xml\""
 
-check "simulation: future v1.1 release stages v1.0 16x9 video" \
-    "grep -q 'mock-16x9-video-content-from-v1.0' \"${SIM_DIR}/site/Loom-Demo-16x9.mp4\""
+check "simulation: future v2.1.0 release stages v2.0.0 16x9 video" \
+    "grep -q 'mock-16x9-video-content-from-v2.0.0' \"${SIM_DIR}/site/Loom-Demo-16x9.mp4\""
 
-check "simulation: future v1.1 release stages v1.0 9x16 video" \
-    "grep -q 'mock-9x16-video-content-from-v1.0' \"${SIM_DIR}/site/Loom-Demo-9x16.mp4\""
+check "simulation: future v2.1.0 release stages v2.0.0 9x16 video" \
+    "grep -q 'mock-9x16-video-content-from-v2.0.0' \"${SIM_DIR}/site/Loom-Demo-9x16.mp4\""
 
 check "simulation: website and styling remain intact in future release" \
     "[[ -s \"${SIM_DIR}/site/index.html\" && -s \"${SIM_DIR}/site/style.css\" ]]"
@@ -193,6 +199,30 @@ set -e
 
 check "negative test: missing appcast triggers non-zero exit" \
     "${FAILED_CORRECTLY}"
+
+# Deployment validation must reject a missing or empty required video asset.
+MISSING_VIDEO_DIR="${TEST_TMP}/missing_video/site"
+mkdir -p "${MISSING_VIDEO_DIR}"
+printf '<rss/>\n' > "${MISSING_VIDEO_DIR}/appcast.xml"
+printf '<html/>\n' > "${MISSING_VIDEO_DIR}/index.html"
+printf 'body{}\n' > "${MISSING_VIDEO_DIR}/style.css"
+printf 'mock video\n' > "${MISSING_VIDEO_DIR}/Loom-Demo-16x9.mp4"
+MISSING_VIDEO_REJECTED=false
+if [[ ! -f "${MISSING_VIDEO_DIR}/Loom-Demo-9x16.mp4" || ! -s "${MISSING_VIDEO_DIR}/Loom-Demo-9x16.mp4" ]]; then
+  MISSING_VIDEO_REJECTED=true
+fi
+check "negative test: deployment rejects missing 9x16 video asset" \
+    "${MISSING_VIDEO_REJECTED}"
+
+EMPTY_VIDEO_DIR="${TEST_TMP}/empty_video/site"
+mkdir -p "${EMPTY_VIDEO_DIR}"
+touch "${EMPTY_VIDEO_DIR}/Loom-Demo-9x16.mp4"
+EMPTY_VIDEO_REJECTED=false
+if [[ ! -s "${EMPTY_VIDEO_DIR}/Loom-Demo-9x16.mp4" ]]; then
+  EMPTY_VIDEO_REJECTED=true
+fi
+check "negative test: deployment rejects empty video asset" \
+    "${EMPTY_VIDEO_REJECTED}"
 
 rm -rf "${TEST_TMP}"
 trap - EXIT INT TERM

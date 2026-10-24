@@ -5,6 +5,33 @@ All notable changes to Loom are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - Unreleased
+
+### Added
+- **Session Productivity Quick Actions**: Safe, local, read-only utilities directly accessible on session cards: Focus Terminal/IDE host application, Copy Process PID, Copy Repository Path, Copy Provider Session ID, and Reveal in Finder.
+- **Session Search & Filter Bar**: Real-time filtering bar with search input and filter chips (`All`, `Needs Attention`, `Working`, `Recent`) without disrupting scroll state or background polling.
+- **Enhanced Provider Diagnostics**: Expanded health disclosure displaying discovery duration in milliseconds, workspace resolution ratios, process count breakdowns, and distinct isolation between process discovery errors and quota IPC failures.
+- **Configurable Menu Bar Status Modes**: Added `Icon Only` (default), `Active Sessions count` (e.g. `⎇ 2`), and `Lowest Quota percentage` (e.g. `⎇ 18%`) status item modes in Settings, designed with minimal width for notched MacBook displays.
+- **Privacy Quick Action Toggle**: One-click popover header toggle to immediately flip the `hideProjectPaths` privacy setting without opening Settings.
+- **Notification History & Audit Log**: Bounded, local history log in Settings (capped at 100 recent events) storing event types, timestamps, and delivery status without sensitive transcripts or credentials.
+
+## [1.1.0] - Unreleased
+
+### Added
+- **Liquid Glass Visual Redesign**: Native macOS 26+ popover UI adopting Apple's Liquid Glass styling (`.glassEffect` and `GlassEffectContainer`) with graceful, high-craft material fallbacks (`.ultraThinMaterial`) on macOS 14 and 15.
+- **Unified Segmented Navigation**: Integrated native segmented control across `Sessions`, `Usage`, and `Storage` views, eliminating competing navigation bars.
+- **Attention-First Session Prioritization**: Deterministic ordering surfacing sessions requiring human decision-making (`waiting` for user input, `failed`) at the top of the popover.
+- **Collapsible Recent Sessions**: Completed tasks tuck cleanly into a collapsible disclosure section, eliminating popover clutter.
+- **Truthful Quota Pacing & Reset Timestamps**: Quota velocity indicators based strictly on verifiable delta observations and window duration, accompanied by exact reset timestamps when reported by providers.
+- **Native macOS Notifications**: Comprehensive desktop alerts via `UNUserNotificationCenter` for quota exhaustion thresholds (15% and 5% remaining), verified quota replenishment, and confirmed session transitions (`waiting`, `finished`, `failed`).
+- **Persistent Notification Deduplication**: Cross-restart deduplication keyed by provider, bucket, window ID, and rule to prevent alert storms and duplicate notifications.
+- **Notification Privacy Concealment**: Automatically conceals repository filesystem paths in notification banners and logs when `hideProjectPaths` is active.
+- **Contextual Notification Permissions**: Seamless permission handling requesting macOS authorization only when notifications are enabled in Settings, complete with a test notification affordance.
+
+### Changed
+- **Decoupled Polling Architecture**: Separated fast in-memory process liveness sweeps (~5–10s) from slow provider quota IPC queries (~30–120s), eliminating false-positive waiting states caused by inactivity timeouts.
+- **Updated Provider Registration Documentation**: Formally aligned architecture and product documentation with standard launch registration of OpenAI Codex, Anthropic Claude Code, and Google Antigravity.
+
 ## [1.0] - 2026-10-17
 
 ### Added

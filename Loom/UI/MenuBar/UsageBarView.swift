@@ -9,7 +9,8 @@
 import SwiftUI
 import LoomCore
 
-/// A remaining-quota card. Unknown data is never rendered as exhausted quota.
+/// A remaining-quota card designed with Liquid Glass principles.
+/// Unknown data is never rendered as exhausted quota.
 public struct UsageBarView: View {
     public let bucket: UsageBucket
     public let isStale: Bool
@@ -44,55 +45,134 @@ public struct UsageBarView: View {
         return "Cached \(minutes / 60)h ago"
     }
 
+    private func pacingStatus(at now: Date) -> QuotaPacing? {
+        guard !isStale, errorMessage == nil, let pacing = bucket.observedPacing,
+              pacing.resetsAt > now,
+              now.timeIntervalSince(pacing.observedAt) >= 0,
+              now.timeIntervalSince(pacing.observedAt) <= 600 else { return nil }
+        return pacing
+    }
+
+    /// Formats exact reset date and time.
+    private func resetDescription(at now: Date) -> String {
+        guard let resetsAt = bucket.resetsAt else {
+            return "Reset time unavailable"
+        }
+
+        let calendar = Calendar.current
+        let timeStr = resetsAt.formatted(date: .omitted, time: .shortened)
+        let relative = bucket.formattedResetTime(relativeTo: now)
+
+        if calendar.isDateInToday(resetsAt) {
+            return "Resets today at \(timeStr)"
+        } else if calendar.isDateInTomorrow(resetsAt) {
+            return "Resets tomorrow at \(timeStr)"
+        } else if let relative {
+            return relative.capitalizedFirst
+        } else {
+            let weekdayFormatter = DateFormatter()
+            weekdayFormatter.dateFormat = "EEE"
+            let dayName = weekdayFormatter.string(from: resetsAt)
+            return "Resets \(dayName) at \(timeStr)"
+        }
+    }
+
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            VStack(alignment: .leading, spacing: 8) {
-                Text(bucket.label)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .help(bucket.label)
-
-                if let percent = bucket.remainingPercent {
-                    (Text("\(percent)%").font(.system(size: 23, weight: .semibold))
-                        + Text(" left").font(.system(size: 14)))
+            VStack(alignment: .leading, spacing: 6) {
+                // Header line: Label and optional Pacing badge
+                HStack(alignment: .center) {
+                    Text(bucket.label)
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .monospacedDigit()
                         .lineLimit(1)
-                } else {
-                    Text("Unavailable")
-                        .font(.system(size: 15, weight: .medium))
+                        .help(bucket.label)
+
+                    Spacer(minLength: 4)
+
+                    if let pacing = pacingStatus(at: context.date) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.system(size: 8, weight: .semibold))
+                            Text("\((pacing.usedFractionPerHour * 100).formatted(.number.precision(.fractionLength(0...1))))%/h")
+                                .font(.system(size: 9.5, weight: .medium))
+                        }
                         .foregroundStyle(.secondary)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1.5)
+                        .background(Color.secondary.opacity(0.10), in: Capsule())
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(Color.secondary.opacity(0.20), lineWidth: 0.5)
+                        )
+                        .help("Observed consumption rate over the last \(Int(pacing.sampleInterval)) seconds; this is not a forecast.")
+                    }
                 }
 
+                // Quota is a data measure: a quiet semantic track and a solid remaining fill.
                 GeometryReader { geometry in
+                    let barWidth = geometry.size.width
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.secondary.opacity(0.18))
-                        if let fraction = bucket.remainingFraction {
+                        Capsule()
+                            .fill(Color.primary.opacity(0.12))
+
+                        if let fraction = bucket.remainingFraction, fraction > 0, barWidth > 0 {
+                            let activeWidth = min(barWidth, max(0, barWidth * CGFloat(fraction)))
                             Capsule()
                                 .fill(barColor)
-                                .frame(width: geometry.size.width * CGFloat(fraction))
+                                .frame(width: activeWidth, height: 5)
                         }
                     }
                 }
-                .frame(height: 6)
+                .frame(height: 5)
                 .accessibilityHidden(true)
 
-                Text(bucket.formattedResetTime(relativeTo: context.date)?.capitalizedFirst ?? "Reset time unavailable")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Bottom line: Percentage on leading, Exact reset time on trailing (with zero truncation)
+                HStack(alignment: .firstTextBaseline) {
+                    if let percent = bucket.remainingPercent {
+                        Text("\(percent)% left")
+                            .font(.system(size: 12, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(barColor)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .layoutPriority(1)
+                    } else {
+                        Text("Unavailable")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
 
-                if isStale {
-                    Label(staleLabel(relativeTo: context.date), systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .help(staleReason ?? "Previously fetched quota; current data could not be confirmed")
+                    Spacer(minLength: 8)
+
+                    Text(resetDescription(at: context.date))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                        .help(bucket.formattedResetTime(relativeTo: context.date)?.capitalizedFirst ?? "")
                 }
+
+                // Stale warning badge
+                if isStale {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 9, weight: .medium))
+                        Text(staleLabel(relativeTo: context.date))
+                            .font(.system(size: 9.5, weight: .medium))
+                    }
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 5.5)
+                    .padding(.vertical, 1.5)
+                    .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(Color.orange.opacity(0.20), lineWidth: 0.5)
+                    )
+                    .help(staleReason ?? "Previously fetched quota; current data could not be confirmed")
+                }
+
                 if let errorMessage, !errorMessage.isEmpty {
                     Text(errorMessage)
                         .font(.caption)
@@ -101,12 +181,9 @@ public struct UsageBarView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(12)
-            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.5)
-            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .loomCard(cornerRadius: 8)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(bucket.label), \(bucket.remainingPercent.map { "\($0) percent remaining" } ?? "remaining quota unavailable")\(isStale ? ", cached data" : "")")
         }

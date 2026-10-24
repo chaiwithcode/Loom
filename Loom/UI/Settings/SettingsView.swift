@@ -13,14 +13,28 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     case general = "General"
     case providers = "Providers"
     case sessions = "Sessions"
+    case notifications = "Notifications"
     case storage = "Storage"
     case privacy = "Privacy"
     case about = "About"
 
     public var id: String { rawValue }
+
+    var symbolName: String {
+        switch self {
+        case .general: return "slider.horizontal.3"
+        case .providers: return "cpu"
+        case .sessions: return "terminal"
+        case .notifications: return "bell"
+        case .storage: return "internaldrive"
+        case .privacy: return "hand.raised"
+        case .about: return "info.circle"
+        }
+    }
 }
 
 public struct SettingsView: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Bindable var settings: LoomSettings
     var store: SessionStore?
     @State private var selectedTab: SettingsTab
@@ -40,44 +54,77 @@ public struct SettingsView: View {
     private let initialProviderID: ProviderID?
 
     public var body: some View {
-        VStack(spacing: 0) {
-            Picker("Settings Section", selection: $selectedTab) {
-                ForEach(SettingsTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                LoomGlassContainer {
+                    HStack(spacing: 3) {
+                        ForEach(SettingsTab.allCases) { tab in
+                            Button {
+                                selectedTab = tab
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Image(systemName: tab.symbolName)
+                                        .font(.system(size: 13, weight: .medium))
+                                    Text(tab.rawValue)
+                                        .font(.system(size: 11, weight: selectedTab == tab ? .semibold : .medium))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                }
+                                .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary)
+                                .padding(.horizontal, 8)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .loomFloatingLens(isSelected: selectedTab == tab, cornerRadius: 11)
+                                .contentShape(RoundedRectangle(cornerRadius: 11))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(tab.rawValue)
+                            .accessibilityValue(selectedTab == tab ? "Selected" : "")
+                            .accessibilityIdentifier("settings-tab-\(tab.rawValue.lowercased())")
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Settings Section")
+                    .accessibilityIdentifier("picker-settings-tabs")
                 }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-            .accessibilityIdentifier("picker-settings-tabs")
 
-            Divider()
-
-            Group {
-                switch selectedTab {
-                case .general:
-                    GeneralSettingsTab(settings: settings)
-                case .providers:
-                    ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
-                case .sessions:
-                    SessionsSettingsTab(settings: settings)
-                case .storage:
-                    StorageSettingsTab(hidePaths: settings.hideProjectPaths)
-                case .privacy:
-                    PrivacySettingsTab(settings: settings)
-                case .about:
-                    AboutSettingsTab()
+                Group {
+                    switch selectedTab {
+                    case .general:
+                        GeneralSettingsTab(settings: settings)
+                    case .providers:
+                        ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
+                    case .sessions:
+                        SessionsSettingsTab(settings: settings)
+                    case .notifications:
+                        NotificationsSettingsTab(settings: settings)
+                    case .storage:
+                        StorageSettingsTab(hidePaths: settings.hideProjectPaths)
+                    case .privacy:
+                        PrivacySettingsTab(settings: settings)
+                    case .about:
+                        AboutSettingsTab()
+                    }
                 }
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .clipped()
+
+                SettingsFooterView()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Divider()
-
-            SettingsFooterView()
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .frame(minWidth: 480, idealWidth: 520, maxWidth: 640, minHeight: 360, idealHeight: 460, maxHeight: 600)
+        .scrollContentBackground(.hidden)
+        .background {
+            if reduceTransparency {
+                Color(nsColor: .windowBackgroundColor)
+            } else {
+                SettingsWindowBackdrop()
+            }
+        }
+        .frame(minWidth: 640, idealWidth: 660, minHeight: 460, idealHeight: 560)
     }
 }
 
@@ -97,7 +144,6 @@ public struct SettingsFooterView: View {
         .foregroundStyle(.secondary)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Made with love by Deepak (ChaiWithCode)")
         .accessibilityIdentifier("footer-made-with-love")
@@ -108,9 +154,9 @@ private struct GeneralSettingsTab: View {
     @Bindable var settings: LoomSettings
 
     var body: some View {
-        ScrollView {
-            Form {
-                Section {
+        VStack(spacing: 0) {
+            SettingsForm {
+                SettingsSection {
                     Toggle(isOn: $settings.showInDock) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Show Loom in Dock")
@@ -119,40 +165,61 @@ private struct GeneralSettingsTab: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(.switch)
                     .accessibilityIdentifier("toggle-show-in-dock")
                     .accessibilityLabel("Show Loom in Dock")
                     .padding(.vertical, 4)
 
-                    Picker("Refresh Interval", selection: $settings.refreshIntervalSeconds) {
-                        Text("Every 30 seconds").tag(30)
-                        Text("Every minute (default)").tag(60)
-                        Text("Every 2 minutes").tag(120)
-                        Text("Every 5 minutes").tag(300)
+                    HStack {
+                        Text("Refresh Interval")
+                        Spacer(minLength: 16)
+                        Picker("Refresh Interval", selection: $settings.refreshIntervalSeconds) {
+                            Text("Every 30 seconds").tag(30)
+                            Text("Every minute (default)").tag(60)
+                            Text("Every 2 minutes").tag(120)
+                            Text("Every 5 minutes").tag(300)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("picker-refresh-interval")
+                        .accessibilityLabel("Refresh Interval")
                     }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("picker-refresh-interval")
-                    .accessibilityLabel("Refresh Interval")
                     .padding(.vertical, 4)
                 }
 
-                SoftwareUpdatesSettingsSection()
-
-                Section {
+                SettingsSection("Menu Bar") {
                     HStack {
-                        Spacer()
-                        Button("Restore Defaults") {
-                            settings.resetToDefaults()
+                        Text("Status Display")
+                        Spacer(minLength: 16)
+                        Picker("Status Display", selection: $settings.menuBarStatusMode) {
+                            ForEach(MenuBarStatusMode.allCases) { mode in
+                                Text(mode.displayName).tag(mode)
+                            }
                         }
-                        .accessibilityIdentifier("button-restore-defaults")
-                        .accessibilityLabel("Restore Defaults")
-                        .buttonStyle(.bordered)
-                        .controlSize(.regular)
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .accessibilityIdentifier("picker-menu-bar-status-mode")
+                        .accessibilityLabel("Menu bar status display")
                     }
                 }
+
+                SoftwareUpdatesSettingsSection()
             }
-            .formStyle(.grouped)
+
+            HStack {
+                Spacer()
+                Button("Restore Defaults") {
+                    settings.resetToDefaults()
+                }
+                .accessibilityIdentifier("button-restore-defaults")
+                .accessibilityLabel("Restore Defaults")
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
         }
     }
 }
@@ -178,40 +245,34 @@ private struct ProvidersSettingsTab: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Default Provider", selection: $settings.defaultProviderID) {
-                    ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
-                        Text(id.displayName).tag(id)
+        SettingsForm {
+            SettingsSection {
+                HStack {
+                    Text("Default Provider")
+                    Spacer(minLength: 16)
+                    Picker("Default Provider", selection: $settings.defaultProviderID) {
+                        ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
+                            Text(id.displayName).tag(id)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("picker-default-provider")
+                    .accessibilityLabel("Default Provider")
                 }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("picker-default-provider")
-                .accessibilityLabel("Default Provider")
             }
 
-            Section("Monitoring") {
+            SettingsSection("Monitoring") {
                 ForEach(supportedProviders) { item in
                     providerRow(item)
                 }
             }
         }
-        .formStyle(.grouped)
     }
 
     private func providerRow(_ item: ProviderRowItem) -> some View {
         let isEnabled = settings.isProviderEnabled(item.id)
-        return HStack(alignment: .top, spacing: 10) {
-            Toggle("", isOn: Binding(
-                get: { isEnabled },
-                set: { settings.setProvider(item.id, enabled: $0) }
-            ))
-            .toggleStyle(.checkbox)
-            .labelsHidden()
-            .accessibilityLabel("Monitor \(item.displayName)")
-            .accessibilityIdentifier("toggle-monitor-\(item.id.rawValue)")
-            .padding(.top, 2)
-
+        return HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle()
@@ -231,6 +292,15 @@ private struct ProvidersSettingsTab: View {
             }
 
             Spacer(minLength: 0)
+            Toggle("", isOn: Binding(
+                get: { isEnabled },
+                set: { settings.setProvider(item.id, enabled: $0) }
+            ))
+            .toggleStyle(.switch)
+            .labelsHidden()
+            .accessibilityLabel("Monitor \(item.displayName)")
+            .accessibilityIdentifier("toggle-monitor-\(item.id.rawValue)")
+            .padding(.top, 2)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 6)
@@ -303,8 +373,8 @@ private struct SessionsSettingsTab: View {
     @Bindable var settings: LoomSettings
 
     var body: some View {
-        Form {
-            Section {
+        SettingsForm {
+            SettingsSection {
                 Toggle(isOn: $settings.includeRecentSessions) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Include recent sessions")
@@ -313,25 +383,30 @@ private struct SessionsSettingsTab: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .toggleStyle(.checkbox)
+                .toggleStyle(.switch)
                 .accessibilityIdentifier("toggle-include-recent-sessions")
                 .accessibilityLabel("Include recent sessions")
                 .padding(.vertical, 4)
 
-                Picker("Hide finished after", selection: $settings.hideFinishedAfter) {
-                    ForEach(HideFinishedInterval.allCases) { interval in
-                        Text(interval.displayName).tag(interval)
+                HStack {
+                    Text("Hide finished after")
+                    Spacer(minLength: 16)
+                    Picker("Hide finished after", selection: $settings.hideFinishedAfter) {
+                        ForEach(HideFinishedInterval.allCases) { interval in
+                            Text(interval.displayName).tag(interval)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .accessibilityIdentifier("picker-hide-finished-after")
+                    .accessibilityLabel("Hide finished after")
                 }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("picker-hide-finished-after")
-                .accessibilityLabel("Hide finished after")
                 .padding(.vertical, 4)
                 .disabled(!settings.includeRecentSessions)
             }
         }
-        .formStyle(.grouped)
     }
 }
 
@@ -339,8 +414,8 @@ private struct PrivacySettingsTab: View {
     @Bindable var settings: LoomSettings
 
     var body: some View {
-        Form {
-            Section {
+        SettingsForm {
+            SettingsSection {
                 Toggle(isOn: $settings.hideProjectPaths) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Hide project paths")
@@ -349,8 +424,9 @@ private struct PrivacySettingsTab: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .toggleStyle(.checkbox)
+                .toggleStyle(.switch)
                 .accessibilityIdentifier("toggle-hide-project-paths")
                 .accessibilityLabel("Hide project paths")
                 .padding(.vertical, 4)
@@ -362,7 +438,6 @@ private struct PrivacySettingsTab: View {
                     .padding(.top, 4)
             }
         }
-        .formStyle(.grouped)
     }
 }
 
@@ -372,43 +447,118 @@ private struct AboutSettingsTab: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                Image(nsImage: NSApplication.shared.applicationIconImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 64, height: 64)
-                    .accessibilityHidden(true)
+        SettingsForm {
+            SettingsSection {
+                VStack(spacing: 12) {
+                    Image(nsImage: NSApplication.shared.applicationIconImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 72, height: 72)
+                        .accessibilityHidden(true)
 
-                Text("Loom")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    VStack(spacing: 4) {
+                        Text("Loom")
+                            .font(.title2.bold())
+                        Text(versionString)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("text-about-version")
+                    }
 
-                Text(versionString)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("text-about-version")
+                    Text("See what your local AI coding agents are doing on your Mac.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                CheckForUpdatesView()
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                    .accessibilityIdentifier("button-about-check-updates")
-
-                Text("Lightweight macOS menu bar monitor for local AI coding agents.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Spacer(minLength: 24)
-
-                Text("© 2026 Deepak Sharma (ChaiWithCode). MIT License.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    CheckForUpdatesView()
+                        .buttonStyle(.bordered)
+                        .controlSize(.regular)
+                        .accessibilityIdentifier("button-about-check-updates")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
             }
-            .frame(maxWidth: .infinity)
-            .padding(24)
+
+            SettingsSection("Open Source") {
+                HStack(spacing: 16) {
+                    Link("Source Code", destination: URL(string: "https://github.com/chaiwithcode/Loom")!)
+                    Spacer(minLength: 0)
+                    Link("Release Notes", destination: URL(string: "https://github.com/chaiwithcode/Loom/releases")!)
+                    Spacer(minLength: 0)
+                    Link("Report an Issue", destination: URL(string: "https://github.com/chaiwithcode/Loom/issues")!)
+                    Spacer(minLength: 0)
+                    Link("MIT License", destination: URL(string: "https://github.com/chaiwithcode/Loom/blob/main/LICENSE")!)
+                }
+                .font(.callout)
+                .buttonStyle(.link)
+            }
+        }
+    }
+}
+
+
+/// AppKit owns the titled window; sample the desktop only behind its content.
+private struct SettingsWindowBackdrop: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .followsWindowActiveState
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
+/// One scroll owner and one transparent canvas for every settings page.
+struct SettingsForm<Content: View>: View {
+    private let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+
+    var body: some View {
+        ScrollView {
+            LoomGlassContainer {
+                VStack(alignment: .leading, spacing: 18) { content }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
+            }
+        }
+        .frame(minHeight: 0, maxHeight: .infinity)
+        .clipped()
+    }
+}
+
+/// Native materials stay translucent; standard controls retain their semantics.
+struct SettingsSection<Content: View>: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+    private let title: String?
+    private let content: Content
+
+    init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 3)
+            }
+            VStack(alignment: .leading, spacing: 14) { content }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(15)
+                .loomGlassSurface(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    if contrast == .increased {
+                        RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.6), lineWidth: 1)
+                    }
+                }
         }
     }
 }

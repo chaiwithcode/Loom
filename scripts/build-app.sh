@@ -77,11 +77,14 @@ if [[ -f "${ROOT_DIR}/Resources/Loom.icns" ]]; then
     cp "${ROOT_DIR}/Resources/Loom.icns" "${RESOURCES_DIR}/Loom.icns"
 fi
 
-for asset in "${ROOT_DIR}/Resources/provider-"*.png; do
+# Remove superseded template resources from bundles reused by incremental builds.
+rm -f "${RESOURCES_DIR}/provider-claude.png" "${RESOURCES_DIR}/provider-antigravity.pdf"
+for asset in "${ROOT_DIR}/Resources/provider-"*.png "${ROOT_DIR}/Resources/provider-"*.pdf; do
     if [[ -f "${asset}" ]]; then
         cp "${asset}" "${RESOURCES_DIR}/"
     fi
 done
+cp "${ROOT_DIR}/Resources/ProviderSources/LICENSE.lobehub" "${RESOURCES_DIR}/LICENSE.lobehub"
 
 cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -103,9 +106,9 @@ cat > "${CONTENTS_DIR}/Info.plist" <<'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>2.0.0</string>
     <key>CFBundleVersion</key>
-    <string>4</string>
+    <string>5</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>

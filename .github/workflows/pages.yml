@@ -79,8 +79,8 @@ jobs:
             gh release download --repo "${{ github.repository }}" --pattern "appcast.xml" --dir site --clobber
           fi
 
-          # 2. Download promotional demo videos from stable v1.0 release unless deliberately migrated
-          PROMO_RELEASE_TAG="${PROMO_RELEASE_TAG:-v1.0}"
+          # 2. Download promotional demo videos from the current media release (override PROMO_RELEASE_TAG when needed)
+          PROMO_RELEASE_TAG="${PROMO_RELEASE_TAG:-v2.0.0}"
           echo "Downloading promotional videos from release ${PROMO_RELEASE_TAG}..."
           for video in "Loom-Demo-16x9.mp4" "Loom-Demo-9x16.mp4"; do
             echo "Fetching ${video} from ${PROMO_RELEASE_TAG}..."

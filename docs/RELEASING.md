@@ -151,6 +151,8 @@ Loom uses a clean, zero-secret CI/CD model:
    - Deploys `appcast.xml` to GitHub Pages (`https://chaiwithcode.github.io/Loom/appcast.xml`).
    - Automatically triggered when a GitHub Release is published (`release: [published]`).
    - Uses standard `GITHUB_TOKEN` (`permissions: pages: write`). **Zero secrets required**.
+   - Downloads the appcast from the triggering release and the promotional videos from `PROMO_RELEASE_TAG` (default `v2.0.0`). The release workflow should attach `Loom-Demo-16x9.mp4` and `Loom-Demo-9x16.mp4`; deliberately update the promo tag when a later release replaces those videos.
+   - The website links downloads through GitHub's stable latest-release URLs. Demo-video context and attribution are maintained in [`docs/DEMO_MEDIA.md`](DEMO_MEDIA.md).
 
 ---
 

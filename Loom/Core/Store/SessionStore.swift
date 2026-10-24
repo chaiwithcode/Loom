@@ -204,16 +204,21 @@ public enum EmptySessionReason: Equatable, Sendable {
     }
 }
 
-private struct ProviderRefreshResult: Sendable {
+private struct ProviderLivenessResult: Sendable {
     let providerID: ProviderID
     let availability: ProviderAvailability
     let sessions: [AgentSession]
-    let usage: ProviderUsageSnapshot?
-    let usageError: String?
     let sessionError: String?
     let diagnostics: ProviderDiscoveryDiagnostics?
-    var sessionsCancelled: Bool = false
-    var usageCancelled: Bool = false
+    var isCancelled: Bool = false
+}
+
+private struct ProviderQuotaResult: Sendable {
+    let providerID: ProviderID
+    let availability: ProviderAvailability
+    let usage: ProviderUsageSnapshot?
+    let usageError: String?
+    var isCancelled: Bool = false
 }
 
 @Observable
@@ -221,23 +226,44 @@ private struct ProviderRefreshResult: Sendable {
 public final class SessionStore {
     public let fixture: DemoFixture
     public private(set) var providerSnapshots: [ProviderSnapshot] = []
-    public private(set) var isRefreshing: Bool = false
-    public private(set) var lastRefreshedAt: Date? = nil
+    public private(set) var isLivenessRefreshing: Bool = false
+    public private(set) var isQuotaRefreshing: Bool = false
+    public var isRefreshing: Bool { isLivenessRefreshing || isQuotaRefreshing }
+
+    public private(set) var lastLivenessRefreshedAt: Date? = nil
+    public private(set) var lastQuotaRefreshedAt: Date? = nil
+    public var lastRefreshedAt: Date? {
+        [lastLivenessRefreshedAt, lastQuotaRefreshedAt].compactMap { $0 }.max()
+    }
+
     public private(set) var enabledProviderIDs: Set<ProviderID>
     public private(set) var storageOverview: StorageOverview?
     public private(set) var isStorageScanning: Bool = false
+
+    /// Optional callback hook called when session state transitions or quota thresholds occur.
+    public var onMonitoringEvent: (@Sendable (MonitoringEvent) -> Void)?
 
     public var enabledSnapshots: [ProviderSnapshot] {
         providerSnapshots.filter(\.isEnabled)
     }
 
     private let registeredProviders: [any AgentProvider]
+    private let transitionDetector: SessionTransitionDetector
+    private let quotaEvaluator: QuotaThresholdEvaluator
+
     private var activeRefreshTask: Task<Void, Never>?
-    private var periodicRefreshTask: Task<Void, Never>?
+    private var activeLivenessTask: Task<Void, Never>?
+    private var activeQuotaTask: Task<Void, Never>?
+    private var periodicLivenessTask: Task<Void, Never>?
+    private var periodicQuotaTask: Task<Void, Never>?
     private var activeStorageTask: Task<StorageOverview?, Never>?
+
     private var providerGenerations: [ProviderID: Int] = [:]
-    private var activeProviderTasks: [ProviderID: Task<ProviderRefreshResult, Never>] = [:]
-    private var needsSubsequentRefresh: Bool = false
+    private var activeProviderLivenessTasks: [ProviderID: Task<ProviderLivenessResult, Never>] = [:]
+    private var activeProviderQuotaTasks: [ProviderID: Task<ProviderQuotaResult, Never>] = [:]
+
+    private var needsSubsequentLivenessRefresh: Bool = false
+    private var needsSubsequentQuotaRefresh: Bool = false
 
     @ObservationIgnored
     nonisolated(unsafe) private var wakeObserver: (any NSObjectProtocol)?
@@ -245,10 +271,14 @@ public final class SessionStore {
     public init(
         providers: [any AgentProvider],
         fixture: DemoFixture = .standard,
-        enabledProviderIDs: Set<ProviderID>? = nil
+        enabledProviderIDs: Set<ProviderID>? = nil,
+        transitionDetector: SessionTransitionDetector = SessionTransitionDetector(),
+        quotaEvaluator: QuotaThresholdEvaluator = QuotaThresholdEvaluator()
     ) {
         self.fixture = fixture
         self.registeredProviders = providers
+        self.transitionDetector = transitionDetector
+        self.quotaEvaluator = quotaEvaluator
         let initialEnabled = enabledProviderIDs ?? Set(providers.map(\.id))
         self.enabledProviderIDs = initialEnabled
         self.providerSnapshots = providers.map { provider in
@@ -356,10 +386,12 @@ public final class SessionStore {
             providerSnapshots[index].isEnabled = isNowEnabled
 
             if !isNowEnabled {
-                // Disabled: increment generation, cancel in-flight task, clear data
+                // Disabled: increment generation, cancel in-flight tasks, clear data
                 providerGenerations[id, default: 0] += 1
-                activeProviderTasks[id]?.cancel()
-                activeProviderTasks[id] = nil
+                activeProviderLivenessTasks[id]?.cancel()
+                activeProviderLivenessTasks[id] = nil
+                activeProviderQuotaTasks[id]?.cancel()
+                activeProviderQuotaTasks[id] = nil
 
                 providerSnapshots[index].isRefreshing = false
                 providerSnapshots[index].sessions = []
@@ -377,10 +409,9 @@ public final class SessionStore {
         }
 
         if !newlyEnabled.isEmpty {
-            if activeRefreshTask != nil {
-                // An active refresh is already running: signal that a fresh pass is needed
-                // once the current pass unwinds so the newly enabled provider is polled without manual intervention
-                needsSubsequentRefresh = true
+            if activeLivenessTask != nil || activeQuotaTask != nil || activeRefreshTask != nil {
+                needsSubsequentLivenessRefresh = true
+                needsSubsequentQuotaRefresh = true
             } else {
                 Task { @MainActor [weak self] in
                     await self?.refresh()
@@ -391,40 +422,74 @@ public final class SessionStore {
         }
     }
 
-    /// Starts a background periodic refresh loop (default 60 seconds).
-    public func startPeriodicRefresh(interval: TimeInterval = 60) {
-        guard interval > 0 else { return }
+    // MARK: - Periodic Refresh Loop Control
+
+    /// Starts background periodic refresh loops separating lightweight liveness refresh
+    /// from comparatively expensive quota polling.
+    public func startPeriodicRefresh(
+        livenessInterval: TimeInterval = 5,
+        quotaInterval: TimeInterval = 60
+    ) {
         stopPeriodicRefresh()
-        periodicRefreshTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
-                } catch {
-                    break
+
+        if livenessInterval > 0 {
+            periodicLivenessTask = Task { @MainActor [weak self] in
+                while !Task.isCancelled {
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(livenessInterval * 1_000_000_000))
+                    } catch {
+                        break
+                    }
+                    guard !Task.isCancelled, let self else { break }
+                    await self.refreshLiveness()
                 }
-                guard !Task.isCancelled, let self else { break }
-                await self.refresh()
+            }
+        }
+
+        if quotaInterval > 0 {
+            periodicQuotaTask = Task { @MainActor [weak self] in
+                while !Task.isCancelled {
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(quotaInterval * 1_000_000_000))
+                    } catch {
+                        break
+                    }
+                    guard !Task.isCancelled, let self else { break }
+                    await self.refreshQuota()
+                }
             }
         }
     }
 
-    /// Stops the background periodic refresh loop and optionally cancels an in-flight refresh.
+    /// Convenience overload maintaining backwards compatibility.
+    public func startPeriodicRefresh(interval: TimeInterval = 60) {
+        startPeriodicRefresh(livenessInterval: min(5, interval), quotaInterval: interval)
+    }
+
+    /// Stops background periodic refresh loops and optionally cancels in-flight tasks.
     public func stopPeriodicRefresh(cancelInFlight: Bool = false) {
-        periodicRefreshTask?.cancel()
-        periodicRefreshTask = nil
+        periodicLivenessTask?.cancel()
+        periodicLivenessTask = nil
+        periodicQuotaTask?.cancel()
+        periodicQuotaTask = nil
+
         if cancelInFlight {
             activeRefreshTask?.cancel()
-            for (_, task) in activeProviderTasks {
+            activeLivenessTask?.cancel()
+            activeQuotaTask?.cancel()
+            for (_, task) in activeProviderLivenessTasks {
                 task.cancel()
             }
-            // Do NOT nil activeRefreshTask here: retain handle until the in-flight task
-            // finishes unwinding/exiting to prevent overlapping execution with any subsequent refresh.
+            for (_, task) in activeProviderQuotaTasks {
+                task.cancel()
+            }
         }
     }
 
+    // MARK: - Refresh Actions
+
+    /// Triggers a unified refresh polling both liveness and quota concurrently.
     public func refresh() async {
-        // Overlapping-refresh protection: if a refresh is already in-flight,
-        // await the existing active task instead of spawning a duplicate concurrent refresh.
         if let currentTask = activeRefreshTask {
             await currentTask.value
             return
@@ -432,10 +497,9 @@ public final class SessionStore {
 
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            repeat {
-                self.needsSubsequentRefresh = false
-                await self.performRefresh()
-            } while self.needsSubsequentRefresh && !Task.isCancelled
+            async let liveness: Void = self.refreshLiveness()
+            async let quota: Void = self.refreshQuota()
+            _ = await (liveness, quota)
         }
 
         activeRefreshTask = task
@@ -447,12 +511,61 @@ public final class SessionStore {
         await task.value
     }
 
-    private func performRefresh() async {
-        isRefreshing = true
+    /// Runs lightweight process tree and session liveness discovery off the main actor.
+    public func refreshLiveness() async {
+        if let currentTask = activeLivenessTask {
+            await currentTask.value
+            return
+        }
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            repeat {
+                self.needsSubsequentLivenessRefresh = false
+                await self.performLivenessRefresh()
+            } while self.needsSubsequentLivenessRefresh && !Task.isCancelled
+        }
+
+        activeLivenessTask = task
+        defer {
+            if activeLivenessTask == task {
+                activeLivenessTask = nil
+            }
+        }
+        await task.value
+    }
+
+    /// Polls provider adapters for quota and usage snapshots.
+    public func refreshQuota() async {
+        if let currentTask = activeQuotaTask {
+            await currentTask.value
+            return
+        }
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            repeat {
+                self.needsSubsequentQuotaRefresh = false
+                await self.performQuotaRefresh()
+            } while self.needsSubsequentQuotaRefresh && !Task.isCancelled
+        }
+
+        activeQuotaTask = task
+        defer {
+            if activeQuotaTask == task {
+                activeQuotaTask = nil
+            }
+        }
+        await task.value
+    }
+
+    // MARK: - Private Refresh Workers
+
+    private func performLivenessRefresh() async {
+        isLivenessRefreshing = true
 
         let enabledProviders = registeredProviders.filter { enabledProviderIDs.contains($0.id) }
 
-        // Mark only enabled snapshots as refreshing
         for i in providerSnapshots.indices {
             if enabledProviderIDs.contains(providerSnapshots[i].providerID) {
                 providerSnapshots[i].isRefreshing = true
@@ -462,9 +575,11 @@ public final class SessionStore {
         }
 
         defer {
-            isRefreshing = false
-            for i in providerSnapshots.indices {
-                providerSnapshots[i].isRefreshing = false
+            isLivenessRefreshing = false
+            if !isQuotaRefreshing {
+                for i in providerSnapshots.indices {
+                    providerSnapshots[i].isRefreshing = false
+                }
             }
         }
 
@@ -472,110 +587,90 @@ public final class SessionStore {
             return
         }
 
-        // Concurrently query enabled providers; isolate errors and stream results
-        await withTaskGroup(of: (ProviderRefreshResult, Int).self) { group in
+        await withTaskGroup(of: (ProviderLivenessResult, Int).self) { group in
             for provider in enabledProviders {
                 let id = provider.id
                 let generation = providerGenerations[id, default: 0]
 
-                let task = Task<ProviderRefreshResult, Never> {
-                    // Cooperative check before starting
+                let task = Task<ProviderLivenessResult, Never> {
                     guard !Task.isCancelled else {
-                        return ProviderRefreshResult(
+                        return ProviderLivenessResult(
                             providerID: id,
                             availability: .unavailable(reason: "Cancelled"),
                             sessions: [],
-                            usage: nil,
-                            usageError: nil,
                             sessionError: nil,
-                            diagnostics: nil
+                            diagnostics: nil,
+                            isCancelled: true
                         )
                     }
 
                     let avail = await provider.availability()
                     guard !Task.isCancelled else {
-                        return ProviderRefreshResult(
+                        return ProviderLivenessResult(
                             providerID: id,
                             availability: avail,
                             sessions: [],
-                            usage: nil,
-                            usageError: nil,
                             sessionError: nil,
-                            diagnostics: nil
+                            diagnostics: nil,
+                            isCancelled: true
                         )
                     }
 
                     guard avail.isAvailable else {
-                        return ProviderRefreshResult(
+                        return ProviderLivenessResult(
                             providerID: id,
                             availability: avail,
                             sessions: [],
-                            usage: nil,
-                            usageError: "Provider is unavailable",
                             sessionError: nil,
-                            diagnostics: nil
+                            diagnostics: nil,
+                            isCancelled: false
                         )
                     }
 
-                    // Concurrent query for sessions and usage within provider with early cancellation checks
-                    async let sessionsTask: ([AgentSession], String?, Bool) = {
-                        guard !Task.isCancelled else { return ([], nil, true) }
-                        do {
-                            let s = try await provider.discoverSessions()
-                            return (s, nil, false)
-                        } catch {
-                            if ProviderIssue.isCancellation(error) { return ([], nil, true) }
-                            return ([], error.localizedDescription, false)
+                    do {
+                        let discovered = try await provider.discoverSessions()
+                        guard !Task.isCancelled else {
+                            return ProviderLivenessResult(
+                                providerID: id,
+                                availability: avail,
+                                sessions: [],
+                                sessionError: nil,
+                                diagnostics: nil,
+                                isCancelled: true
+                            )
                         }
-                    }()
-
-                    async let usageTask: (ProviderUsageSnapshot?, String?, Bool) = {
-                        guard !Task.isCancelled else { return (nil, nil, true) }
-                        do {
-                            let u = try await provider.fetchUsage()
-                            return (u, nil, false)
-                        } catch {
-                            if ProviderIssue.isCancellation(error) { return (nil, nil, true) }
-                            return (nil, error.localizedDescription, false)
+                        let diag = await provider.lastDiagnostics() ?? discovered.first?.diagnostics
+                        return ProviderLivenessResult(
+                            providerID: id,
+                            availability: avail,
+                            sessions: discovered,
+                            sessionError: nil,
+                            diagnostics: diag,
+                            isCancelled: false
+                        )
+                    } catch {
+                        if ProviderIssue.isCancellation(error) {
+                            return ProviderLivenessResult(
+                                providerID: id,
+                                availability: avail,
+                                sessions: [],
+                                sessionError: nil,
+                                diagnostics: nil,
+                                isCancelled: true
+                            )
                         }
-                    }()
-
-                    let (discoveredSessions, sErr, sCancelled) = await sessionsTask
-                    let (fetchedUsage, uErr, uCancelled) = await usageTask
-
-                    guard !Task.isCancelled else {
-                        return ProviderRefreshResult(
+                        return ProviderLivenessResult(
                             providerID: id,
                             availability: avail,
                             sessions: [],
-                            usage: nil,
-                            usageError: nil,
-                            sessionError: nil,
-                            diagnostics: nil
+                            sessionError: error.localizedDescription,
+                            diagnostics: nil,
+                            isCancelled: false
                         )
                     }
-
-                    let diag: ProviderDiscoveryDiagnostics?
-                    if !Task.isCancelled {
-                        diag = await provider.lastDiagnostics() ?? discoveredSessions.first?.diagnostics
-                    } else {
-                        diag = nil
-                    }
-
-                    return ProviderRefreshResult(
-                        providerID: id,
-                        availability: avail,
-                        sessions: discoveredSessions,
-                        usage: fetchedUsage,
-                        usageError: uErr,
-                        sessionError: sErr,
-                        diagnostics: diag,
-                        sessionsCancelled: sCancelled,
-                        usageCancelled: uCancelled
-                    )
                 }
 
-                activeProviderTasks[id] = task
+                activeProviderLivenessTasks[id] = task
 
                 group.addTask {
                     let result = await task.value
@@ -583,21 +678,236 @@ public final class SessionStore {
                 }
             }
 
-            // Per-provider results become visible as each provider finishes
+            var failedProviders: Set<ProviderID> = []
+            var cancelledProviders: Set<ProviderID> = []
+
             for await (result, generation) in group {
-                activeProviderTasks[result.providerID] = nil
-                // Reject late results if task was cancelled, generation changed, or provider was disabled
+                activeProviderLivenessTasks[result.providerID] = nil
                 guard !Task.isCancelled,
                       generation == self.providerGenerations[result.providerID, default: 0],
                       self.enabledProviderIDs.contains(result.providerID) else {
                     continue
                 }
-                self.applyProviderResult(result)
+
+                if result.isCancelled {
+                    cancelledProviders.insert(result.providerID)
+                } else if result.sessionError != nil {
+                    failedProviders.insert(result.providerID)
+                }
+
+                self.applyLivenessResult(result)
+            }
+
+            guard !Task.isCancelled else { return }
+
+            // Evaluate state transitions and route to onMonitoringEvent hook
+            let events = self.transitionDetector.detectTransitions(
+                currentSessions: self.allSessions,
+                failedProviders: failedProviders,
+                cancelledProviders: cancelledProviders
+            )
+            for event in events {
+                self.onMonitoringEvent?(event)
             }
         }
 
-        lastRefreshedAt = Date()
+        lastLivenessRefreshedAt = Date()
         publishWidgetSnapshot()
+    }
+
+    private func performQuotaRefresh() async {
+        isQuotaRefreshing = true
+
+        let enabledProviders = registeredProviders.filter { enabledProviderIDs.contains($0.id) }
+
+        defer {
+            isQuotaRefreshing = false
+            if !isLivenessRefreshing {
+                for i in providerSnapshots.indices {
+                    providerSnapshots[i].isRefreshing = false
+                }
+            }
+        }
+
+        guard !enabledProviders.isEmpty else {
+            return
+        }
+
+        await withTaskGroup(of: (ProviderQuotaResult, Int).self) { group in
+            for provider in enabledProviders {
+                let id = provider.id
+                let generation = providerGenerations[id, default: 0]
+
+                let task = Task<ProviderQuotaResult, Never> {
+                    guard !Task.isCancelled else {
+                        return ProviderQuotaResult(
+                            providerID: id,
+                            availability: .unavailable(reason: "Cancelled"),
+                            usage: nil,
+                            usageError: nil,
+                            isCancelled: true
+                        )
+                    }
+
+                    let avail = await provider.availability()
+                    guard !Task.isCancelled else {
+                        return ProviderQuotaResult(
+                            providerID: id,
+                            availability: avail,
+                            usage: nil,
+                            usageError: nil,
+                            isCancelled: true
+                        )
+                    }
+
+                    guard avail.isAvailable else {
+                        return ProviderQuotaResult(
+                            providerID: id,
+                            availability: avail,
+                            usage: nil,
+                            usageError: "Provider is unavailable",
+                            isCancelled: false
+                        )
+                    }
+
+                    do {
+                        let usage = try await provider.fetchUsage()
+                        guard !Task.isCancelled else {
+                            return ProviderQuotaResult(
+                                providerID: id,
+                                availability: avail,
+                                usage: nil,
+                                usageError: nil,
+                                isCancelled: true
+                            )
+                        }
+                        return ProviderQuotaResult(
+                            providerID: id,
+                            availability: avail,
+                            usage: usage,
+                            usageError: nil,
+                            isCancelled: false
+                        )
+                    } catch {
+                        if ProviderIssue.isCancellation(error) {
+                            return ProviderQuotaResult(
+                                providerID: id,
+                                availability: avail,
+                                usage: nil,
+                                usageError: nil,
+                                isCancelled: true
+                            )
+                        }
+                        return ProviderQuotaResult(
+                            providerID: id,
+                            availability: avail,
+                            usage: nil,
+                            usageError: error.localizedDescription,
+                            isCancelled: false
+                        )
+                    }
+                }
+
+                activeProviderQuotaTasks[id] = task
+
+                group.addTask {
+                    let result = await task.value
+                    return (result, generation)
+                }
+            }
+
+            for await (result, generation) in group {
+                activeProviderQuotaTasks[result.providerID] = nil
+                guard !Task.isCancelled,
+                      generation == self.providerGenerations[result.providerID, default: 0],
+                      self.enabledProviderIDs.contains(result.providerID) else {
+                    continue
+                }
+
+                self.applyQuotaResult(result)
+            }
+        }
+
+        lastQuotaRefreshedAt = Date()
+        publishWidgetSnapshot()
+    }
+
+    private func applyLivenessResult(_ result: ProviderLivenessResult) {
+        guard let index = providerSnapshots.firstIndex(where: { $0.providerID == result.providerID }) else {
+            return
+        }
+
+        var snapshot = providerSnapshots[index]
+        snapshot.availability = result.availability
+        if !result.isCancelled { snapshot.errorMessage = result.sessionError }
+        snapshot.diagnostics = result.diagnostics ?? result.sessions.first?.diagnostics
+        snapshot.isRefreshing = false
+
+        if result.isCancelled {
+            // An interrupted observation is not lifecycle evidence. Preserve previous sessions.
+        } else if result.sessionError != nil || !result.availability.isAvailable {
+            if result.sessions.isEmpty && !snapshot.sessions.isEmpty {
+                snapshot.sessions = snapshot.sessions.map { s in
+                    if s.state == .working || s.state == .starting || s.state == .waiting {
+                        let reason = result.sessionError != nil ? "Provider error: \(result.sessionError!)" : "Provider unavailable"
+                        return AgentSession(
+                            id: s.id,
+                            provider: s.provider,
+                            projectName: s.projectName,
+                            projectPath: s.projectPath,
+                            state: result.sessionError != nil ? .failed : .idle,
+                            startedAt: s.startedAt,
+                            lastActivityAt: Date(),
+                            branch: s.branch,
+                            summary: reason,
+                            pid: s.pid,
+                            providerSessionID: s.providerSessionID,
+                            associatedProcesses: [],
+                            hostApp: s.hostApp,
+                            diagnostics: s.diagnostics,
+                            discoveryEvidence: s.discoveryEvidence + [reason]
+                        )
+                    }
+                    return s
+                }
+            } else {
+                snapshot.sessions = result.sessions
+            }
+        } else {
+            snapshot.sessions = result.sessions
+        }
+
+        providerSnapshots[index] = snapshot
+    }
+
+    private func applyQuotaResult(_ result: ProviderQuotaResult) {
+        guard let index = providerSnapshots.firstIndex(where: { $0.providerID == result.providerID }) else {
+            return
+        }
+
+        var snapshot = providerSnapshots[index]
+
+        if result.isCancelled {
+            snapshot.usage = snapshot.usage?.markedStale(error: nil)
+            snapshot.usageErrorMessage = nil
+        } else if let newUsage = result.usage {
+            snapshot.usage = newUsage.withObservedPacing(comparedTo: snapshot.usage)
+            snapshot.usageErrorMessage = nil
+
+            let events = quotaEvaluator.evaluate(snapshot: newUsage)
+            for event in events {
+                onMonitoringEvent?(event)
+            }
+        } else if let prevUsage = snapshot.usage {
+            let reason = result.usageError ?? "Usage data unavailable"
+            snapshot.usage = prevUsage.markedStale(error: reason)
+            snapshot.usageErrorMessage = result.usageError
+        } else if let err = result.usageError {
+            snapshot.usage = nil
+            snapshot.usageErrorMessage = err
+        }
+
+        providerSnapshots[index] = snapshot
     }
 
     /// Measures and updates local agent storage overview asynchronously on a utility task.
@@ -638,71 +948,5 @@ public final class SessionStore {
             self.storageOverview = result
         }
         self.isStorageScanning = false
-    }
-
-    private func applyProviderResult(_ result: ProviderRefreshResult) {
-        guard let index = providerSnapshots.firstIndex(where: { $0.providerID == result.providerID }) else {
-            return
-        }
-
-        var snapshot = providerSnapshots[index]
-        snapshot.availability = result.availability
-        if !result.sessionsCancelled { snapshot.errorMessage = result.sessionError }
-        snapshot.diagnostics = result.diagnostics ?? result.sessions.first?.diagnostics
-        snapshot.isRefreshing = false
-
-        // Stale lifecycle protection: if provider encountered a fatal error or is unavailable,
-        // ensure any previously active sessions do not remain stuck in .working!
-        if result.sessionsCancelled {
-            // An interrupted observation is not lifecycle evidence. Preserve previous sessions.
-        } else if result.sessionError != nil || !result.availability.isAvailable {
-            if result.sessions.isEmpty && !snapshot.sessions.isEmpty {
-                snapshot.sessions = snapshot.sessions.map { s in
-                    if s.state == .working || s.state == .starting || s.state == .waiting {
-                        let reason = result.sessionError != nil ? "Provider error: \(result.sessionError!)" : "Provider unavailable"
-                        return AgentSession(
-                            id: s.id,
-                            provider: s.provider,
-                            projectName: s.projectName,
-                            projectPath: s.projectPath,
-                            state: result.sessionError != nil ? .failed : .idle,
-                            startedAt: s.startedAt,
-                            lastActivityAt: Date(),
-                            branch: s.branch,
-                            summary: reason,
-                            pid: s.pid,
-                            providerSessionID: s.providerSessionID,
-                            associatedProcesses: [],
-                            hostApp: s.hostApp,
-                            diagnostics: s.diagnostics,
-                            discoveryEvidence: s.discoveryEvidence + [reason]
-                        )
-                    }
-                    return s
-                }
-            } else {
-                snapshot.sessions = result.sessions
-            }
-        } else {
-            snapshot.sessions = result.sessions
-        }
-
-        // Retain previous successful usage marked as stale if current fetch failed or returned nil or provider unavailable
-        if result.usageCancelled {
-            snapshot.usage = snapshot.usage?.markedStale(error: nil)
-            snapshot.usageErrorMessage = nil
-        } else if let newUsage = result.usage {
-            snapshot.usage = newUsage
-            snapshot.usageErrorMessage = nil
-        } else if let prevUsage = snapshot.usage {
-            let reason = result.usageError ?? "Usage data unavailable"
-            snapshot.usage = prevUsage.markedStale(error: reason)
-            snapshot.usageErrorMessage = result.usageError
-        } else if let err = result.usageError {
-            snapshot.usage = nil
-            snapshot.usageErrorMessage = err
-        }
-
-        providerSnapshots[index] = snapshot
     }
 }

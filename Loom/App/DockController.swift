@@ -107,9 +107,9 @@ public final class DockController: NSObject, NSApplicationDelegate {
             initialTab: effectiveTab,
             initialProviderID: providerID
         )
-        let minContentSize = NSSize(width: 480, height: 360)
+        let minContentSize = NSSize(width: 640, height: 460)
         let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: 520, height: 460)),
+            contentRect: NSRect(origin: .zero, size: NSSize(width: 660, height: 560)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -118,6 +118,8 @@ public final class DockController: NSObject, NSApplicationDelegate {
         window.minSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: minContentSize)).size
         window.center()
         window.title = "Loom Settings"
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.contentView = NSHostingView(rootView: contentView)
         window.isReleasedWhenClosed = false
         window.delegate = self

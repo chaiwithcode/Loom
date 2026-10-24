@@ -58,7 +58,7 @@ struct LoomWidgetTimelineProvider: TimelineProvider {
 // MARK: - Provider Row View
 
 private struct WidgetHeader: View {
-    var title = "Loom"
+    var title = "Sessions"
     var font: Font = .system(size: 13, weight: .semibold)
     var body: some View {
         HStack(spacing: 6) {
@@ -77,12 +77,79 @@ private struct RemainingBar: View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
                 Capsule().fill(.secondary.opacity(0.18))
-                Capsule().fill(cached ? Color.secondary : Color.accentColor)
+                Capsule().fill(WidgetQuotaPresentation.color(percent: percent, cached: cached))
                     .frame(width: proxy.size.width * CGFloat(min(100, max(0, percent))) / 100)
             }
         }
         .frame(height: height)
         .accessibilityHidden(true)
+    }
+}
+
+// Matches the menu's quota thresholds. macOS may adapt these in tinted widgets.
+private enum WidgetQuotaPresentation {
+    static func color(percent: Int?, cached: Bool) -> Color {
+        guard !cached, let percent else { return .secondary }
+        return percent >= 30 ? .green : (percent >= 10 ? .orange : .red)
+    }
+
+    // Spend the six-row Large budget on real windows, reclaiming unused provider rows.
+    static func rowLimit(for provider: ProviderWidgetSummary, in providers: [ProviderWidgetSummary]) -> Int {
+        let share = max(1, 6 / max(1, providers.count))
+        let reserved = providers.filter { $0.id != provider.id }.reduce(0) {
+            $0 + min(share, max(1, $1.allQuotaWindows.count))
+        }
+        return max(1, 6 - reserved)
+    }
+}
+
+private struct WidgetLargeQuotaRow: View {
+    let window: WidgetQuotaWindow
+    let provider: ProviderWidgetSummary
+    let entry: LoomWidgetEntry
+
+    private var cached: Bool {
+        provider.usageStatus == .stale || entry.snapshot?.isStale(at: entry.date) == true
+            || entry.date.timeIntervalSince(window.observedAt) > 900
+    }
+
+    private var resetText: String {
+        if cached { return "Saved data" }
+        guard let reset = window.resetsAt else { return "Reset time unavailable" }
+        guard reset > entry.date else { return "Awaiting reset update" }
+        let minutes = max(1, Int(reset.timeIntervalSince(entry.date) / 60))
+        let interval: String
+        if minutes >= 1440 { interval = "\(minutes / 1440)d \((minutes % 1440) / 60)h" }
+        else if minutes >= 60 { interval = "\(minutes / 60)h \(minutes % 60)m" }
+        else { interval = "\(minutes)m" }
+        return "Resets in \(interval)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(window.label)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer(minLength: 0)
+                Text(window.percentRemaining.map { "\($0)% left" } ?? "Unavailable")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(WidgetQuotaPresentation.color(percent: window.percentRemaining, cached: cached))
+                    .monospacedDigit()
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            if let percent = window.percentRemaining {
+                RemainingBar(percent: percent, cached: cached, height: 3)
+            } else {
+                Capsule().fill(.secondary.opacity(0.18)).frame(height: 3)
+            }
+            Text(resetText)
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -186,7 +253,7 @@ struct LoomMediumWidgetView: View {
                                     HStack(spacing: 6) {
                                         RemainingBar(percent: percent, cached: cached)
                                         Text("\(window.compactLabel) · \(percent)% left").font(.system(size: 10)).monospacedDigit()
-                                            .foregroundStyle(.secondary).lineLimit(1).layoutPriority(1)
+                                            .foregroundStyle(WidgetQuotaPresentation.color(percent: percent, cached: cached)).lineLimit(1).layoutPriority(1)
                                     }
                                     if cached { Text("Saved data").font(.system(size: 9)).foregroundStyle(.secondary) }
                                 } else {
@@ -281,6 +348,7 @@ private enum WidgetQuotaTypography {
 struct LoomQuotaWidgetView: View {
     let entry: LoomWidgetEntry
     @Environment(\.widgetFamily) var family
+    var aggregateTitle = "Quotas"
 
     private var canonicalOrder: [String] { ["codex", "claude", "antigravity"] }
 
@@ -292,7 +360,7 @@ struct LoomQuotaWidgetView: View {
             return idx1 < idx2
         }
         if entry.providerID == "all" || entry.providerID.isEmpty {
-            return sorted.filter(\.isEnabled)
+            return sorted.filter { $0.isEnabled && $0.usageStatus != .unsupported }
         } else {
             return sorted.filter { $0.id == entry.providerID }
         }
@@ -300,9 +368,9 @@ struct LoomQuotaWidgetView: View {
 
     private var headerTitle: String {
         if entry.providerID == "all" || entry.providerID.isEmpty {
-            return "Loom Quotas"
+            return aggregateTitle
         }
-        return visibleProviders.first?.displayName ?? "Loom Quotas"
+        return visibleProviders.first?.displayName ?? aggregateTitle
     }
 
     private var widgetDestinationURL: URL {
@@ -319,16 +387,16 @@ struct LoomQuotaWidgetView: View {
         Group {
             if entry.snapshot == nil {
                 VStack(alignment: .leading, spacing: 6) {
-                    WidgetHeader(title: "Loom Quotas")
+                    WidgetHeader(title: aggregateTitle)
                     Spacer(minLength: 0)
                     WidgetDataNotice(result: entry.readResult)
                     Spacer(minLength: 0)
                 }
             } else if visibleProviders.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    WidgetHeader(title: "Loom Quotas")
+                    WidgetHeader(title: aggregateTitle)
                     Spacer(minLength: 0)
-                    Text("No quota providers enabled")
+                    Text("No supported quota providers enabled")
                         .font(.system(size: 13, weight: .medium))
                     Text("Enable providers in Loom Settings.")
                         .font(.system(size: 11))
@@ -392,7 +460,7 @@ struct LoomQuotaWidgetView: View {
 
     private func multiProviderSmallView(_ providers: [ProviderWidgetSummary]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            WidgetHeader(title: "Loom Quotas")
+            WidgetHeader(title: aggregateTitle)
             Spacer(minLength: 0)
             ForEach(providers.prefix(3)) { provider in
                 VStack(alignment: .leading, spacing: 2) {
@@ -442,7 +510,7 @@ struct LoomQuotaWidgetView: View {
                 if let percent = window.percentRemaining {
                     Text("\(percent)%")
                         .font(WidgetQuotaTypography.smallMultiPercentage)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(WidgetQuotaPresentation.color(percent: percent, cached: cached))
                         .monospacedDigit()
                 } else {
                     Text("—")
@@ -496,7 +564,7 @@ struct LoomQuotaWidgetView: View {
                 if index > 0 {
                     Divider()
                 }
-                largeProviderSection(provider, maxRows: displayProviders.count == 1 ? 5 : 3)
+                largeProviderSection(provider, maxRows: WidgetQuotaPresentation.rowLimit(for: provider, in: displayProviders))
             }
             Spacer(minLength: 0)
         }
@@ -571,53 +639,7 @@ struct LoomQuotaWidgetView: View {
     }
 
     private func largeQuotaRow(_ window: WidgetQuotaWindow, provider: ProviderWidgetSummary) -> some View {
-        let cached = provider.usageStatus == .stale || entry.snapshot?.isStale(at: entry.date) == true
-            || entry.date.timeIntervalSince(window.observedAt) > 900
-        return HStack(alignment: .center, spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(window.label)
-                    .font(WidgetQuotaTypography.largeWindowLabel)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                if cached {
-                    Text("Saved")
-                        .font(WidgetQuotaTypography.largeReset)
-                        .foregroundStyle(.secondary)
-                } else if let reset = window.resetsAt {
-                    Text(reset > entry.date ? "Resets in \(resetInterval(reset))" : "Awaiting reset update")
-                        .font(WidgetQuotaTypography.largeReset)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                } else {
-                    Text("Reset time unavailable")
-                        .font(WidgetQuotaTypography.largeReset)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .frame(width: 105, alignment: .leading)
-
-            if let percent = window.percentRemaining {
-                RemainingBar(percent: percent, cached: cached, height: 4)
-                Text("\(percent)% left")
-                    .font(WidgetQuotaTypography.largePercentage)
-                    .foregroundStyle(.primary)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            } else {
-                GeometryReader { _ in
-                    Capsule().fill(.secondary.opacity(0.18))
-                }
-                .frame(height: 4)
-                Text("Unavailable")
-                    .font(WidgetQuotaTypography.largeReset)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-        }
-        .accessibilityElement(children: .combine)
+        WidgetLargeQuotaRow(window: window, provider: provider, entry: entry)
     }
 
     private func quotaWindow(_ window: WidgetQuotaWindow, provider: ProviderWidgetSummary) -> some View {
@@ -633,7 +655,7 @@ struct LoomQuotaWidgetView: View {
                 Spacer(minLength: 0)
                 Text(window.percentRemaining.map { "\($0)% left" } ?? "Unavailable")
                     .font(WidgetQuotaTypography.smallSinglePercentage)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(WidgetQuotaPresentation.color(percent: window.percentRemaining, cached: cached))
                     .monospacedDigit()
                     .fixedSize()
             }
@@ -778,7 +800,7 @@ struct LoomUsageOverviewMediumColumn: View {
                 if let percent = window.percentRemaining {
                     Text("\(percent)%")
                         .font(WidgetQuotaTypography.mediumPercentage)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(WidgetQuotaPresentation.color(percent: percent, cached: cached))
                         .monospacedDigit()
                 } else {
                     Text("Unavailable")
@@ -817,12 +839,40 @@ struct LoomUsageOverviewMediumView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            WidgetHeader(title: "Usage Overview")
+            WidgetHeader(title: "Overview")
             if let snapshot = entry.snapshot {
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(snapshot.providers.prefix(3)) { provider in
-                        LoomUsageOverviewMediumColumn(provider: provider, entry: entry)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(snapshot.activeSessionCount)")
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                        Text("active sessions").font(.system(size: 10))
+                        Text("\(snapshot.totalSessionCount) tracked")
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                        if snapshot.isStale(at: entry.date) {
+                            Label("Saved data", systemImage: "clock")
+                                .foregroundStyle(.secondary)
+                        } else if snapshot.attentionSessionCount > 0 {
+                            Text("\(snapshot.attentionSessionCount) need attention")
+                                .foregroundStyle(.orange)
+                        }
                     }
+                    .font(.system(size: 9))
+                    .frame(width: 92, alignment: .leading)
+                    Divider()
+                    let providers = snapshot.providers.filter { $0.isEnabled && $0.usageStatus != .unsupported }
+                    VStack(alignment: .leading, spacing: 9) {
+                        if providers.isEmpty {
+                            Text("No supported quota providers enabled")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(providers.prefix(3)) { provider in
+                            quotaSummary(provider)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else {
                 Spacer(minLength: 0)
@@ -830,7 +880,38 @@ struct LoomUsageOverviewMediumView: View {
                 Spacer(minLength: 0)
             }
         }
-        .widgetURL(URL(string: "loom://quotas"))
+        .widgetURL(URL(string: "loom://open"))
+    }
+
+    private func quotaSummary(_ provider: ProviderWidgetSummary) -> some View {
+        // Overview highlights the tightest known quota; Quotas keeps separate windows.
+        let window = provider.usageStatus == .unavailable ? nil : provider.allQuotaWindows
+            .filter { $0.percentRemaining != nil }.min {
+                ($0.percentRemaining ?? 100) < ($1.percentRemaining ?? 100)
+            }
+        let cached = provider.usageStatus == .stale || entry.snapshot?.isStale(at: entry.date) == true
+            || window.map { entry.date.timeIntervalSince($0.observedAt) > 900 } == true
+        return Link(destination: URL(string: "loom://provider/\(provider.id)")!) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 4) {
+                    Text(provider.displayName).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Text(window?.percentRemaining.map { "\($0)% left" } ?? "Unavailable")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(WidgetQuotaPresentation.color(percent: window?.percentRemaining, cached: cached))
+                        .monospacedDigit()
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                if let window, let percent = window.percentRemaining {
+                    RemainingBar(percent: percent, cached: cached, height: 3)
+                    Text(cached ? "Saved data · \(window.label)" : window.label)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -838,165 +919,7 @@ struct LoomUsageOverviewLargeView: View {
     let entry: LoomWidgetEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                WidgetHeader(title: "Usage Overview")
-                Spacer(minLength: 0)
-                if let snapshot = entry.snapshot {
-                    if snapshot.isStale(at: entry.date) {
-                        Label("Saved data", systemImage: "clock")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        (Text("Updated ") + Text(snapshot.timestamp, style: .time))
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            if let snapshot = entry.snapshot {
-                let providers = Array(snapshot.providers.prefix(3))
-                ForEach(Array(providers.enumerated()), id: \.element.id) { index, provider in
-                    if index > 0 {
-                        Divider()
-                    }
-                    providerSection(provider)
-                }
-                Spacer(minLength: 0)
-            } else {
-                Spacer(minLength: 0)
-                WidgetDataNotice(result: entry.readResult)
-                Spacer(minLength: 0)
-            }
-        }
-        .widgetURL(URL(string: "loom://quotas"))
-    }
-
-    private func providerSection(_ provider: ProviderWidgetSummary) -> some View {
-        Link(destination: URL(string: "loom://provider/\(provider.id)")!) {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 4) {
-                    Text(provider.displayName)
-                        .font(WidgetQuotaTypography.largeProviderName)
-                    Spacer(minLength: 0)
-                    if !provider.isEnabled {
-                        Text("Monitoring off")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    } else if provider.usageStatus == .unsupported {
-                        Text("Quota not supported")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    } else if provider.usageStatus == .unavailable {
-                        Text("Quota unavailable")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    } else if provider.usageStatus == .stale || (entry.snapshot?.isStale(at: entry.date) == true) {
-                        Text("Saved data")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if !provider.isEnabled {
-                    Text("Enable this provider in Loom.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                } else if provider.usageStatus == .unsupported {
-                    Text("Quota not supported for this provider.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                } else if provider.usageStatus == .unavailable {
-                    Text("Quota unavailable. Open Loom to update.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                } else {
-                    let windows = provider.allQuotaWindows
-                    if windows.isEmpty {
-                        Text("Quota unavailable")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        let maxRows = 3
-                        let displayed = Array(windows.prefix(maxRows))
-                        let overflow = windows.count - displayed.count
-
-                        VStack(spacing: 4) {
-                            ForEach(displayed) { window in
-                                quotaRow(window, provider: provider)
-                            }
-                            if overflow > 0 {
-                                HStack {
-                                    Spacer()
-                                    Text("+\(overflow) more \(overflow == 1 ? "limit" : "limits")")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func quotaRow(_ window: WidgetQuotaWindow, provider: ProviderWidgetSummary) -> some View {
-        let cached = provider.usageStatus == .stale || entry.snapshot?.isStale(at: entry.date) == true
-            || entry.date.timeIntervalSince(window.observedAt) > 900
-        return HStack(alignment: .center, spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(window.label)
-                    .font(WidgetQuotaTypography.largeWindowLabel)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                if cached {
-                    Text("Saved")
-                        .font(WidgetQuotaTypography.largeReset)
-                        .foregroundStyle(.secondary)
-                } else if let reset = window.resetsAt {
-                    Text(reset > entry.date ? "Resets in \(resetInterval(reset))" : "Awaiting reset update")
-                        .font(WidgetQuotaTypography.largeReset)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                } else {
-                    Text("Reset time unavailable")
-                        .font(WidgetQuotaTypography.largeReset)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .frame(width: 105, alignment: .leading)
-
-            if let percent = window.percentRemaining {
-                RemainingBar(percent: percent, cached: cached, height: 4)
-                Text("\(percent)% left")
-                    .font(WidgetQuotaTypography.largePercentage)
-                    .foregroundStyle(.primary)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            } else {
-                GeometryReader { _ in
-                    Capsule().fill(.secondary.opacity(0.18))
-                }
-                .frame(height: 4)
-                Text("Unavailable")
-                    .font(WidgetQuotaTypography.largeReset)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func resetInterval(_ date: Date) -> String {
-        let minutes = max(1, Int(date.timeIntervalSince(entry.date) / 60))
-        if minutes >= 1440 { return "\(minutes / 1440)d \((minutes % 1440) / 60)h" }
-        if minutes >= 60 { return "\(minutes / 60)h \(minutes % 60)m" }
-        return "\(minutes)m"
+        LoomQuotaWidgetView(entry: entry, aggregateTitle: "Overview")
     }
 }
 
@@ -1024,7 +947,7 @@ struct LoomUsageOverviewWidget: Widget {
             LoomUsageOverviewEntryView(entry: $0)
         }
         .configurationDisplayName("Loom Usage Overview")
-        .description("Quota progress across all supported providers.")
+        .description("Session activity and quota headroom across your local providers.")
         .supportedFamilies([.systemMedium, .systemLarge])
         .contentMarginsDisabled()
     }
@@ -1055,3 +978,17 @@ public func _export_LoomUsageOverviewMediumView() {}
 
 @_cdecl("LoomUsageOverviewLargeView")
 public func _export_LoomUsageOverviewLargeView() {}
+
+#if DEBUG
+#Preview("Large Quotas", as: .systemLarge) {
+    LoomQuotasWidget()
+} timeline: {
+    LoomWidgetEntry(date: .now, snapshot: .preview, readResult: .success(.preview))
+}
+
+#Preview("Medium Overview", as: .systemMedium) {
+    LoomUsageOverviewWidget()
+} timeline: {
+    LoomWidgetEntry(date: .now, snapshot: .preview, readResult: .success(.preview))
+}
+#endif

@@ -46,9 +46,9 @@ final class AppVersionTests: XCTestCase {
         XCTAssertEqual(version.marketingVersion, AppVersion.fallbackMarketingVersion)
         XCTAssertEqual(version.buildVersion, "dev")
         XCTAssertTrue(version.isDevelopmentBuild)
-        XCTAssertEqual(version.menuBarString, "v1.0-dev")
-        XCTAssertEqual(version.aboutString, "Version 1.0 (Dev)")
-        XCTAssertEqual(version.menuBarAccessibilityLabel, "Loom, version 1.0 development")
+        XCTAssertEqual(version.menuBarString, "v2.0.0-dev")
+        XCTAssertEqual(version.aboutString, "Version 2.0.0 (Dev)")
+        XCTAssertEqual(version.menuBarAccessibilityLabel, "Loom, version 2.0.0 development")
     }
 
     func testResolveFromEmptyInfoDictionaryGracefulFallback() {
@@ -57,8 +57,8 @@ final class AppVersionTests: XCTestCase {
         XCTAssertEqual(version.marketingVersion, AppVersion.fallbackMarketingVersion)
         XCTAssertEqual(version.buildVersion, "dev")
         XCTAssertTrue(version.isDevelopmentBuild)
-        XCTAssertEqual(version.menuBarString, "v1.0-dev")
-        XCTAssertEqual(version.aboutString, "Version 1.0 (Dev)")
+        XCTAssertEqual(version.menuBarString, "v2.0.0-dev")
+        XCTAssertEqual(version.aboutString, "Version 2.0.0 (Dev)")
     }
 
     func testResolveWithWhitespaceTrimming() {

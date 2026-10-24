@@ -15,21 +15,37 @@ public struct ProviderSectionView: View {
     public let showsUsage: Bool
     public let expandedSessionIds: Set<String>
     public let settings: LoomSettings?
+    public let sessions: [AgentSession]?
+    public let searchText: String
+    public let selectedFilter: SessionFilterCriterion
+    public let onClearFilters: (() -> Void)?
+    public let onSessionExpansionChange: ((String, Bool) -> Void)?
     @State private var isShowingAdditionalQuotas = false
-    @State private var isShowingDiagnostics = false
+    @State private var isShowingRecentFinished = false
+    @State private var isShowingUnidentifiedProcesses = false
 
     public init(
         snapshot: ProviderSnapshot,
         showsSessions: Bool = true,
         showsUsage: Bool = true,
         expandedSessionIds: Set<String> = [],
-        settings: LoomSettings? = nil
+        settings: LoomSettings? = nil,
+        sessions: [AgentSession]? = nil,
+        searchText: String = "",
+        selectedFilter: SessionFilterCriterion = .all,
+        onClearFilters: (() -> Void)? = nil,
+        onSessionExpansionChange: ((String, Bool) -> Void)? = nil
     ) {
         self.snapshot = snapshot
         self.showsSessions = showsSessions
         self.showsUsage = showsUsage
         self.expandedSessionIds = expandedSessionIds
         self.settings = settings
+        self.sessions = sessions
+        self.searchText = searchText
+        self.selectedFilter = selectedFilter
+        self.onClearFilters = onClearFilters
+        self.onSessionExpansionChange = onSessionExpansionChange
     }
 
     private var status: (label: String, color: Color) {
@@ -42,15 +58,107 @@ public struct ProviderSectionView: View {
     }
 
     private var visibleSessions: [AgentSession] {
+        if let sessions { return sessions }
         if let settings {
             return snapshot.sessions.filter { settings.shouldInclude(session: $0) }
         }
         return snapshot.sessions
     }
 
+    private var attentionSessions: [AgentSession] {
+        visibleSessions.filter { $0.state == .waiting || $0.state == .failed }
+    }
+
+    private var activeSessions: [AgentSession] {
+        visibleSessions
+            .filter { $0.state == .working || $0.state == .starting || $0.state == .idle || $0.state == .unknown }
+            .sorted { lhs, rhs in
+                let lhsRank = activeSessionRank(lhs)
+                let rhsRank = activeSessionRank(rhs)
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+                let lhsDate = lhs.lastActivityAt ?? lhs.startedAt ?? .distantPast
+                let rhsDate = rhs.lastActivityAt ?? rhs.startedAt ?? .distantPast
+                if lhsDate != rhsDate { return lhsDate > rhsDate }
+                return lhs.id < rhs.id
+            }
+    }
+
+    // Only collapse the discovery engine's bare-process fallback. An unknown
+    // lifecycle state alone does not mean a session lacks a meaningful identity.
+    private var unidentifiedSessions: [AgentSession] {
+        activeSessions.filter { session in
+            let name = session.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let fallbackNames = ["", "\(session.provider.displayName) Session", "\(session.provider.rawValue.capitalized) Session", "Agent Session"]
+            return session.state == .unknown
+                && session.projectPath == nil
+                && (session.providerSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && (session.branch?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && (session.summary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && fallbackNames.contains(name)
+                && session.processCount > 0
+                && session.discoveryEvidence.contains(
+                    "State: Unknown (bare process without worker subprocesses or session metadata)"
+                )
+        }
+    }
+
+    private var individuallyShownActiveSessions: [AgentSession] {
+        guard unidentifiedSessions.count > 1 else { return activeSessions }
+        let collapsedIDs = Set(unidentifiedSessions.map(\.id))
+        return activeSessions.filter { !collapsedIDs.contains($0.id) }
+    }
+
+    private var unidentifiedProcessesDisclosure: some View {
+        DisclosureGroup(isExpanded: $isShowingUnidentifiedProcesses) {
+            VStack(spacing: 3) {
+                ForEach(unidentifiedSessions) { session in
+                    SessionRowView(
+                        session: session,
+                        isExpanded: expandedSessionIds.contains(session.id),
+                        hideProjectPaths: settings?.hideProjectPaths ?? false,
+                        onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
+                    )
+                }
+            }
+            .padding(.top, 4)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(unidentifiedSessions.reduce(0) { $0 + $1.processCount }) unidentified \(snapshot.displayName) processes")
+                    .font(.system(size: 11, weight: .medium))
+                Text("No session or workspace identified")
+                    .font(.system(size: 10.5))
+                if let latestActivity = unidentifiedSessions.compactMap(\.lastActivityAt).max() {
+                    HStack(spacing: 3) {
+                        Text("Latest activity")
+                        Text(latestActivity, style: .relative)
+                        Text("ago")
+                    }
+                    .font(.system(size: 10.5))
+                }
+            }
+            .foregroundStyle(.secondary)
+        }
+        .tint(.secondary)
+        .padding(.vertical, 4)
+    }
+
+    private func activeSessionRank(_ session: AgentSession) -> Int {
+        switch session.state {
+        case .working, .starting: return 0
+        case .idle: return 1
+        default: return 2
+        }
+    }
+
+    private var finishedSessions: [AgentSession] {
+        visibleSessions.filter { $0.state == .finished }
+    }
+
     public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            providerHeader
+        VStack(alignment: .leading, spacing: 10) {
+            if showsUsage {
+                providerHeader
+            }
 
             if showsUsage {
                 if let usage = snapshot.usage {
@@ -58,6 +166,8 @@ public struct ProviderSectionView: View {
                     if let error = usage.errorMessage ?? snapshot.usageErrorMessage, !error.isEmpty {
                         issueNotice(.usage(hasSavedData: true), details: error, color: .orange)
                     }
+                } else if snapshot.id == .claude {
+                    claudeQuotaNotice
                 } else if let error = snapshot.usageErrorMessage, !error.isEmpty {
                     issueNotice(.usage(hasSavedData: false), details: error, color: .orange)
                 } else if snapshot.availability.isAvailable && !snapshot.isRefreshing {
@@ -73,61 +183,120 @@ public struct ProviderSectionView: View {
                 notice(sanitizedNotice(reason), symbol: "exclamationmark.triangle", color: .orange)
             }
 
-            // Render any sessions supplied by the snapshot alongside provider notices.
+            // Render sessions with priority hierarchy
             if showsSessions {
                 if !visibleSessions.isEmpty {
-                    if showsUsage && snapshot.usage != nil { Divider() }
-                    Text("Recent sessions")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    VStack(spacing: 8) {
-                        ForEach(visibleSessions) { session in
-                            SessionRowView(
-                                session: session,
-                                isExpanded: expandedSessionIds.contains(session.id),
-                                hideProjectPaths: settings?.hideProjectPaths ?? false
-                            )
+                    if showsUsage && snapshot.usage != nil { Divider().opacity(0.4) }
+
+                    // 1. Attention Sessions (Waiting for input or Failed) appear first
+                    if !attentionSessions.isEmpty {
+                        HStack(spacing: 5) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                            Text("Needs Attention (\(attentionSessions.count))")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.orange)
+                        }
+                        .padding(.top, 2)
+
+                        VStack(spacing: 3) {
+                            ForEach(attentionSessions) { session in
+                                SessionRowView(
+                                    session: session,
+                                    isExpanded: expandedSessionIds.contains(session.id),
+                                    hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                    onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
+                                )
+                            }
                         }
                     }
+
+                    // 2. Active Sessions (Working / Starting / Idle / Unknown)
+                    if !activeSessions.isEmpty {
+                        if !attentionSessions.isEmpty {
+                            Text("Active Sessions (\(activeSessions.count))")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 3)
+                        }
+
+                        VStack(spacing: 3) {
+                            ForEach(individuallyShownActiveSessions) { session in
+                                SessionRowView(
+                                    session: session,
+                                    isExpanded: expandedSessionIds.contains(session.id),
+                                    hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                    onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
+                                )
+                            }
+                        }
+                    }
+
+                    if unidentifiedSessions.count > 1 {
+                        unidentifiedProcessesDisclosure
+                    }
+
+                    // 3. Completed Sessions (Finished)
+                    if !finishedSessions.isEmpty {
+                        if attentionSessions.isEmpty && activeSessions.isEmpty {
+                            VStack(spacing: 3) {
+                                ForEach(finishedSessions) { session in
+                                    SessionRowView(
+                                        session: session,
+                                        isExpanded: expandedSessionIds.contains(session.id),
+                                        hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                        onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
+                                    )
+                                }
+                            }
+                        } else {
+                            // Compact collapsible section so finished runs do not dominate popover
+                            DisclosureGroup(isExpanded: $isShowingRecentFinished) {
+                                VStack(spacing: 3) {
+                                    ForEach(finishedSessions) { session in
+                                        SessionRowView(
+                                            session: session,
+                                            isExpanded: expandedSessionIds.contains(session.id),
+                                            hideProjectPaths: settings?.hideProjectPaths ?? false,
+                                            onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
+                                        )
+                                    }
+                                }
+                                .padding(.top, 4)
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "checkmark.circle")
+                                        .font(.system(size: 10.5))
+                                    Text("Recent Completed Sessions (\(finishedSessions.count))")
+                                        .font(.system(size: 11, weight: .medium))
+                                }
+                                .foregroundStyle(.secondary)
+                            }
+                            .tint(.secondary)
+                        }
+                    }
+                } else if sessions != nil {
+                    SessionFilterEmptyStateView(
+                        query: searchText,
+                        filter: selectedFilter,
+                        onClearFilters: onClearFilters
+                    )
                 } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil && !snapshot.isRefreshing {
-                    Text("No recent sessions")
+                    Text("No active sessions")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
-                        .padding(.vertical, 2)
+                        .padding(.vertical, 4)
                 }
 
-                // Expose Developer Discovery Diagnostics
-                if let diag = snapshot.diagnostics {
-                    DisclosureGroup(isExpanded: $isShowingDiagnostics) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            diagRow("Processes detected", value: "\(diag.processesDetected)")
-                            diagRow("Logical sessions", value: "\(diag.logicalSessions)")
-                            diagRow("Workspaces resolved", value: "\(diag.workspacesResolved)/\(max(diag.logicalSessions, 1))")
-                            diagRow("Metadata status", value: diag.metadataStatus.rawValue.capitalized)
-                            if let dur = diag.discoveryDurationMsFormatted {
-                                diagRow("Discovery duration", value: dur)
-                            }
-                            if let err = diag.metadataError {
-                                let errVal = (settings?.hideProjectPaths ?? false) ? "Error details hidden by privacy setting" : err
-                                diagRow("Metadata error", value: errVal)
-                            }
-                        }
-                        .padding(.top, 6)
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "wrench.and.screwdriver")
-                                .font(.system(size: 11))
-                            Text("Discovery Diagnostics")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .foregroundStyle(.secondary)
-                    }
-                    .tint(.secondary)
-                }
+                DiagnosticsDisclosureView(
+                    snapshot: snapshot,
+                    hideProjectPaths: settings?.hideProjectPaths ?? false
+                )
             }
 
             if showsUsage, let usage = snapshot.usage, !usage.additionalGroups.isEmpty {
-                Divider()
+                Divider().padding(.vertical, 4)
                 DisclosureGroup(isExpanded: $isShowingAdditionalQuotas) {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(usage.additionalGroups) { group in
@@ -152,6 +321,28 @@ public struct ProviderSectionView: View {
         .accessibilityLabel("\(snapshot.displayName) section")
     }
 
+    private var claudeQuotaNotice: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Quota monitoring not exposed by CLI")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text("Claude Code does not provide a local quota command or telemetry endpoint.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .loomCard(cornerRadius: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Quota monitoring not exposed by CLI. Claude Code does not provide a local quota command or telemetry endpoint.")
+    }
+
     private func issueNotice(_ issue: ProviderIssue, details: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Label(issue.title, systemImage: "exclamationmark.triangle")
@@ -168,7 +359,7 @@ public struct ProviderSectionView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+        .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func sanitizedNotice(_ text: String) -> String {
@@ -178,58 +369,35 @@ public struct ProviderSectionView: View {
         return text
     }
 
-    private func diagRow(_ label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .frame(width: 140, alignment: .leading)
-            Text(value)
-                .foregroundStyle(.primary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .font(.system(size: 12))
-    }
-
     private var providerHeader: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                providerTitle.fixedSize()
-                statusBadge.fixedSize()
-                Spacer(minLength: 4)
-                planBadge
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    providerTitle
-                    Spacer(minLength: 4)
-                    planBadge
-                }
-                statusBadge
-            }
-        }
-    }
+        HStack(alignment: .center, spacing: 6) {
+            ProviderIconView(providerID: snapshot.id, size: 13)
 
-    private var providerTitle: some View {
-        Text(snapshot.displayName)
-            .font(.system(size: 18, weight: .semibold))
-            .fixedSize(horizontal: false, vertical: true)
+            Text(snapshot.displayName)
+                .font(.system(size: 13, weight: .semibold))
+
+            statusBadge
+
+            Spacer(minLength: 4)
+
+            planBadge
+        }
+        .padding(.vertical, 2)
     }
 
     private var statusBadge: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 3.5) {
             if status.label == "Checking" {
                 ProgressView().controlSize(.mini)
             } else {
-                Circle().fill(status.color).frame(width: 7, height: 7)
+                Circle().fill(status.color).frame(width: 5, height: 5)
             }
-            Text(status.label).font(.system(size: 11, weight: .medium))
+            Text(status.label).font(.system(size: 10, weight: .medium))
         }
         .foregroundStyle(status.color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(status.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 5.5)
+        .padding(.vertical, 1.5)
+        .background(status.color.opacity(0.10), in: Capsule())
         .help("Local provider availability; this does not confirm account authentication")
     }
 
@@ -237,32 +405,33 @@ public struct ProviderSectionView: View {
     private var planBadge: some View {
         if showsUsage, let plan = snapshot.usage?.planType, !plan.isEmpty {
             Text(plan)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1.5)
+                .background(Color.primary.opacity(0.06), in: Capsule())
                 .help(plan)
         }
     }
 
     @ViewBuilder
     private func primaryQuotas(_ usage: ProviderUsageSnapshot) -> some View {
-        if let primary = usage.primaryBucket, let secondary = usage.secondaryBucket {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(spacing: 8) {
+            if let primary = usage.primaryBucket {
                 quotaCard(primary, usage: usage)
+            }
+            if let secondary = usage.secondaryBucket {
                 quotaCard(secondary, usage: usage)
             }
-        } else if let bucket = usage.primaryBucket ?? usage.secondaryBucket {
-            quotaCard(bucket, usage: usage)
-        } else if usage.additionalGroups.allSatisfy({ $0.buckets.isEmpty }),
-                  usage.errorMessage == nil, snapshot.usageErrorMessage == nil,
-                  snapshot.availability.isAvailable, !snapshot.isRefreshing {
-            Text("No quota data available")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            if usage.primaryBucket == nil && usage.secondaryBucket == nil {
+                if usage.additionalGroups.allSatisfy({ $0.buckets.isEmpty }),
+                   usage.errorMessage == nil, snapshot.usageErrorMessage == nil,
+                   snapshot.availability.isAvailable, !snapshot.isRefreshing {
+                    Text("No quota data available")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -286,6 +455,6 @@ public struct ProviderSectionView: View {
         .font(.system(size: 11))
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(9)
-        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }

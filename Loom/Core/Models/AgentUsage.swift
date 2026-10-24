@@ -24,12 +24,16 @@ public struct UsageBucket: Identifiable, Hashable, Equatable, Sendable {
     /// Window duration in minutes, if known (e.g. 300 for 5 hours, 10080 for 7 days).
     public let windowDurationMins: Int?
 
+    /// Measured from two fresh observations of this exact quota window.
+    public let observedPacing: QuotaPacing?
+
     public init(
         identifier: String,
         label: String,
         usedFraction: Double?,
         resetsAt: Date? = nil,
-        windowDurationMins: Int? = nil
+        windowDurationMins: Int? = nil,
+        observedPacing: QuotaPacing? = nil
     ) {
         self.identifier = identifier
         self.label = label
@@ -44,6 +48,7 @@ public struct UsageBucket: Identifiable, Hashable, Equatable, Sendable {
         }
         self.resetsAt = resetsAt
         self.windowDurationMins = windowDurationMins
+        self.observedPacing = observedPacing
     }
 
     /// Remaining fraction (1.0 - usedFraction), or nil if usedFraction is unknown.
@@ -164,5 +169,61 @@ public struct ProviderUsageSnapshot: Hashable, Equatable, Sendable {
             result.append(contentsOf: group.buckets)
         }
         return result
+    }
+}
+
+
+/// A recent measured consumption rate, not a forecast of the rest of the window.
+public struct QuotaPacing: Hashable, Equatable, Sendable {
+    public let usedFractionPerHour: Double
+    public let sampleInterval: TimeInterval
+    public let observedAt: Date
+    public let resetsAt: Date
+}
+
+extension ProviderUsageSnapshot {
+    /// Samples must have increasing timestamps and belong to the same known window.
+    /// Failures, missing timing, counter corrections and resets break the baseline.
+    public func withObservedPacing(comparedTo previous: ProviderUsageSnapshot?) -> ProviderUsageSnapshot {
+        func enriched(_ bucket: UsageBucket) -> UsageBucket {
+            var pacing: QuotaPacing?
+            if !isStale, errorMessage == nil,
+               let previous, previous.providerID == providerID,
+               !previous.isStale, previous.errorMessage == nil,
+               allBuckets.filter({ $0.identifier == bucket.identifier }).count == 1 {
+                let matches = previous.allBuckets.filter { $0.identifier == bucket.identifier }
+                if matches.count == 1, let before = matches.first,
+                   let duration = bucket.windowDurationMins, duration > 0,
+                   before.windowDurationMins == duration,
+                   let reset = bucket.resetsAt, before.resetsAt == reset,
+                   let used = bucket.usedFraction, let priorUsed = before.usedFraction,
+                   used >= priorUsed {
+                    let interval = updatedAt.timeIntervalSince(previous.updatedAt)
+                    let start = reset.addingTimeInterval(-Double(duration) * 60)
+                    if interval >= 30, updatedAt < reset, previous.updatedAt >= start {
+                        pacing = QuotaPacing(
+                            usedFractionPerHour: (used - priorUsed) * 3600 / interval,
+                            sampleInterval: interval,
+                            observedAt: updatedAt,
+                            resetsAt: reset
+                        )
+                    }
+                }
+            }
+            return UsageBucket(
+                identifier: bucket.identifier, label: bucket.label,
+                usedFraction: bucket.usedFraction, resetsAt: bucket.resetsAt,
+                windowDurationMins: bucket.windowDurationMins, observedPacing: pacing
+            )
+        }
+        return ProviderUsageSnapshot(
+            providerID: providerID, updatedAt: updatedAt, planType: planType,
+            primaryBucket: primaryBucket.map(enriched),
+            secondaryBucket: secondaryBucket.map(enriched),
+            additionalGroups: additionalGroups.map {
+                UsageGroup(identifier: $0.identifier, label: $0.label, buckets: $0.buckets.map(enriched))
+            },
+            isStale: isStale, errorMessage: errorMessage
+        )
     }
 }

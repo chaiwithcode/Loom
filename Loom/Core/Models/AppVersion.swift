@@ -13,7 +13,7 @@ public struct AppVersion: Equatable, Hashable, Sendable {
     public let buildVersion: String?
     public let isDevelopmentBuild: Bool
 
-    public static let fallbackMarketingVersion = "1.0"
+    public static let fallbackMarketingVersion = "2.0.0"
 
     public init(
         marketingVersion: String,

@@ -111,11 +111,15 @@ extension View {
 
 struct LoomPanelMaterial: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         if reduceTransparency {
             Color(nsColor: .windowBackgroundColor)
+        } else if #available(macOS 26.0, *) {
+            // The MenuBarExtra window owns the panel backdrop on Tahoe.
+            Color.clear
         } else {
-            Rectangle().fill(.regularMaterial)
+            Rectangle().fill(.ultraThinMaterial)
         }
     }
 }

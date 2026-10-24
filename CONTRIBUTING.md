@@ -18,6 +18,16 @@ swift test --disable-sandbox --skip 'testRealAntigravityDiscoverySmokeTest'
 
 The live Antigravity discovery smoke test (`testRealAntigravityDiscoverySmokeTest`) requires a local Antigravity installation and SQLite database, and is excluded in environments lacking local agent state. The SIGTERM-resistant cancellation regression test (`testDefaultCodexAppServerTransportSigtermResistantCancellation`) is verified passing and is included in portable test runs. Running `swift test` locally without skips executes the full test suite. Some live usage checks additionally require `ENABLE_LIVE_SMOKE_TESTS=1`; never describe a skipped check as a pass. Remote CI execution has not yet been verified.
 
+### Running and Adding Regression Tests
+
+Regression tests live in `Tests/LoomRegressionTests/` and run under target/scheme `LoomRegressionTests`:
+
+- **CLI**:
+  - `swift test --filter 'LoomRegressionTests.*'`
+  - `xcodebuild test -project Loom.xcodeproj -scheme LoomRegressionTests -destination 'platform=macOS'`
+- **Xcode**: Run the `LoomRegressionTests` scheme (`⌘U`), or select individual regression tests in Xcode's Test Navigator (`⌘6`). The primary `Loom` scheme also includes this target in its Test action.
+- **Adding new tests**: Add new regression cases to `Tests/LoomRegressionTests/` (or extend `LoomRegressionTestSuite.swift`). Maintain the canonical file header (`AGENTS.md`) and import `@testable import LoomCore`.
+
 For menu changes, run `bash scripts/verify-menu-sizing.sh`, then open the packaged app and inspect narrow layouts, long lists, empty/error states, tab switches and repeated refresh. Report what you actually ran and any gaps.
 
 Parser changes should include synthetic fixtures proving normalization and malformed/missing data handling. Never commit real transcripts, account identifiers, credentials, databases, or full configuration files. Use generic paths and scrub screenshots. Preserve errors rather than suppressing them to make tests pass.

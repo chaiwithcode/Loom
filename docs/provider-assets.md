@@ -28,30 +28,30 @@ This document records the origin, verification, and trademark ownership of third
 
 ### 2. Claude Code
 
-- **Provider**: Anthropic
-- **Official Source**: Anthropic brand guidelines and official Claude mark (`https://upload.wikimedia.org/wikipedia/commons/b/b0/Claude_AI_symbol.svg`)
-- **Downloaded / Reviewed Date**: 2026-10-17
-- **Original Filename**: `Claude_AI_symbol.svg`
-- **Local Filename**: `Resources/provider-claude.png`
-- **Asset Format**: 128 × 128 RGBA PNG with alpha transparency
-- **Transformation**: Rendered as a clean high-resolution monochrome silhouette from the official 14-point sunburst vector path to support native macOS template rendering.
-- **Rendering Style**: Template rendering (`.renderingMode(.template)`) adapting to light and dark appearance with native `.secondary` foreground emphasis.
-- **SHA-256 Checksum**:
-  `faf02d8efb01b5393706a5acc4cec50756c9469a60514b6e8d276b7785f2984c`
-- **Trademark Notice**: Claude and the Claude logo are trademarks of Anthropic, PBC.
+- **Asset source**: [LobeHub Lobe Icons colour SVG](https://raw.githubusercontent.com/lobehub/lobe-icons/21b2144f4ebe87ead9b7c0e10067759ae261b03e/packages/static-svg/icons/claude-color.svg), a third-party icon collection; not an official brand asset distribution.
+- **Revision**: `21b2144f4ebe87ead9b7c0e10067759ae261b03e`
+- **Retrieved**: 2026-10-21
+- **Source file**: `Resources/ProviderSources/claude.svg` (original SVG bytes retained)
+- **App resource**: `Resources/provider-claude.pdf`
+- **Transformation**: SVG exported to a transparent vector PDF with `rsvg-convert`; no recolouring or background tile added.
+- **Rendering**: Original colours, not macOS template tinting. PDF is decoded by AppKit; SVG needs no runtime library.
+- **SVG SHA-256**: `a3101f3047a119aa11825ad9369510f0c472428c8c52d420e31bc62db44a8364`
+- **PDF SHA-256**: `4b07b198a53cfcd711b304a6129920fe7cd3028abee8eaa7211517ae1447bd9e`
+- **Collection license**: MIT; notice preserved in `Resources/ProviderSources/LICENSE.lobehub`.
+- **Trademark ownership**: Claude Code and its logo remain trademarks of Anthropic, PBC. Use identifies a supported provider and implies no affiliation or endorsement.
 
 ---
 
 ### 3. Antigravity
 
-- **Provider**: Google DeepMind
-- **Official Source**: Official Google Antigravity application for macOS (`/Applications/Antigravity.app/Contents/Resources/app.asar` -> `trayTemplate@2x.png`)
-- **Downloaded / Reviewed Date**: 2026-10-17
-- **Original Filename**: `trayTemplate@2x.png`
-- **Local Filename**: `Resources/provider-antigravity.png`
-- **Asset Format**: 44 × 44 RGBA PNG (template @2x)
-- **Transformation**: Unmodified. The official monochrome arch template is used for native macOS menu-bar template presentation.
-- **Rendering Style**: Template rendering (`.renderingMode(.template)`) adapting to light and dark appearance with native `.secondary` foreground emphasis.
-- **SHA-256 Checksum**:
-  `b7b65a06eb3a4e539f42f5f9ded84eb70df80d8e947346866a8b0ecaea064e13`
-- **Trademark Notice**: Google, DeepMind, Antigravity, and the Antigravity mark are trademarks of Google LLC.
+- **Asset source**: [LobeHub Lobe Icons colour SVG](https://raw.githubusercontent.com/lobehub/lobe-icons/21b2144f4ebe87ead9b7c0e10067759ae261b03e/packages/static-svg/icons/antigravity-color.svg), a third-party icon collection; not an official brand asset distribution.
+- **Revision**: `21b2144f4ebe87ead9b7c0e10067759ae261b03e`
+- **Retrieved**: 2026-10-21
+- **Source file**: `Resources/ProviderSources/antigravity.svg` (original SVG bytes retained)
+- **App resource**: `Resources/provider-antigravity.png`
+- **Transformation**: SVG exported to a transparent 256 × 256 PNG with `rsvg-convert`; no recolouring or background tile added. The PDF export rendered fully transparent in AppKit because of its complex mask/filter content.
+- **Rendering**: Original colours, not macOS template tinting. PNG is decoded by AppKit; the original SVG remains the editable source.
+- **SVG SHA-256**: `652128cf55a28bb958563ee372d0bd00208d9e6fd446f523f77aafd811eef8ca`
+- **PNG SHA-256**: `27199854d93034707ed5c0a4e78ba6a78926ed92586d0e49d4a910dd6110d8ec`
+- **Collection license**: MIT; notice preserved in `Resources/ProviderSources/LICENSE.lobehub`.
+- **Trademark ownership**: Antigravity and its logo remain trademarks of Google LLC. Use identifies a supported provider and implies no affiliation or endorsement.

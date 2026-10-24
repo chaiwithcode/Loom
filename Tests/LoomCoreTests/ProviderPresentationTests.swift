@@ -7,6 +7,7 @@
 //
 
 import XCTest
+import AppKit
 @testable import LoomCore
 
 final class ProviderPresentationTests: XCTestCase {
@@ -23,7 +24,7 @@ final class ProviderPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.id, .claude)
         XCTAssertEqual(presentation.displayName, "Claude Code")
         XCTAssertEqual(presentation.iconAssetName, "provider-claude")
-        XCTAssertEqual(presentation.iconRenderingMode, .template)
+        XCTAssertEqual(presentation.iconRenderingMode, .original)
     }
 
     func testAntigravityPresentation() {
@@ -31,7 +32,7 @@ final class ProviderPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.id, .antigravity)
         XCTAssertEqual(presentation.displayName, "Antigravity")
         XCTAssertEqual(presentation.iconAssetName, "provider-antigravity")
-        XCTAssertEqual(presentation.iconRenderingMode, .template)
+        XCTAssertEqual(presentation.iconRenderingMode, .original)
     }
 
     func testUnknownProviderFallback() {
@@ -89,6 +90,8 @@ final class ProviderPresentationTests: XCTestCase {
             // 4. Verify template flag matches presentation mode
             if isTemplate {
                 XCTAssertTrue(img.isTemplate, "Template image for '\(assetName)' must have isTemplate set to true")
+            } else {
+                XCTAssertFalse(img.isTemplate, "Brand artwork must preserve its original colours")
             }
 
             // 5. Provider-specific assertions
@@ -98,13 +101,14 @@ final class ProviderPresentationTests: XCTestCase {
                 XCTAssertEqual(img.size.width, 104.0)
                 XCTAssertEqual(img.size.height, 104.0)
             case .claude:
-                XCTAssertEqual(presentation.iconRenderingMode, .template)
+                XCTAssertEqual(presentation.iconRenderingMode, .original)
+                XCTAssertEqual(resolvedURL?.pathExtension, "pdf")
                 XCTAssertEqual(img.size.width, 128.0)
                 XCTAssertEqual(img.size.height, 128.0)
             case .antigravity:
-                XCTAssertEqual(presentation.iconRenderingMode, .template)
-                XCTAssertGreaterThanOrEqual(img.size.width, 22.0)
-                XCTAssertGreaterThanOrEqual(img.size.height, 22.0)
+                XCTAssertEqual(presentation.iconRenderingMode, .original)
+                XCTAssertEqual(resolvedURL?.pathExtension, "png")
+                XCTAssertGreaterThanOrEqual(img.representations.first?.pixelsWide ?? 0, 256)
             default:
                 break
             }
@@ -115,4 +119,22 @@ final class ProviderPresentationTests: XCTestCase {
         let missing = ProviderIconImage.image(named: "non_existent_provider_icon_404")
         XCTAssertNil(missing, "Lookup for missing asset must return nil without crashing")
     }
+    func testAntigravityIconActuallyDrawsVisiblePixels() throws {
+        let image = try XCTUnwrap(ProviderIconImage.image(named: "provider-antigravity"))
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil,
+            pixelsWide: 32, pixelsHigh: 32, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        image.draw(in: NSRect(x: 0, y: 0, width: 32, height: 32), from: .zero, operation: .copy, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
+        let visiblePixels = (0..<32).reduce(0) { total, y in
+            total + (0..<32).filter { x in
+                (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.05
+            }.count
+        }
+        XCTAssertGreaterThan(visiblePixels, 100, "A decodable logo must also render visibly with AppKit")
+    }
+
 }
