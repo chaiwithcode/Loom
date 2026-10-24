@@ -144,7 +144,7 @@ mkdir -p "${SIM_DIR}"
   # Stage files into SIM_DIR/site
   mkdir -p "${SIM_DIR}/site/docs" "${SIM_DIR}/site/Resources"
   cp -R pages/. "${SIM_DIR}/site/"
-  for asset in docs/menu-navigation-*.png docs/widget-showcase.png docs/loom-2.0-poster.png docs/loom-2.0-notifications.png docs/loom-2.0-captions.vtt; do
+  for asset in docs/menu-navigation-*.png docs/loom-2.0-desktop-*.png docs/widget-showcase.png docs/loom-2.0-poster.png docs/loom-2.0-notifications.png docs/loom-2.0-captions.vtt; do
     cp "$asset" "${SIM_DIR}/site/docs/"
   done
   [[ -f Resources/LoomIconMaster.png ]] && cp Resources/LoomIconMaster.png "${SIM_DIR}/site/Resources/"

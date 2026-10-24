@@ -34,3 +34,5 @@ Notification banners are genuine user-provided macOS captures from 24 October 20
 ## Website and README captures
 
 The current Sessions, Usage, Storage and widget images are the same audited native 2.0 captures used in the trailer. The [notification examples](loom-2.0-notifications.png) are genuine macOS banners captured from the explicit demo scenarios; their values are illustrative. The website includes an optional [English caption track](loom-2.0-captions.vtt). The film already contains visible subtitles, so this extra track is off by default to avoid duplicate text.
+
+The website Sessions, Usage and Storage visuals now use the user's full-desktop captures from the approved video (`loom-2.0-desktop-*.png`). CSS crops the surrounding desktop for readability while preserving its original wallpaper and native Liquid Glass; opening the image shows the untouched 1920×1080 source. No interface, wallpaper, values or translucency is reconstructed.

@@ -30,7 +30,7 @@ Loom includes signed updates through Sparkle. Check for updates from the Loom me
 
 The Sessions view brings agent activity into one place. Waiting and failed sessions are surfaced first, followed by working and idle sessions; recent sessions can be collapsed.
 
-<p align="center"><img src="docs/menu-navigation-sessions.png" width="380" alt="Loom 2.0 Sessions view with session states, provider filters, search, and activity filters"></p>
+<p align="center"><a href="docs/loom-2.0-desktop-sessions.png"><img src="docs/loom-2.0-window-sessions.png" width="380" alt="Loom 2.0 Sessions view with session states, provider filters, search, and activity filters"></a></p>
 
 Search by repository, branch, or host app, then filter by attention, working, or recent activity. Available actions include focusing the host app, copying process or session details, and revealing a workspace in Finder.
 
@@ -42,7 +42,7 @@ Loom supports session discovery for **OpenAI Codex**, **Google Antigravity**, an
 
 For Codex and Antigravity, Loom can show quota data available through their local interfaces and send threshold or reset notifications. Quota alerts support **15%** and **5%** thresholds. Claude Code does not expose quota through its upstream local interface. Quota readings are observations and may be unavailable when a provider cannot be reached.
 
-<p align="center"><img src="docs/menu-navigation-usage.png" width="380" alt="Loom 2.0 Usage view showing observed provider quota and reset information"></p>
+<p align="center"><a href="docs/loom-2.0-desktop-usage.png"><img src="docs/loom-2.0-window-usage.png" width="380" alt="Loom 2.0 Usage view showing observed provider quota and reset information"></a></p>
 
 Notifications can cover observed quota thresholds and session state changes. Finished alerts can be set to require a minimum observed working duration; Loom measures that duration while it is monitoring. Notification preferences and macOS permission choices are respected. Test-notification controls are available only in Debug builds.
 
@@ -52,7 +52,7 @@ Notifications can cover observed quota thresholds and session state changes. Fin
 
 Inspect local agent data with on-demand, read-only storage scans and per-folder breakdowns.
 
-<p align="center"><img src="docs/menu-navigation-storage.png" width="380" alt="Loom 2.0 Storage view showing local storage usage"></p>
+<p align="center"><a href="docs/loom-2.0-desktop-storage.png"><img src="docs/loom-2.0-window-storage.png" width="380" alt="Loom 2.0 Storage view showing local storage usage"></a></p>
 
 ## Widgets
 
@@ -63,7 +63,7 @@ Loom includes Sessions, Quotas, and Overview widgets for the desktop and Notific
   <br><sub>Widget previews use illustrative, privacy-safe demo data.</sub>
 </p>
 
-The session, usage, storage, widget, and notification screenshots on this page show the current 2.0 interface; session, quota, and storage values shown are illustrative demo data.
+The Sessions, Usage and Storage images are the original individual-window captures from the 2.0 video; click them to see the original desktop captures with native Liquid Glass. Widget previews and notification captures also show the current 2.0 interface; session, quota, and storage values shown are illustrative demo data.
 
 See [widget setup and verification](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
 
