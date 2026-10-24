@@ -1,11 +1,11 @@
 <p align="center"><img src="Resources/LoomIconMaster.png" width="144" alt="Three strands woven into one Loom"></p>
 <h1 align="center">Loom</h1>
 <p align="center"><strong>Three agents. One Loom.</strong><br>Monitor Codex, Claude Code, and Antigravity from one native macOS menu-bar app.<br><br>
-<strong><a href="https://chaiwithcode.github.io/Loom/">Website</a> &nbsp;·&nbsp; <a href="docs/loom-2.0-trailer.mp4">Watch Demo</a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom/releases/latest">Download</a></strong></p>
+<strong><a href="https://chaiwithcode.github.io/Loom/">Website</a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4">Watch Demo</a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom/releases/latest">Download</a></strong></p>
 
 <p align="center">
-  <a href="docs/loom-2.0-trailer.mp4"><img src="docs/loom-2.0-poster.png" width="860" alt="Watch the Loom 2.0 demo trailer"></a>
-  <br><sub>Loom 2.0 · Demo data is illustrative. <a href="docs/loom-2.0-trailer.mp4">Watch the 2.0 trailer</a>.</sub>
+  <a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4"><img src="docs/loom-2.0-poster.png" width="860" alt="Watch the Loom 2.0 demo trailer"></a>
+  <br><sub>Loom 2.0 · Demo data is illustrative. <a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4">Watch the 2.0 trailer</a>.</sub>
 </p>
 
 <p align="center">
@@ -24,6 +24,8 @@ When you run multiple local AI coding agents across background terminals, editor
 Loom gives you one clean, local-first menu-bar application to see which project each agent is working on and which session needs attention—without switching between terminals, browser dashboards, and apps. For quota-capable providers, Loom shows observed remaining quota and can warn at 15% and 5%; Claude Code quota is unsupported by its upstream local interface, so Loom does not invent a value.
 
 **Loom 2.0 — Liquid Glass & Smarter Monitoring** brings clearer session states, local quota warnings, and native desktop widgets. See the [2.0 release notes](docs/RELEASE_NOTES_v2.0.0.md); downloads always open the latest published release.
+
+The published 2.0.0 app supports Apple Silicon (`arm64`) on macOS 14 or later.
 
 Built with Swift and SwiftUI for macOS 14+. Featuring a native **Liquid Glass popover redesign**, **actionable desktop notifications**, **session productivity quick actions**, and **instant search & filtering**. Strictly local-first: no Loom account, no hosted backend, no analytics SDKs, and no third-party dependencies except official Sparkle 2 for signed, secure local updates.
 

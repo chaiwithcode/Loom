@@ -42,6 +42,7 @@ cask "chaiwithcode-loom" do
   homepage "https://github.com/chaiwithcode/Loom"
 
   auto_updates true
+  depends_on arch: :arm64
   depends_on macos: :sonoma
 
   app "Loom.app"
