@@ -30,3 +30,7 @@ Each demo alert is delayed by three seconds and requires macOS notification auth
 MacBook Pro photo mockup: [Plinth, Front / Silver](https://plinthmockups.com/?scene=macbook-11-silver). Commercial exports are permitted without credit; see [Plinth mockup terms](https://plinthmockups.com/macbook-mockup). The blank scene is not redistributed. The computer frame is for presentation only.
 
 Notification banners are genuine user-provided macOS captures from 24 October 2026, cropped without changing their content. The trailer's session and quota data are illustrative demo content.
+
+## Website and README captures
+
+The current Sessions, Usage, Storage and widget images are the same audited native 2.0 captures used in the trailer. The [notification examples](loom-2.0-notifications.png) are genuine macOS banners captured from the explicit demo scenarios; their values are illustrative. The website includes an optional [English caption track](loom-2.0-captions.vtt). The film already contains visible subtitles, so this extra track is off by default to avoid duplicate text.

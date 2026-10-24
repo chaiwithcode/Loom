@@ -10,6 +10,7 @@ on:
       - 'pages/**'
       - '.github/workflows/pages.yml'
       - 'docs/**'
+      - 'scripts/verify-website.py'
 
 concurrency:
   group: pages
@@ -39,19 +40,11 @@ jobs:
             cp -R pages/. site/
           fi
 
-          if [ -f docs/loom-demo-thumbnail.png ]; then
-            cp docs/loom-demo-thumbnail.png site/docs/
-          fi
-
-          for f in docs/menu-navigation-*.png; do
-            if [ -f "$f" ]; then
-              cp "$f" site/docs/
-            fi
+          # Current, audited product captures and accessible trailer captions.
+          for asset in docs/menu-navigation-*.png docs/widget-showcase.png docs/loom-2.0-poster.png docs/loom-2.0-notifications.png docs/loom-2.0-captions.vtt; do
+            test -s "$asset"
+            cp "$asset" site/docs/
           done
-
-          if [ -f docs/widget-showcase.png ]; then
-            cp docs/widget-showcase.png site/docs/
-          fi
 
           if [ -f Resources/LoomIconMaster.png ]; then
             cp Resources/LoomIconMaster.png site/Resources/
@@ -149,6 +142,9 @@ jobs:
             fi
             echo "Verified asset: ${asset} ($(wc -c < "${asset}" | tr -d ' ') bytes)"
           done
+
+      - name: Verify website references
+        run: python3 scripts/verify-website.py site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

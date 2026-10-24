@@ -1,186 +1,97 @@
 <p align="center"><img src="Resources/LoomIconMaster.png" width="144" alt="Three strands woven into one Loom"></p>
 <h1 align="center">Loom</h1>
-<p align="center"><strong>Three agents. One Loom.</strong><br>Monitor Codex, Claude Code, and Antigravity from one native macOS menu-bar app.<br><br>
-<strong><a href="https://chaiwithcode.github.io/Loom/">Website</a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4">Watch Demo</a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom/releases/latest">Download</a></strong></p>
+<p align="center"><strong>Your agents, at a glance.</strong><br>See what Codex, Claude Code, and Antigravity are doing on your Mac in one native menu bar app.<br><br>
+<strong><a href="https://github.com/chaiwithcode/Loom/releases/latest">Download Loom</a> &nbsp;·&nbsp; <a href="#installation">Installation</a> &nbsp;·&nbsp; <a href="https://chaiwithcode.github.io/Loom/">Website</a> &nbsp;·&nbsp; <a href="https://github.com/chaiwithcode/Loom">GitHub</a></strong></p>
 
 <p align="center">
-  <a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4"><img src="docs/loom-2.0-poster.png" width="860" alt="Watch the Loom 2.0 demo trailer"></a>
-  <br><sub>Loom 2.0 · Demo data is illustrative. <a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4">Watch the 2.0 trailer</a>.</sub>
+  <a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4"><img src="docs/loom-2.0-poster.png" width="860" alt="Watch the Loom 2.0 trailer"></a>
+  <br><sub><a href="https://github.com/chaiwithcode/Loom/releases/download/v2.0.0/Loom-Demo-16x9.mp4">Watch the Loom 2.0 trailer</a> · Session and quota examples are illustrative demo data.</sub>
 </p>
 
-<p align="center">
-  <a href="https://chaiwithcode.github.io/Loom/"><strong>Official Website</strong></a> &nbsp;•&nbsp;
-  <a href="https://github.com/chaiwithcode/Loom/releases/latest"><strong>Download for macOS (DMG)</strong></a> &nbsp;•&nbsp;
-  <a href="#homebrew-recommended"><strong>Install with Homebrew</strong></a> &nbsp;•&nbsp;
-  <a href="https://github.com/chaiwithcode/Loom/releases"><strong>GitHub Releases</strong></a>
-</p>
+Loom is a local-first macOS app for keeping track of local AI coding agent sessions. Check which sessions are working, waiting, idle, or need attention, and open diagnostics when discovery needs a closer look. Loom observes local processes and provider data; it does not control agents or edit your projects.
 
----
-
-## Why Loom?
-
-When you run multiple local AI coding agents across background terminals, editor extensions, and language servers, answering a simple question becomes surprisingly tedious: *"What are all my local AI coding agents doing on my Mac right now?"*
-
-Loom gives you one clean, local-first menu-bar application to see which project each agent is working on and which session needs attention—without switching between terminals, browser dashboards, and apps. For quota-capable providers, Loom shows observed remaining quota and can warn at 15% and 5%; Claude Code quota is unsupported by its upstream local interface, so Loom does not invent a value.
-
-**Loom 2.0 — Liquid Glass & Smarter Monitoring** brings clearer session states, local quota warnings, and native desktop widgets. See the [2.0 release notes](docs/RELEASE_NOTES_v2.0.0.md); downloads always open the latest published release.
-
-The published 2.0.0 app supports Apple Silicon (`arm64`) on macOS 14 or later.
-
-Built with Swift and SwiftUI for macOS 14+. Featuring a native **Liquid Glass popover redesign**, **actionable desktop notifications**, **session productivity quick actions**, and **instant search & filtering**. Strictly local-first: no Loom account, no hosted backend, no analytics SDKs, and no third-party dependencies except official Sparkle 2 for signed, secure local updates.
-
----
-
-## Local Agent Sessions & Productivity
-
-The **Sessions** tab answers *"what is happening right now?"* with attention-first prioritization and rich productivity tools:
-
-<p align="center">
-  <img src="docs/menu-navigation-sessions.png" width="380" alt="Loom 2.0 Sessions with Working and Idle states, provider selection, search, and filters">
-</p>
-
-- **Liquid Glass Redesign**: Native macOS 26+ popover styling adopting Apple's Liquid Glass (`.glassEffect`) with high-craft material fallbacks (`.ultraThinMaterial`) on macOS 14/15.
-- **Attention-First Prioritization**: Sessions requiring human input (`waiting`) or encountering errors (`failed`) are surfaced prominently at the top with high-contrast amber/red badges, ensuring pending decisions are never missed.
-- **Collapsible Recent Sessions**: Completed tasks tuck cleanly into a collapsible disclosure section, keeping active work front and center.
-- **Search & Filter Bar**: Filter sessions instantly using search queries (repository name, Git branch, or host app) or quick category chips (`All`, `Needs Attention`, `Working`, `Recent`).
-- **Productivity Quick Actions**:
-  - **Focus Terminal / IDE**: Brings the active host editor or terminal window (VS Code, Cursor, Terminal, iTerm2) directly to the front.
-  - **Copy PID**: Copies the root worker process identifier to the pasteboard.
-  - **Copy Repository Path**: Copies the project path (sanitized when privacy mode is active).
-  - **Copy Session ID**: Copies the upstream provider session token for correlation with external logs.
-  - **Reveal in Finder**: Direct disk navigation via macOS Finder.
-- **Strict Read-Only Safety**: Loom provides zero destructive controls (`kill`, `SIGTERM`, or prompt injection).
-
----
-
-## Native macOS Notifications
-
-Stay informed on background agent execution and quota exhaustion without polling or keeping the popover open:
-
-- **Quota Threshold Alerts**: Early warnings below **15%** and critical alerts below **5%** for observed Codex and Antigravity quota windows (5-hour and weekly, respectively). Claude Code quota is not exposed by its upstream local interface and is not included.
-- **Verified Replenishment Alerts**: Desktop notification when a fresh observation confirms quota has recovered to ~100% in a newly started window (never inferred purely from countdown timers).
-- **Session Lifecycle Transitions**: Actionable alerts when an agent transitions into **Waiting for Input**, **Finished**, or **Failed**.
-- **Hygiene & Persistent Deduplication**: Cross-restart deduplication keys prevent repeated alert spam across polling cycles. Silently seeds baseline state on launch to prevent notification storms.
-- **Privacy & Deep Linking**: File system paths in alerts are automatically masked when **Hide project paths** is active. Clicking a notification routes directly to the relevant provider and session in Loom.
-
----
-
-## Usage, Quotas & Local Storage
-
-Keep track of rate limits, pacing velocity, and on-disk footprint in one place:
-
-<p align="center">
-  <img src="docs/menu-navigation-usage.png" width="380" alt="Loom Usage tab showing provider quota windows and reset times">
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="docs/menu-navigation-storage.png" width="380" alt="Loom Storage tab showing measured local disk footprint">
-</p>
-
-- **Truthful Quotas & Pacing (Usage)**: View remaining quota percentages, consumption velocity, and exact reset dates/times. Missing or unsupported telemetry is never masked as healthy: Claude Code is truthfully marked as *Quota not supported* by upstream local interfaces, while Codex and Antigravity report verified live metrics.
-- **Local Disk Footprint (Storage)**: Measure on-disk agent caches, conversation transcripts, language server indices, and log files on demand across all providers with bounded, read-only scans. Displays clean comparative proportions and direct Finder navigation.
-
----
-
-## Native macOS Widgets
-
-Glance at agent sessions and quotas directly on your desktop or Notification Center with three native widgets:
-
-<p align="center">
-  <img src="docs/widget-showcase.png" width="860" alt="Loom 2.0 native widget previews: Quotas, Overview, and Sessions">
-  <br><sub>Native widget previews with privacy-safe demo data.</sub>
-</p>
-
-- **Loom Quotas** (Small, Medium, Large): Displays prominent remaining percentages and reset countdowns. Configurable via *Edit Widget* to monitor all enabled providers together or focus on a specific provider.
-- **Loom Sessions** (Small, Medium): Real-time view of active sessions, waiting-for-input alerts, and per-provider counters.
-- **Loom Usage Overview** (Medium, Large): Multi-column comparison (Medium) or detailed vertical breakdowns with granular model limits (Large).
-
-See [widget setup and verification guide](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
-
----
-
-## Supported Providers
-
-| Provider | Session Discovery | Quota / Usage | Local Storage | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **OpenAI Codex** | Running processes, process tree, and Git metadata | Local app-server interface (`stdio`) | Caches, sessions & logs | Production |
-| **Google Antigravity** | Local session metadata and language-server processes | Local loopback HTTPS interface with ephemeral token | Store, artifacts & logs | Production |
-| **Anthropic Claude Code** | Running processes, process tree, CLI detection, transcripts | Not exposed by upstream CLI | State, config & transcripts | Production |
-
-Normal launch registers **Codex, Claude Code, and Antigravity**. Process trees correlate child workers and helpers into exactly one logical session per repository task. Expandable discovery diagnostics report processes detected, logical sessions, workspace resolution ratio, metadata health, and discovery latency in milliseconds.
-
-*Loom is an independent open-source project and is not affiliated with or endorsed by OpenAI, Anthropic, or Google.*
-
----
+**Loom 2.0.0** supports Apple Silicon (`arm64`) and macOS 14 or later. See the [2.0 release notes](docs/RELEASE_NOTES_v2.0.0.md) for details.
 
 ## Installation
 
-### Homebrew (Recommended)
-
-Install Loom via the official [ChaiWithCode Homebrew Tap](https://github.com/chaiwithcode/homebrew-tap):
+### Homebrew
 
 ```bash
 brew install --cask chaiwithcode/tap/chaiwithcode-loom
 ```
 
-### Direct Download
+### Download
 
-1. Download **`Loom-1.0.dmg`** from [GitHub Releases](https://github.com/chaiwithcode/Loom/releases).
-2. Open the disk image.
-3. Drag **Loom.app** into your `/Applications` folder.
-4. Launch **Loom** from Applications or Spotlight.
+Download the latest **Loom** disk image from [GitHub Releases](https://github.com/chaiwithcode/Loom/releases/latest), open it, and drag **Loom.app** into Applications.
 
-### Software Updates
+Loom includes signed updates through Sparkle. Check for updates from the Loom menu or in **Settings → General**.
 
-Loom integrates native software updates powered by **Sparkle 2**. Updates are delivered over HTTPS from the official [GitHub Pages appcast feed](https://chaiwithcode.github.io/Loom/appcast.xml), cryptographically signed with EdDSA (Ed25519), and notarized by Apple.
+## Sessions
 
-You can check for updates anytime:
-- Via **Check for Updates…** in the Loom menu or Dock menu
-- In **Settings** (`⌘,`) under the **General** tab
+The Sessions view brings agent activity into one place. Waiting and failed sessions are surfaced first, followed by working and idle sessions; recent sessions can be collapsed.
 
----
+<p align="center"><img src="docs/menu-navigation-sessions.png" width="380" alt="Loom 2.0 Sessions view with session states, provider filters, search, and activity filters"></p>
 
-## Privacy & Local-First
+Search by repository, branch, or host app, then filter by attention, working, or recent activity. Available actions include focusing the host app, copying process or session details, and revealing a workspace in Finder.
 
-Loom is built from the ground up for developer privacy and security:
+Loom supports session discovery for **OpenAI Codex**, **Google Antigravity**, and **Anthropic Claude Code**. Discovery and workspace details depend on the evidence each provider exposes locally; Loom reports diagnostics rather than guaranteeing a session for every repository or process.
 
-- **No Loom Account**: There are no accounts, cloud logins, or external servers.
-- **Local Process Inspection**: Loom inspects local processes and metadata on your Mac. It is strictly read-only: it does not inject prompts, approve commands, edit projects, or modify agent sessions.
-- **Zero Telemetry**: No tracking, analytics, or behavioral telemetry SDKs.
-- **Ephemeral Credentials**: Codex usage communicates via local stdio. Antigravity usage communicates with a discovered local loopback endpoint using an ephemeral memory token. Tokens are never persisted to disk.
-- **Path Concealment & Quick Action**: Enable the **Hide project paths** privacy toggle in Settings (`⌘,`) or directly via the popover header quick-toggle to mask filesystem paths across the UI, tooltips, and notification banners.
+*Loom is an independent open-source project and is not affiliated with or endorsed by OpenAI, Anthropic, or Google.*
 
-See [security guidance](SECURITY.md) and [architecture](docs/ARCHITECTURE.md).
+## Quotas and notifications
 
----
+For Codex and Antigravity, Loom can show quota data available through their local interfaces and send threshold or reset notifications. Quota alerts support **15%** and **5%** thresholds. Claude Code does not expose quota through its upstream local interface. Quota readings are observations and may be unavailable when a provider cannot be reached.
 
-## Settings and Configuration
+<p align="center"><img src="docs/menu-navigation-usage.png" width="380" alt="Loom 2.0 Usage view showing observed provider quota and reset information"></p>
 
-Press `⌘,` or click the header gear icon to open Loom Settings:
+Notifications can cover observed quota thresholds and session state changes. Finished alerts can be set to require a minimum observed working duration; Loom measures that duration while it is monitoring. Notification preferences and macOS permission choices are respected. Test-notification controls are available only in Debug builds.
 
-- **General**: Choose your Menu Bar Status Mode (`Icon Only`, `Active Sessions count`, `Lowest Quota percentage`), toggle Dock visibility, and configure background refresh intervals.
-- **Providers**: Enable or disable monitoring individually for Codex, Claude Code, and Antigravity. Disabling a provider immediately halts process discovery and polling tasks.
-- **Notifications**: Configure system alert triggers (15% and 5% quota warnings, reset alerts, session state transitions), send test notifications, and inspect the bounded local notification audit log.
-- **Sessions & Retention**: Filter to active sessions only or retain completed sessions for a configurable period (Never, 1 hour, 24 hours, 7 days).
-- **Storage**: Run on-demand storage scans and inspect per-folder breakdowns with direct Finder navigation.
-- **Privacy**: Manage filesystem path masking across all views and alerts.
+<p align="center"><img src="docs/loom-2.0-notifications.png" width="460" alt="Native macOS Codex and Antigravity demo quota alerts"><br><sub>Notification examples use illustrative data.</sub></p>
 
----
+## Local storage
 
-## Build and Run
+Inspect local agent data with on-demand, read-only storage scans and per-folder breakdowns.
 
-Requires **macOS 14+** and **Swift 5.9+ / Xcode 15+**. Install the coding tools you want to monitor separately. From the repository root:
+<p align="center"><img src="docs/menu-navigation-storage.png" width="380" alt="Loom 2.0 Storage view showing local storage usage"></p>
+
+## Widgets
+
+Loom includes Sessions, Quotas, and Overview widgets for the desktop and Notification Center.
+
+<p align="center">
+  <img src="docs/widget-showcase.png" width="860" alt="Loom 2.0 Sessions, Quotas, and Overview widget previews">
+  <br><sub>Widget previews use illustrative, privacy-safe demo data.</sub>
+</p>
+
+The session, usage, storage, widget, and notification screenshots on this page show the current 2.0 interface; session, quota, and storage values shown are illustrative demo data.
+
+See [widget setup and verification](docs/WIDGETS.md) and [interface and storage details](docs/INTERFACE_AND_STORAGE.md).
+
+## Privacy and local operation
+
+Loom has no account or hosted backend. It reads local process and provider information to discover sessions and quota data. It is read-only with respect to agent sessions and project files: it does not send prompts, approve commands, or modify projects.
+
+Enable **Hide project paths** in Settings to mask paths in the interface and notification content. Antigravity quota access uses a local loopback connection and an ephemeral in-memory token. See [security guidance](SECURITY.md) and the [architecture overview](docs/ARCHITECTURE.md).
+
+## Settings
+
+Open Settings with **⌘,** or the gear button. Configure providers, menu bar status, refresh behavior, notification preferences, session retention, path privacy, and local storage scans. Provider-specific availability and notification behavior are described in the [2.0 release notes](docs/RELEASE_NOTES_v2.0.0.md).
+
+## Build and development
+
+Loom requires **macOS 14+** and **Swift 5.9+ / Xcode 15+**. Install the coding tools you want to monitor separately. From the repository root, build and open the local app bundle:
 
 ```bash
 bash scripts/build-app.sh
 open .build/Loom.app
 ```
 
-This builds a Release executable and packages a local development app with the Loom icon. It is an ad-hoc signed build for local development, not a Developer ID-signed or notarized distribution download. See [Release Documentation](docs/RELEASING.md) for public distribution prerequisites, Developer ID signing, and Apple notarization.
+This creates an ad-hoc signed development app, not a Developer ID-signed or notarized distribution download. See [release documentation](docs/RELEASING.md) for distribution. In Xcode, open `Loom.xcodeproj`, select the **Loom** scheme and **My Mac**, then press **⌘R**.
 
-For Xcode, open `Loom.xcodeproj`, select the **Loom** scheme and **My Mac**, then press **⌘R**. Launch the bundled app when checking icon identity and native UI behavior.
+<details>
+<summary>Preview with opt-in demo data</summary>
 
-### Preview without live agents
-
-Build the bundle first using the command above. Demo data is explicitly opt-in and visibly labeled:
+After building, launch one demo mode at a time. These options do not run during a normal launch:
 
 ```bash
 open -n .build/Loom.app --args --demo-mock
@@ -189,7 +100,7 @@ open -n .build/Loom.app --args --demo-empty
 open -n .build/Loom.app --args --demo-failure
 ```
 
-The mock fixture includes all three provider identities and normalized states for testing and visual previews. To preview notification banners, add one of the six demo scenarios below; the alert appears after three seconds. Demo alerts require the mock fixture and notification permission, and never run during a normal launch:
+To preview illustrative quota notification scenarios, use one command at a time; each alert appears after three seconds and requires macOS notification authorization:
 
 ```bash
 open -n .build/Loom.app --args --demo-mock --demo-alert codex-warning
@@ -200,63 +111,14 @@ open -n .build/Loom.app --args --demo-mock --demo-alert antigravity-critical
 open -n .build/Loom.app --args --demo-mock --demo-alert antigravity-reset
 ```
 
-See [demo media details and attribution](docs/DEMO_MEDIA.md).
+</details>
 
----
+For development checks, run `swift test` for the portable suite, or `swift test --filter 'LoomRegressionTests.*'` for regression tests. See [CONTRIBUTING](CONTRIBUTING.md), [widget verification](docs/WIDGETS.md), and [demo media notes](docs/DEMO_MEDIA.md) for more details.
 
-## Development and Verification
+## Project direction
 
-```bash
-swift build
+Loom prioritizes reliable local agent discovery, session correlation, workspace resolution, truthful lifecycle state, diagnostics, and graceful degradation. Remote control, cloud sync, and orchestration are outside the current scope. Read more in [product direction](docs/PRODUCT.md).
 
-# Portable suite: unit, integration, and cancellation regression tests.
-swift test
+## License and author
 
-# Native menu sizing and interaction probe.
-bash scripts/verify-menu-sizing.sh
-```
-
-The macOS [CI workflow](.github/workflows/ci.yml) builds/packages the app and runs the portable suite. The native probe checks content sizing, tab/disclosure behavior and constrained layouts; it does not replace checking the actual menu bar on a Mac.
-
-`swift test` runs the full test suite across Codex, Claude Code, Antigravity, settings, and UI components. In local verification, the full suite passes, including SIGTERM-resistant cancellation regression checks. CI executes the portable suite while excluding only the live Antigravity discovery smoke test (`testRealAntigravityDiscoverySmokeTest`), which requires a local Antigravity database installation. SQLite WAL lock contention and code 14 (`SQLITE_CANTOPEN`) are handled gracefully via `?immutable=1&mode=ro` and temporary snapshot fallbacks. Some live usage checks additionally require `ENABLE_LIVE_SMOKE_TESTS=1`.
-
-### Dedicated Regression Tests (`LoomRegressionTests`)
-
-A dedicated test target, `LoomRegressionTests`, isolates core regression tests across process trees, session disambiguation, lifecycle transitions, widget state consistency, and headless SwiftUI smoke rendering:
-
-```bash
-# Run regression tests via SwiftPM
-swift test --filter 'LoomRegressionTests.*'
-
-# Run regression tests via Xcode CLI
-xcodebuild test -project Loom.xcodeproj -scheme LoomRegressionTests -destination 'platform=macOS'
-```
-
-- **In Xcode**: Select the **LoomRegressionTests** scheme and press **⌘U**, or open the **Test Navigator (⌘6)** and run `LoomRegressionTests` directly. The primary **Loom** scheme's Test action also includes `LoomRegressionTests`.
-- **Adding new regression tests**: Place new tests in `Tests/LoomRegressionTests/` (such as in `LoomRegressionTestSuite.swift`), preserving the canonical MIT license header (`AGENTS.md`) and importing `@testable import LoomCore`.
-
-Xcode builds are also supported:
-
-```bash
-xcodebuild build -project Loom.xcodeproj -scheme Loom -destination 'platform=macOS'
-```
-
-See [CONTRIBUTING](CONTRIBUTING.md) for fixtures, review expectations and provider work.
-
-See [widget verification and troubleshooting](docs/WIDGETS.md) for local widget builds, installation, shared storage, and Notification Center checks.
-
----
-
-## What Comes Next
-
-Reliable local discovery comes first: improve state accuracy, cover upstream format changes, and expand diagnostics and accessibility. Remote control, cloud sync and orchestration are outside the current scope.
-
-The visual identity stays simple: three independent strands woven into one Loom. The full-color app icon and simplified monochrome menu bar glyph share that silhouette. See [icon design notes](docs/ICON_DESIGN.md) and [product direction](docs/PRODUCT.md).
-
----
-
-## License and Author
-
-Created by **[Deepak Sharma](https://github.com/chaiwithcode)**.
-
-Loom's code, documentation and included assets are licensed under the [MIT License](LICENSE). You can use, modify and distribute them under its terms. [Branding guidance](BRANDING.md) explains how to distinguish your fork from the official project without changing that license.
+Created by [Deepak Sharma](https://github.com/chaiwithcode). Loom's source code and documentation are licensed under the [MIT License](LICENSE). Promotional media includes third-party material; see [media attribution and licenses](docs/DEMO_MEDIA.md). See [branding guidance](BRANDING.md) for information about naming and presenting forks.
