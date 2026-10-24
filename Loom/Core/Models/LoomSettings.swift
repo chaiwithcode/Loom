@@ -65,6 +65,23 @@ public enum MenuBarStatusMode: String, CaseIterable, Identifiable, Codable, Send
     }
 }
 
+public enum MinimumWorkingDuration: Int, CaseIterable, Codable, Identifiable, Sendable {
+    case always = 0
+    case twoMinutes = 120
+    case fiveMinutes = 300
+    case tenMinutes = 600
+
+    public var id: Int { rawValue }
+    public var displayName: String {
+        switch self {
+        case .always: return "Always"
+        case .twoMinutes: return "2 minutes"
+        case .fiveMinutes: return "5 minutes (default)"
+        case .tenMinutes: return "10 minutes"
+        }
+    }
+}
+
 public struct NotificationPreferences: Codable, Equatable, Sendable {
     public var notificationsEnabled: Bool
     public var notifyQuota15Percent: Bool
@@ -73,6 +90,7 @@ public struct NotificationPreferences: Codable, Equatable, Sendable {
     public var notifySessionWaiting: Bool
     public var notifySessionFinished: Bool
     public var notifySessionFailed: Bool
+    public var minimumWorkingDuration: MinimumWorkingDuration
     public var menuBarStatusMode: MenuBarStatusMode
 
     public init(
@@ -83,6 +101,7 @@ public struct NotificationPreferences: Codable, Equatable, Sendable {
         notifySessionWaiting: Bool = LoomSettings.defaultNotifySessionWaiting,
         notifySessionFinished: Bool = LoomSettings.defaultNotifySessionFinished,
         notifySessionFailed: Bool = LoomSettings.defaultNotifySessionFailed,
+        minimumWorkingDuration: MinimumWorkingDuration = LoomSettings.defaultMinimumWorkingDuration,
         menuBarStatusMode: MenuBarStatusMode = LoomSettings.defaultMenuBarStatusMode
     ) {
         self.notificationsEnabled = notificationsEnabled
@@ -92,6 +111,7 @@ public struct NotificationPreferences: Codable, Equatable, Sendable {
         self.notifySessionWaiting = notifySessionWaiting
         self.notifySessionFinished = notifySessionFinished
         self.notifySessionFailed = notifySessionFailed
+        self.minimumWorkingDuration = minimumWorkingDuration
         self.menuBarStatusMode = menuBarStatusMode
     }
 
@@ -104,6 +124,7 @@ public struct NotificationPreferences: Codable, Equatable, Sendable {
         self.notifySessionWaiting = try container.decodeIfPresent(Bool.self, forKey: .notifySessionWaiting) ?? LoomSettings.defaultNotifySessionWaiting
         self.notifySessionFinished = try container.decodeIfPresent(Bool.self, forKey: .notifySessionFinished) ?? LoomSettings.defaultNotifySessionFinished
         self.notifySessionFailed = try container.decodeIfPresent(Bool.self, forKey: .notifySessionFailed) ?? LoomSettings.defaultNotifySessionFailed
+        self.minimumWorkingDuration = try container.decodeIfPresent(MinimumWorkingDuration.self, forKey: .minimumWorkingDuration) ?? LoomSettings.defaultMinimumWorkingDuration
         self.menuBarStatusMode = try container.decodeIfPresent(MenuBarStatusMode.self, forKey: .menuBarStatusMode) ?? LoomSettings.defaultMenuBarStatusMode
     }
 }
@@ -127,6 +148,8 @@ public final class LoomSettings {
     public nonisolated static let notifySessionWaitingKey = "com.loom.notifySessionWaiting"
     public nonisolated static let notifySessionFinishedKey = "com.loom.notifySessionFinished"
     public nonisolated static let notifySessionFailedKey = "com.loom.notifySessionFailed"
+    public nonisolated static let minimumWorkingDurationKey = "com.loom.minimumWorkingDuration"
+    public nonisolated static let defaultMinimumWorkingDuration: MinimumWorkingDuration = .fiveMinutes
     public nonisolated static let menuBarStatusModeKey = "com.loom.menuBarStatusMode"
 
     public nonisolated static let defaultShowInDock = false
@@ -166,6 +189,7 @@ public final class LoomSettings {
     public var onNotifySessionWaitingChanged: (@MainActor (Bool) -> Void)?
     public var onNotifySessionFinishedChanged: (@MainActor (Bool) -> Void)?
     public var onNotifySessionFailedChanged: (@MainActor (Bool) -> Void)?
+    public var onMinimumWorkingDurationChanged: (@MainActor (MinimumWorkingDuration) -> Void)?
     public var onMenuBarStatusModeChanged: (@MainActor (MenuBarStatusMode) -> Void)?
 
     @ObservationIgnored private var isNormalizingRefreshInterval = false
@@ -335,6 +359,16 @@ public final class LoomSettings {
         }
     }
 
+    public var minimumWorkingDuration: MinimumWorkingDuration {
+        didSet {
+            defaults.set(minimumWorkingDuration.rawValue, forKey: Self.minimumWorkingDurationKey)
+            persistToSharedAppGroup()
+            if minimumWorkingDuration != oldValue {
+                onMinimumWorkingDurationChanged?(minimumWorkingDuration)
+            }
+        }
+    }
+
     public var menuBarStatusMode: MenuBarStatusMode {
         didSet {
             defaults.set(menuBarStatusMode.rawValue, forKey: Self.menuBarStatusModeKey)
@@ -355,6 +389,7 @@ public final class LoomSettings {
                 notifySessionWaiting: notifySessionWaiting,
                 notifySessionFinished: notifySessionFinished,
                 notifySessionFailed: notifySessionFailed,
+                minimumWorkingDuration: minimumWorkingDuration,
                 menuBarStatusMode: menuBarStatusMode
             )
         }
@@ -366,6 +401,7 @@ public final class LoomSettings {
             notifySessionWaiting = newValue.notifySessionWaiting
             notifySessionFinished = newValue.notifySessionFinished
             notifySessionFailed = newValue.notifySessionFailed
+            minimumWorkingDuration = newValue.minimumWorkingDuration
             menuBarStatusMode = newValue.menuBarStatusMode
         }
     }
@@ -500,6 +536,10 @@ public final class LoomSettings {
             self.notifySessionFailed = Self.defaultNotifySessionFailed
         }
 
+        self.minimumWorkingDuration = defaults.object(forKey: Self.minimumWorkingDurationKey) == nil
+            ? Self.defaultMinimumWorkingDuration
+            : MinimumWorkingDuration(rawValue: defaults.integer(forKey: Self.minimumWorkingDurationKey)) ?? Self.defaultMinimumWorkingDuration
+
         // menuBarStatusMode: validate enum value, default .iconOnly
         if let raw = defaults.string(forKey: Self.menuBarStatusModeKey),
            let mode = MenuBarStatusMode(rawValue: raw) {
@@ -548,6 +588,7 @@ public final class LoomSettings {
         notifySessionWaiting = Self.defaultNotifySessionWaiting
         notifySessionFinished = Self.defaultNotifySessionFinished
         notifySessionFailed = Self.defaultNotifySessionFailed
+        minimumWorkingDuration = Self.defaultMinimumWorkingDuration
         menuBarStatusMode = Self.defaultMenuBarStatusMode
     }
 
@@ -639,6 +680,7 @@ extension LoomSettings: @preconcurrency Codable {
         case notifySessionWaiting
         case notifySessionFinished
         case notifySessionFailed
+        case minimumWorkingDuration
         case menuBarStatusMode
     }
 
@@ -684,6 +726,7 @@ extension LoomSettings: @preconcurrency Codable {
         self.notifySessionWaiting = try container.decodeIfPresent(Bool.self, forKey: .notifySessionWaiting) ?? Self.defaultNotifySessionWaiting
         self.notifySessionFinished = try container.decodeIfPresent(Bool.self, forKey: .notifySessionFinished) ?? Self.defaultNotifySessionFinished
         self.notifySessionFailed = try container.decodeIfPresent(Bool.self, forKey: .notifySessionFailed) ?? Self.defaultNotifySessionFailed
+        self.minimumWorkingDuration = try container.decodeIfPresent(MinimumWorkingDuration.self, forKey: .minimumWorkingDuration) ?? Self.defaultMinimumWorkingDuration
         self.menuBarStatusMode = try container.decodeIfPresent(MenuBarStatusMode.self, forKey: .menuBarStatusMode) ?? Self.defaultMenuBarStatusMode
     }
 
@@ -704,6 +747,7 @@ extension LoomSettings: @preconcurrency Codable {
         try container.encode(notifySessionWaiting, forKey: .notifySessionWaiting)
         try container.encode(notifySessionFinished, forKey: .notifySessionFinished)
         try container.encode(notifySessionFailed, forKey: .notifySessionFailed)
+        try container.encode(minimumWorkingDuration, forKey: .minimumWorkingDuration)
         try container.encode(menuBarStatusMode, forKey: .menuBarStatusMode)
     }
 }

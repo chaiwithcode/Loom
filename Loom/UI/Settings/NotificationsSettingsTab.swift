@@ -157,6 +157,25 @@ public struct NotificationsSettingsTab: View {
             }
 
             SettingsSection("Session Alerts") {
+                HStack {
+                    Text("Minimum working time")
+                    Spacer(minLength: 16)
+                    Picker("Minimum working time for finished alerts", selection: $settings.minimumWorkingDuration) {
+                        ForEach(MinimumWorkingDuration.allCases) { duration in
+                            Text(duration.displayName).tag(duration)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .disabled(!settings.notificationsEnabled || !settings.notifySessionFinished)
+                    .accessibilityLabel("Minimum working time for finished alerts")
+                    .accessibilityIdentifier("picker-minimum-working-duration")
+                }
+                Text("Applies to finished alerts only. Counts working time observed while Loom is monitoring; input requests and failures alert immediately.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 Toggle(isOn: $settings.notifySessionWaiting) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Needs human input")

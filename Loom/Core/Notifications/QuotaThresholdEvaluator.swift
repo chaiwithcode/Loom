@@ -119,6 +119,8 @@ public final class QuotaThresholdEvaluator: @unchecked Sendable {
         var lastWindowId: String?
         var lastRemainingFraction: Double?
         var wasDepleted: Bool
+        var lastResetAt: Date?
+        var lastObservedAt: Date?
     }
 
     private let lock = NSLock()
@@ -189,18 +191,15 @@ public final class QuotaThresholdEvaluator: @unchecked Sendable {
         // 2. Claude Code does not provide machine-readable quota snapshots; ignore
         guard snapshot.providerID != .claude else { return [] }
 
-        // 3. Failed snapshots with error message and no valid buckets must be ignored
-        if snapshot.errorMessage != nil {
-            let hasValidBuckets = snapshot.allBuckets.contains { $0.usedFraction != nil }
-            guard hasValidBuckets else { return [] }
-        }
+        // Error/cached payloads do not prove a fresh threshold or reset.
+        guard snapshot.errorMessage == nil else { return [] }
 
         let buckets = snapshot.allBuckets
         guard !buckets.isEmpty else { return [] }
 
         var events: [MonitoringEvent] = []
         for bucket in buckets {
-            events.append(contentsOf: evaluate(provider: snapshot.providerID, bucket: bucket))
+            events.append(contentsOf: evaluate(provider: snapshot.providerID, bucket: bucket, observedAt: snapshot.updatedAt))
         }
         return events
     }
@@ -215,11 +214,12 @@ public final class QuotaThresholdEvaluator: @unchecked Sendable {
         provider: ProviderID,
         bucket: UsageBucket,
         windowId: String? = nil,
-        isStale: Bool = false
+        isStale: Bool = false,
+        observedAt: Date = Date()
     ) -> [MonitoringEvent] {
         guard !isStale else { return [] }
         guard provider != .claude else { return [] }
-        guard let used = bucket.usedFraction else { return [] }
+        guard let used = bucket.usedFraction, used.isFinite, (0...1).contains(used) else { return [] }
 
         let remainingFraction = max(0.0, min(1.0, 1.0 - used))
         let remainingPercent = (remainingFraction * 10000.0).rounded() / 100.0
@@ -232,14 +232,18 @@ public final class QuotaThresholdEvaluator: @unchecked Sendable {
         var state = bucketStates[bucketKey] ?? BucketState(lastWindowId: nil, lastRemainingFraction: nil, wasDepleted: false)
         var events: [MonitoringEvent] = []
 
-        // Check for replenishment in a new/next window
+        // Replayed/out-of-order observations cannot cross a reset boundary.
+        if let lastObservedAt = state.lastObservedAt, observedAt <= lastObservedAt { return [] }
         let isNewWindow = state.lastWindowId != nil && state.lastWindowId != effectiveWindowId
-        let priorAlertExists = store.allKeys.contains { key in
-            key.hasPrefix("\(provider.rawValue):\(bucket.identifier):") && !key.contains(":\(effectiveWindowId):")
+        let crossedKnownReset: Bool
+        if let priorReset = state.lastResetAt, let priorObservation = state.lastObservedAt,
+           let nextReset = bucket.resetsAt {
+            crossedKnownReset = priorObservation < priorReset && observedAt >= priorReset &&
+                nextReset > priorReset && nextReset > observedAt
+        } else {
+            crossedKnownReset = false
         }
-        let wasPreviouslyDepleted = state.wasDepleted || priorAlertExists
-
-        if isNewWindow && wasPreviouslyDepleted && remainingPercent >= 95.0 {
+        if isNewWindow && crossedKnownReset && state.wasDepleted && remainingPercent >= 95.0 {
             let replenishmentKey = deduplicationKeyForReplenishment(
                 provider: provider,
                 bucket: bucket.identifier,
@@ -296,6 +300,8 @@ public final class QuotaThresholdEvaluator: @unchecked Sendable {
         }
 
         // Update tracking state
+        state.lastResetAt = bucket.resetsAt
+        state.lastObservedAt = observedAt
         state.lastWindowId = effectiveWindowId
         state.lastRemainingFraction = remainingFraction
         state.wasDepleted = (remainingPercent < 95.0)

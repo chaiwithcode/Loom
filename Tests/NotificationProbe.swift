@@ -8,6 +8,7 @@
 
 import Foundation
 import LoomCore
+import Loom
 
 @main
 struct NotificationProbe {
@@ -25,6 +26,7 @@ struct NotificationProbe {
         try testStartupDiscoveryStormSuppression()
         try testPrivacyPathConcealment()
         try testBoundedNotificationHistory()
+        try await testDemoSnapshotIsolation()
 
         print("==================================================")
         print("ALL NOTIFICATION PROBE CHECKS PASSED SUCCESSFULLY")
@@ -161,7 +163,7 @@ struct NotificationProbe {
             usedFraction: 0.96,
             resetsAt: now.addingTimeInterval(1800)
         )
-        _ = evaluator.evaluate(provider: .codex, bucket: depletedBucket, windowId: window1)
+        _ = evaluator.evaluate(provider: .codex, bucket: depletedBucket, windowId: window1, observedAt: now)
 
         // 2. Window changes to window 2, but quota is only 60% remaining (40% used): NOT yet replenished (requires >= 95%)
         let partialBucket = UsageBucket(
@@ -170,7 +172,12 @@ struct NotificationProbe {
             usedFraction: 0.40,
             resetsAt: now.addingTimeInterval(18000)
         )
-        let partialEvents = evaluator.evaluate(provider: .codex, bucket: partialBucket, windowId: window2)
+        let partialEvents = evaluator.evaluate(
+            provider: .codex,
+            bucket: partialBucket,
+            windowId: window2,
+            observedAt: now.addingTimeInterval(7_200)
+        )
         guard partialEvents.isEmpty else {
             fatalError("FAIL Check 3: Partial recovery (< 95%) must not emit replenishment event: \(partialEvents)")
         }
@@ -183,7 +190,12 @@ struct NotificationProbe {
             usedFraction: 0.02,
             resetsAt: now.addingTimeInterval(36000)
         )
-        let replenishmentEvents = evaluator.evaluate(provider: .codex, bucket: replenishedBucket, windowId: window3)
+        let replenishmentEvents = evaluator.evaluate(
+            provider: .codex,
+            bucket: replenishedBucket,
+            windowId: window3,
+            observedAt: now.addingTimeInterval(19_000)
+        )
         guard replenishmentEvents.count == 1,
               case .quotaReplenished(let p, let b, let w) = replenishmentEvents[0],
               p == .codex, b == "5h", w == window3 else {
@@ -584,4 +596,122 @@ struct NotificationProbe {
 
         print("  PASS: Notification history strictly caps entries at max capacity and scrubs credentials")
     }
+    // MARK: - Check 10: Demo snapshots never mutate automatic notification tracking
+    @MainActor
+    static func testDemoSnapshotIsolation() async throws {
+        print("Check 10: Demo snapshots never mutate automatic notification tracking")
+
+        func isolatedDefaults() throws -> UserDefaults {
+            let suiteName = "com.loom.notification-probe.\(UUID().uuidString)"
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                throw NSError(domain: "NotificationProbe", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not create isolated defaults."])
+            }
+            defaults.removePersistentDomain(forName: suiteName)
+            return defaults
+        }
+
+        let usage = ProviderUsageSnapshot(
+            providerID: .codex,
+            updatedAt: Date(),
+            primaryBucket: UsageBucket(
+                identifier: "probe-demo-window",
+                label: "Probe demo window",
+                usedFraction: 0.90,
+                resetsAt: Date().addingTimeInterval(3600)
+            )
+        )
+        let workingSession = AgentSession(
+            id: "probe-demo-session",
+            provider: .codex,
+            projectName: "Demo",
+            projectPath: URL(fileURLWithPath: "/tmp/demo"),
+            state: .working,
+            startedAt: Date().addingTimeInterval(-600),
+            lastActivityAt: Date(),
+            summary: "Demo session"
+        )
+        let waitingSession = AgentSession(
+            id: workingSession.id,
+            provider: .codex,
+            projectName: workingSession.projectName,
+            projectPath: workingSession.projectPath,
+            state: .waiting,
+            startedAt: workingSession.startedAt,
+            lastActivityAt: Date(),
+            summary: "Demo session waiting"
+        )
+        let demoProvider = MockAgentProvider(
+            id: .codex,
+            displayName: "Codex (Mock)",
+            sessions: [workingSession],
+            usage: usage
+        )
+        let demoStore = SessionStore(providers: [demoProvider], fixture: .mock)
+        let demoDefaults = try isolatedDefaults()
+        let demoSettings = LoomSettings(defaults: demoDefaults)
+        demoSettings.notificationsEnabled = true
+        demoSettings.notifyQuota15Percent = false
+        demoSettings.notifyQuota5Percent = false
+        demoSettings.notifyQuotaReset = false
+        let demoQuotaStore = UserDefaultsQuotaAlertStore(defaults: demoDefaults)
+        let demoEvaluator = QuotaThresholdEvaluator(store: demoQuotaStore, userDefaults: demoDefaults)
+        let demoHistory = NotificationHistoryStore(defaults: demoDefaults)
+        let demoDetector = SessionTransitionDetector()
+        let demoCoordinator = NotificationCoordinator(
+            historyStore: demoHistory,
+            quotaEvaluator: demoEvaluator,
+            transitionDetector: demoDetector
+        )
+        demoCoordinator.configure(settings: demoSettings, store: demoStore)
+        await demoStore.refresh()
+        guard demoStore.snapshot(for: .codex)?.usage?.primaryBucket?.usedFraction == 0.90 else {
+            fatalError("FAIL Check 10: Demo mock provider did not produce the expected usage snapshot")
+        }
+        demoCoordinator.processStoreUpdate()
+        demoProvider.setSessions([waitingSession])
+        await demoStore.refresh()
+        demoCoordinator.processStoreUpdate()
+        guard demoDetector.detectTransitions(currentSessions: [waitingSession]).isEmpty else {
+            fatalError("FAIL Check 10: Demo session snapshots changed transition detector state")
+        }
+        demoCoordinator.handleMonitoringEvent(.quotaThresholdCrossed(
+            provider: .codex,
+            bucket: "probe-demo-window",
+            remainingPercent: 10,
+            windowId: "demo-window",
+            threshold: .fifteenPercent
+        ))
+        guard demoQuotaStore.allKeys.isEmpty,
+              demoDefaults.data(forKey: QuotaThresholdEvaluator.defaultBucketTrackingDefaultsKey) == nil,
+              demoHistory.records.isEmpty else {
+            fatalError("FAIL Check 10: Demo events changed persisted quota, detector, or notification history state")
+        }
+
+        let productionProvider = MockAgentProvider(id: .codex, displayName: "Codex", usage: usage)
+        let productionStore = SessionStore(providers: [productionProvider], fixture: .standard)
+        let productionDefaults = try isolatedDefaults()
+        let productionSettings = LoomSettings(defaults: productionDefaults)
+        productionSettings.notificationsEnabled = true
+        productionSettings.notifyQuota15Percent = false
+        productionSettings.notifyQuota5Percent = false
+        productionSettings.notifyQuotaReset = false
+        let productionQuotaStore = UserDefaultsQuotaAlertStore(defaults: productionDefaults)
+        let productionEvaluator = QuotaThresholdEvaluator(store: productionQuotaStore, userDefaults: productionDefaults)
+        let productionCoordinator = NotificationCoordinator(
+            historyStore: NotificationHistoryStore(defaults: productionDefaults),
+            quotaEvaluator: productionEvaluator,
+            transitionDetector: SessionTransitionDetector()
+        )
+        productionCoordinator.configure(settings: productionSettings, store: productionStore)
+        await productionStore.refresh()
+        productionCoordinator.processStoreUpdate()
+        guard !productionQuotaStore.allKeys.isEmpty,
+              productionDefaults.data(forKey: QuotaThresholdEvaluator.defaultBucketTrackingDefaultsKey) != nil else {
+            fatalError("FAIL Check 10: Standard provider snapshots did not update quota tracking")
+        }
+
+        print("  PASS: Demo snapshots are isolated while standard snapshots still update quota tracking")
+    }
+
+
 }

@@ -96,14 +96,6 @@ struct OCRResult {
         return view.subviews.compactMap { scrollView(in: $0) }.first
     }
 
-    @MainActor static func findSegmentedControl(in view: NSView) -> NSSegmentedControl? {
-        if let seg = view as? NSSegmentedControl { return seg }
-        for sub in view.subviews {
-            if let found = findSegmentedControl(in: sub) { return found }
-        }
-        return nil
-    }
-
     @MainActor static func containsOverflowButton(in view: NSView) -> Bool {
         if let btn = view as? NSButton, btn.title.contains(">>") || btn.toolTip?.contains("overflow") == true {
             return true
@@ -152,59 +144,107 @@ struct OCRResult {
     }
 
     @MainActor static func clickPoint(_ window: NSWindow, at point: NSPoint) {
-        let hit = window.contentView?.hitTest(point)
-        var current = hit
-        var targetSeg: NSSegmentedControl? = nil
-        while let c = current {
-            if let s = c as? NSSegmentedControl {
-                targetSeg = s
-                break
-            }
-            current = c.superview
-        }
-
-        if let seg = targetSeg {
-            let segPoint = seg.convert(point, from: nil)
-            let segWidth = seg.bounds.width / CGFloat(max(1, seg.segmentCount))
-            let tabIndex = max(0, min(seg.segmentCount - 1, Int(segPoint.x / segWidth)))
-            seg.selectedSegment = tabIndex
-            if let action = seg.action {
-                _ = seg.sendAction(action, to: seg.target)
-            }
-            return
-        }
-
-        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            let event = NSEvent.mouseEvent(
+        let timestamp = ProcessInfo.processInfo.systemUptime
+        func mouseEvent(_ type: NSEvent.EventType) -> NSEvent {
+            NSEvent.mouseEvent(
                 with: type,
                 location: point,
                 modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime,
+                timestamp: timestamp,
                 windowNumber: window.windowNumber,
                 context: nil,
                 eventNumber: 0,
                 clickCount: 1,
                 pressure: 1.0
             )!
-            window.sendEvent(event)
         }
+        let mouseUp = mouseEvent(.leftMouseUp)
+        let mouseDown = mouseEvent(.leftMouseDown)
+        // Let NSApplication dispatch both events from its normal event loop.
+        // Sending mouse-down synchronously from an async task enters AppKit's
+        // nested tracking loop before that task can deliver the release.
+        NSApplication.shared.postEvent(mouseDown, atStart: false)
+        NSApplication.shared.postEvent(mouseUp, atStart: false)
     }
 
-    @MainActor static func toggleLocation(for name: String, in results: [OCRResult], windowSize: NSSize) -> NSPoint? {
+    @MainActor static func nativeToggleLocation(for name: String, in results: [OCRResult], rootView: NSView) -> NSPoint? {
         guard let match = results.first(where: {
             $0.text.localizedCaseInsensitiveContains(name) &&
             $0.boundingBox.origin.x < 0.5
         }) else {
             return nil
         }
-        let box = match.boundingBox
-        let textY = (box.origin.y + box.height / 2) * windowSize.height
-        // In the Providers tab, the checkbox center is located at x ≈ 38pt in window coordinates.
-        let toggleX: CGFloat = 38
-        return NSPoint(x: toggleX, y: textY)
+
+        let rowCenterY = (match.boundingBox.origin.y + match.boundingBox.height / 2) * rootView.bounds.height
+        var controls: [NSControl] = []
+        var tree: [(NSView, Int)] = []
+        func collect(_ view: NSView, depth: Int) {
+            tree.append((view, depth))
+            if let control = view as? NSControl {
+                controls.append(control)
+            }
+            for child in view.subviews {
+                collect(child, depth: depth + 1)
+            }
+        }
+        collect(rootView, depth: 0)
+
+        let switches = controls.filter { $0 is NSSwitch }
+        func windowFrame(of view: NSView) -> NSRect {
+            view.convert(view.bounds, to: nil)
+        }
+        func controlDescription(_ control: NSControl) -> String {
+            let identifier = control.identifier?.rawValue ?? "<none>"
+            return "class=\(String(describing: type(of: control))) id=\(identifier) windowFrame=\(windowFrame(of: control))"
+        }
+        func viewDescription(_ view: NSView) -> String {
+            let identifier = view.identifier?.rawValue ?? "<none>"
+            return "class=\(String(describing: type(of: view))) id=\(identifier) windowFrame=\(windowFrame(of: view))"
+        }
+
+        for control in controls {
+            print("  Native control: \(controlDescription(control))")
+        }
+        guard !switches.isEmpty else {
+            print("  NSSwitch not exposed; SettingsView native view tree:")
+            for (view, depth) in tree {
+                let indent = String(repeating: "  ", count: depth)
+                if let control = view as? NSControl {
+                    print("\(indent)\(controlDescription(control))")
+                } else {
+                    print("\(indent)\(viewDescription(view))")
+                }
+            }
+            return nil
+        }
+
+        let selected = switches.first(where: { $0.identifier?.rawValue == "toggle-monitor-\(name.lowercased().replacingOccurrences(of: " ", with: "-"))" })
+            ?? switches.min(by: { abs(windowFrame(of: $0).midY - rowCenterY) < abs(windowFrame(of: $1).midY - rowCenterY) })!
+        let frame = windowFrame(of: selected)
+        print("  Selected native toggle for \(name): \(controlDescription(selected)); OCR rowCenterY=\(rowCenterY)")
+        fflush(stdout)
+        return NSPoint(x: frame.midX, y: frame.midY)
     }
 
-    @MainActor static func main() async throws {
+    @MainActor static func main() {
+        let application = NSApplication.shared
+        DispatchQueue.main.async {
+            Task { @MainActor in
+                do {
+                    try await runChecks()
+                } catch {
+                    fputs("Settings probe failed: \(error)\n", stderr)
+                    exit(1)
+                }
+            }
+        }
+        application.run()
+        // Returning from the application loop before the completion sentinel
+        // means the native checks did not finish.
+        exit(1)
+    }
+
+    @MainActor static func runChecks() async throws {
         print("==================================================")
         print("Starting Native Loom Settings Probe")
         print("==================================================")
@@ -277,8 +317,8 @@ struct OCRResult {
             fatalError("settingsWindow must not be nil after showSettings")
         }
         assert(!window.isReleasedWhenClosed, "Window isReleasedWhenClosed must be false for reuse")
-        assert(window.contentMinSize.width == 480, "Window contentMinSize.width must match view minWidth (480)")
-        assert(window.contentMinSize.height == 360, "Window contentMinSize.height must match view minHeight (360)")
+        assert(window.contentMinSize.width == 640, "Window contentMinSize.width must match view minWidth (640)")
+        assert(window.contentMinSize.height == 460, "Window contentMinSize.height must match view minHeight (460)")
         assert(window.isVisible, "Window must be visible")
         print("  PASS: Window created with contentMinSize \(window.contentMinSize)")
         fflush(stdout)
@@ -440,9 +480,9 @@ struct OCRResult {
         // =====================================================================
         print("Check 6: Empty provider store displays all supported providers on Providers tab & native toggle interactions")
         let emptyStore = SessionStore(providers: [])
-        let emptyHost = NSHostingView(rootView: SettingsView(settings: settings, store: emptyStore, initialTab: .providers).frame(width: 520, height: 420))
+        let emptyHost = NSHostingView(rootView: SettingsView(settings: settings, store: emptyStore, initialTab: .providers).frame(width: 640, height: 460))
         emptyHost.appearance = NSAppearance(named: .darkAqua)
-        let probeWindow = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 520, height: 420), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let probeWindow = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 640, height: 460), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         probeWindow.isReleasedWhenClosed = false
         probeWindow.contentView = emptyHost
         probeWindow.orderFront(nil)
@@ -463,24 +503,23 @@ struct OCRResult {
 
         // Native control interaction: click Codex toggle to disable it
         assert(settings.isProviderEnabled(.codex), "Codex is initially enabled")
-        if let codexPt = toggleLocation(for: "Codex", in: emptyResults, windowSize: probeWindow.contentLayoutRect.size) {
-            clickPoint(probeWindow, at: codexPt)
-            await settle(emptyHost)
-            assert(!settings.isProviderEnabled(.codex), "Native click on Codex toggle must disable it in model")
-            let toggledRep = saveOpaque(emptyHost, "settings-providers-codex-toggled-off")
-            let toggledResults = try recognizeText(in: toggledRep)
-            assert(containsText("Monitoring disabled", in: toggledResults), "Visual UI must update to 'Monitoring disabled'")
-
-            // Re-enable via click
-            clickPoint(probeWindow, at: codexPt)
-            await settle(emptyHost)
-            assert(settings.isProviderEnabled(.codex), "Native click on Codex toggle must re-enable it in model")
-            let reEnabledRep = saveOpaque(emptyHost, "settings-providers-codex-toggled-on")
-            let reEnabledResults = try recognizeText(in: reEnabledRep)
-            assert(containsText("Not registered", in: reEnabledResults), "Visual UI must update back to 'Not registered'")
-        } else {
-            fatalError("Could not locate Codex toggle point via OCR bounding boxes")
+        guard let codexPt = nativeToggleLocation(for: "Codex", in: emptyResults, rootView: emptyHost) else {
+            fatalError("No native NSSwitch found for Codex; refusing to click without a native control target")
         }
+        clickPoint(probeWindow, at: codexPt)
+        await settle(emptyHost)
+        assert(!settings.isProviderEnabled(.codex), "Native click on Codex toggle must disable it in model")
+        let toggledRep = saveOpaque(emptyHost, "settings-providers-codex-toggled-off")
+        let toggledResults = try recognizeText(in: toggledRep)
+        assert(containsText("Monitoring disabled", in: toggledResults), "Visual UI must update to 'Monitoring disabled'")
+
+        // Re-enable via click
+        clickPoint(probeWindow, at: codexPt)
+        await settle(emptyHost)
+        assert(settings.isProviderEnabled(.codex), "Native click on Codex toggle must re-enable it in model")
+        let reEnabledRep = saveOpaque(emptyHost, "settings-providers-codex-toggled-on")
+        let reEnabledResults = try recognizeText(in: reEnabledRep)
+        assert(containsText("Not registered", in: reEnabledResults), "Visual UI must update back to 'Not registered'")
 
         print("  PASS: Empty store renders all 3 supported providers and native toggle click verified")
         fflush(stdout)
@@ -492,7 +531,7 @@ struct OCRResult {
         let partialStore = SessionStore(providers: [codexProvider])
         await partialStore.refresh()
 
-        let partialHost = NSHostingView(rootView: SettingsView(settings: settings, store: partialStore, initialTab: .providers).frame(width: 520, height: 420))
+        let partialHost = NSHostingView(rootView: SettingsView(settings: settings, store: partialStore, initialTab: .providers).frame(width: 640, height: 460))
         partialHost.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = partialHost
         await settle(partialHost)
@@ -526,7 +565,7 @@ struct OCRResult {
 
         // 8A: Privacy OFF (reasons visible)
         settings.hideProjectPaths = false
-        let healthHost = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 520, height: 420))
+        let healthHost = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 640, height: 460))
         healthHost.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = healthHost
         await settle(healthHost)
@@ -545,7 +584,7 @@ struct OCRResult {
 
         // 8B: Privacy ON (reasons redacted when containing paths)
         settings.hideProjectPaths = true
-        let healthHostRedacted = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 520, height: 420))
+        let healthHostRedacted = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 640, height: 460))
         healthHostRedacted.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = healthHostRedacted
         await settle(healthHostRedacted)
@@ -563,9 +602,9 @@ struct OCRResult {
         fflush(stdout)
 
         // =====================================================================
-        // Test 9: Genuinely long multi-line status at supported minimum 480x360
+        // Test 9: Genuinely long multi-line status at supported minimum 640x460
         // =====================================================================
-        print("Check 9: Genuinely long multi-line status at supported minimum 480x360")
+        print("Check 9: Genuinely long multi-line status at supported minimum 640x460")
         let longReason = "Degraded: Subprocess crashed during indexing.\nProcess /Users/developer/repos/big-project/worker.js failed with code 137.\nMemory limit exceeded."
         let longStatusProvider = MockAgentProvider(id: .claude, displayName: "Claude Code", sessions: [])
         longStatusProvider.setAvailability(.degraded(reason: longReason))
@@ -573,19 +612,19 @@ struct OCRResult {
         await longStore.refresh()
 
         settings.hideProjectPaths = false
-        let longHost = NSHostingView(rootView: SettingsView(settings: settings, store: longStore, initialTab: .providers).frame(width: 480, height: 360))
+        let longHost = NSHostingView(rootView: SettingsView(settings: settings, store: longStore, initialTab: .providers).frame(width: 640, height: 460))
         longHost.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = longHost
-        probeWindow.setContentSize(NSSize(width: 480, height: 360))
+        probeWindow.setContentSize(NSSize(width: 640, height: 460))
         await settle(longHost)
 
-        let longRep = saveOpaque(longHost, "settings-multiline-status-480x360")
+        let longRep = saveOpaque(longHost, "settings-multiline-status-640x460")
         let longResults = try recognizeText(in: longRep)
-        dumpObservations(longResults, label: "Check 9: Long status un-scrolled at 480x360")
+        dumpObservations(longResults, label: "Check 9: Long status un-scrolled at 640x460")
         let joinedLong = normalizeAndJoinReadingOrder(longResults)
 
-        assert(containsToken("Codex", in: joinedLong), "Codex remains visible at 480x360")
-        assert(containsToken("Claude Code", in: joinedLong), "Claude Code remains visible at 480x360")
+        assert(containsToken("Codex", in: joinedLong), "Codex remains visible at 640x460")
+        assert(containsToken("Claude Code", in: joinedLong), "Claude Code remains visible at 640x460")
         assert(containsToken("Subprocess crashed", in: joinedLong) || containsToken("indexing", in: joinedLong),
                "Long multi-line reason rendered")
         assert(containsToken("/Users/developer", in: joinedLong), "Path in long status visible when privacy is off")
@@ -603,35 +642,35 @@ struct OCRResult {
                 scroll.reflectScrolledClipView(clipView)
                 await settle(longHost)
 
-                let scrolledRep = saveOpaque(longHost, "settings-multiline-status-480x360-scrolled")
+                let scrolledRep = saveOpaque(longHost, "settings-multiline-status-640x460-scrolled")
                 let scrolledResults = try recognizeText(in: scrolledRep)
-                dumpObservations(scrolledResults, label: "Check 9: Scrolled to bottom at 480x360")
+                dumpObservations(scrolledResults, label: "Check 9: Scrolled to bottom at 640x460")
                 let joinedScrolled = normalizeAndJoinReadingOrder(scrolledResults)
-                assert(containsToken("Antigravity", in: joinedScrolled), "Antigravity row reachable via native scrolling at 480x360")
+                assert(containsToken("Antigravity", in: joinedScrolled), "Antigravity row reachable via native scrolling at 640x460")
             } else {
-                assert(containsToken("Antigravity", in: joinedLong), "Antigravity visible within viewport at 480x360")
+                assert(containsToken("Antigravity", in: joinedLong), "Antigravity visible within viewport at 640x460")
             }
         } else {
-            assert(containsToken("Antigravity", in: joinedLong), "Antigravity visible at 480x360")
+            assert(containsToken("Antigravity", in: joinedLong), "Antigravity visible at 640x460")
         }
 
-        // Privacy redaction of long multi-line status at 480x360
+        // Privacy redaction of long multi-line status at 640x460
         settings.hideProjectPaths = true
-        let longHostRedacted = NSHostingView(rootView: SettingsView(settings: settings, store: longStore, initialTab: .providers).frame(width: 480, height: 360))
+        let longHostRedacted = NSHostingView(rootView: SettingsView(settings: settings, store: longStore, initialTab: .providers).frame(width: 640, height: 460))
         longHostRedacted.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = longHostRedacted
         await settle(longHostRedacted)
 
-        let longRepRedacted = saveOpaque(longHostRedacted, "settings-multiline-status-redacted-480x360")
+        let longRepRedacted = saveOpaque(longHostRedacted, "settings-multiline-status-redacted-640x460")
         let longRedactedResults = try recognizeText(in: longRepRedacted)
-        dumpObservations(longRedactedResults, label: "Check 9: Long status redacted at 480x360")
+        dumpObservations(longRedactedResults, label: "Check 9: Long status redacted at 640x460")
         let joinedLongRedacted = normalizeAndJoinReadingOrder(longRedactedResults)
 
         assert(!joinedLongRedacted.contains("/Users/developer"), "Path redacted in long multi-line status")
         assert(containsToken("details hidden by privacy setting", in: joinedLongRedacted) ||
                (containsToken("Degraded", in: joinedLongRedacted) && containsToken("privacy setting", in: joinedLongRedacted)),
                "Degraded privacy message shown (robust to line wrapping)")
-        print("  PASS: Long multi-line status wraps cleanly at 480x360 without occluding controls, native scroll reachability proven")
+        print("  PASS: Long multi-line status wraps cleanly at 640x460 without occluding controls, native scroll reachability proven")
         fflush(stdout)
 
         // =====================================================================
@@ -643,7 +682,7 @@ struct OCRResult {
         }
         assert(settings.enabledProviderIDs.isEmpty, "All providers should be disabled")
 
-        let allDisabledHost = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 520, height: 420))
+        let allDisabledHost = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 640, height: 460))
         allDisabledHost.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = allDisabledHost
         await settle(allDisabledHost)
@@ -663,12 +702,12 @@ struct OCRResult {
         fflush(stdout)
 
         // =====================================================================
-        // Test 11: Render each of the 5 tabs in full SettingsView via initialTab
+        // Test 11: Render each of the 7 tabs in full SettingsView via initialTab
         // =====================================================================
-        print("Check 11: Switch TabView to each of the 5 tabs and verify controls at 480x360")
+        print("Check 11: Switch TabView to each of the 7 tabs and verify controls at 640x460")
 
         // Tab 0: General
-        let tab0Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .general).frame(width: 480, height: 360))
+        let tab0Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .general).frame(width: 640, height: 460))
         tab0Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab0Host
         await settle(tab0Host)
@@ -682,7 +721,7 @@ struct OCRResult {
         assert(containsToken("Status Display", in: joinedTab0), "General tab exposes the menu bar status mode picker")
 
         if containsToken("Restore Defaults", in: joinedTab0) {
-            print("  Restore Defaults visible within viewport at 480x360")
+            print("  Restore Defaults visible within viewport at 640x460")
         } else if let scroll = scrollView(in: tab0Host) {
             let clipView = scroll.contentView
             let docView = scroll.documentView
@@ -696,7 +735,7 @@ struct OCRResult {
                 let tab0ScrolledRep = saveOpaque(tab0Host, "tab-0-general-scrolled")
                 let tab0ScrolledResults = try recognizeText(in: tab0ScrolledRep)
                 let joinedTab0Scrolled = normalizeAndJoinReadingOrder(tab0ScrolledResults)
-                assert(containsToken("Restore Defaults", in: joinedTab0Scrolled), "Restore Defaults reachable via native scrolling on General tab at 480x360")
+                assert(containsToken("Restore Defaults", in: joinedTab0Scrolled), "Restore Defaults reachable via native scrolling on General tab at 640x460")
             } else {
                 assertionFailure("Restore Defaults not found and scroll view does not overflow")
             }
@@ -705,7 +744,7 @@ struct OCRResult {
         }
 
         // Tab 1: Providers
-        let tab1Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 480, height: 360))
+        let tab1Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .providers).frame(width: 640, height: 460))
         tab1Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab1Host
         await settle(tab1Host)
@@ -720,7 +759,7 @@ struct OCRResult {
 
         // Tab 2: Sessions (test retention picker disabled when includeRecentSessions is false)
         settings.includeRecentSessions = false
-        let tab2Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .sessions).frame(width: 480, height: 360))
+        let tab2Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .sessions).frame(width: 640, height: 460))
         tab2Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab2Host
         await settle(tab2Host)
@@ -732,7 +771,7 @@ struct OCRResult {
         assert(containsToken("Hide finished after", in: joinedTab2))
 
         // Tab 3: Notifications
-        let tabNotificationsHost = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .notifications).frame(width: 480, height: 360))
+        let tabNotificationsHost = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .notifications).frame(width: 640, height: 460))
         tabNotificationsHost.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tabNotificationsHost
         await settle(tabNotificationsHost)
@@ -744,21 +783,34 @@ struct OCRResult {
         assert(containsToken("Quota Alerts", in: joinedTabNotifications), "Notifications tab renders Quota Alerts")
 
         if containsToken("Session Alerts", in: joinedTabNotifications) {
-            print("  Session Alerts visible within viewport on Notifications tab at 480x360")
+            print("  Session Alerts visible within viewport on Notifications tab at 640x460")
         } else if let scroll = scrollView(in: tabNotificationsHost) {
             let clipView = scroll.contentView
             let docView = scroll.documentView
             let docHeight = docView?.bounds.height ?? 0
             let clipHeight = clipView.bounds.height
             if docHeight > clipHeight {
-                let bottomOrigin = NSPoint(x: 0, y: docHeight - clipHeight)
-                clipView.scroll(to: bottomOrigin)
-                scroll.reflectScrolledClipView(clipView)
-                await settle(tabNotificationsHost)
-                let scrolledRep = saveOpaque(tabNotificationsHost, "tab-3-notifications-scrolled")
-                let scrolledResults = try recognizeText(in: scrolledRep)
-                let joinedScrolled = normalizeAndJoinReadingOrder(scrolledResults)
-                assert(containsToken("Needs human input", in: joinedScrolled) && containsToken("Session failed", in: joinedScrolled), "Session alert controls reachable via native scrolling on Notifications tab at 480x360")
+                // History can extend below Session Alerts. Inspect overlapping
+                // viewports instead of assuming every alert is at the bottom.
+                var reachedHumanInput = containsToken("Needs human input", in: joinedTabNotifications)
+                var reachedSessionFailed = containsToken("Session failed", in: joinedTabNotifications)
+                let bottom = docHeight - clipHeight
+                let step = max(1, clipHeight / 2)
+                var offset = CGFloat(0)
+                var page = 0
+                while offset < bottom && !(reachedHumanInput && reachedSessionFailed) {
+                    offset = min(bottom, offset + step)
+                    clipView.scroll(to: NSPoint(x: 0, y: offset))
+                    scroll.reflectScrolledClipView(clipView)
+                    await settle(tabNotificationsHost)
+                    let scrolledRep = saveOpaque(tabNotificationsHost, "tab-3-notifications-scrolled-\(page)")
+                    let scrolledResults = try recognizeText(in: scrolledRep)
+                    let joinedScrolled = normalizeAndJoinReadingOrder(scrolledResults)
+                    reachedHumanInput = reachedHumanInput || containsToken("Needs human input", in: joinedScrolled)
+                    reachedSessionFailed = reachedSessionFailed || containsToken("Session failed", in: joinedScrolled)
+                    page += 1
+                }
+                assert(reachedHumanInput && reachedSessionFailed, "Session alert controls reachable via native scrolling on Notifications tab at 640x460")
             } else {
                 assertionFailure("Session Alerts not found and scroll view does not overflow")
             }
@@ -810,7 +862,7 @@ struct OCRResult {
         settings.hideProjectPaths = false
 
         // Tab 4: Storage
-        let tab3Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .storage).frame(width: 480, height: 360))
+        let tab3Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .storage).frame(width: 640, height: 460))
         tab3Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab3Host
         await settle(tab3Host)
@@ -821,7 +873,7 @@ struct OCRResult {
         assert(containsToken("Local data on disk", in: joinedTab3) || containsToken("Known agent data", in: joinedTab3))
 
         // Tab 5: Privacy
-        let tab4Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .privacy).frame(width: 480, height: 360))
+        let tab4Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .privacy).frame(width: 640, height: 460))
         tab4Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab4Host
         await settle(tab4Host)
@@ -832,7 +884,7 @@ struct OCRResult {
         assert(containsToken("Hide project paths", in: joinedTab4))
 
         // Tab 6: About
-        let tab5Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .about).frame(width: 480, height: 360))
+        let tab5Host = NSHostingView(rootView: SettingsView(settings: settings, store: healthStore, initialTab: .about).frame(width: 640, height: 460))
         tab5Host.appearance = NSAppearance(named: .darkAqua)
         probeWindow.contentView = tab5Host
         await settle(tab5Host)
@@ -842,13 +894,13 @@ struct OCRResult {
         let joinedTab5 = normalizeAndJoinReadingOrder(tab5Results)
         assert(containsToken("Loom", in: joinedTab5))
         assert(containsToken("Version 1.0", in: joinedTab5) || containsToken("Version", in: joinedTab5))
-        assert(containsToken("Lightweight", in: joinedTab5) &&
-               containsToken("macOS menu bar monitor", in: joinedTab5) &&
-               containsToken("coding agents", in: joinedTab5),
-               "About tab renders description with stable semantic tokens (Lightweight + macOS menu bar monitor + coding agents)")
+        assert(containsToken("See what your local", in: joinedTab5) &&
+               containsToken("coding agents", in: joinedTab5) &&
+               containsToken("doing on your Mac", in: joinedTab5),
+               "About tab renders the current local agent monitoring description")
         assert(containsToken("Made with", in: joinedTab5), "Footer 'Made with' is present on SettingsView")
         assert(containsToken("Deepak", in: joinedTab5), "Footer 'by Deepak (ChaiWithCode)' is present on SettingsView")
-        print("  PASS: All 7 tabs rendered and all controls verified at 480x360 (including footer)")
+        print("  PASS: All 7 tabs rendered and all controls verified at 640x460 (including footer)")
         fflush(stdout)
 
         // =====================================================================
@@ -917,22 +969,32 @@ struct OCRResult {
             "Loom"
         ]
 
-        guard let seg = findSegmentedControl(in: settingsWindow.contentView!) else {
-            fatalError("NSSegmentedControl for settings tabs not found in window")
+        // The production navigation is seven SwiftUI buttons. Resolve their
+        // rendered labels and send real mouse events rather than mutating a
+        // selection binding or assuming the former NSSegmentedControl exists.
+        func navigationPoint(_ title: String) throws -> NSPoint {
+            let content = settingsWindow.contentView!
+            let observations = try recognizeText(in: saveOpaque(content, "navigation-locate-\(title.lowercased())"))
+            guard let label = observations.first(where: {
+                $0.text == title && $0.boundingBox.minY > 0.8
+            }) else {
+                fatalError("Visible navigation label \(title) not found")
+            }
+            let imagePoint = NSPoint(x: label.boundingBox.midX * content.bounds.width,
+                                     y: label.boundingBox.midY * content.bounds.height)
+            let localPoint = NSPoint(x: imagePoint.x,
+                                     y: content.isFlipped ? content.bounds.height - imagePoint.y : imagePoint.y)
+            assert(content.bounds.contains(localPoint), "Navigation label \(title) must be fully within content bounds")
+            let windowPoint = content.convert(localPoint, to: nil)
+            assert(content.hitTest(localPoint) != nil, "Navigation label \(title) must be hittable")
+            return windowPoint
         }
 
-        // Calculate minimum width and height that prevent horizontal and vertical tab bar clipping
-        let minFittingWidth = max(560.0, ceil(seg.fittingSize.width + 32.0))
-        let minFittingHeight = 380.0
-        let defaultWidth = max(minFittingWidth, 580.0)
-        let defaultHeight = 460.0
-        print("  Calculated frame bounds preventing tab bar clipping: min \(Int(minFittingWidth))x\(Int(minFittingHeight)), default \(Int(defaultWidth))x\(Int(defaultHeight))")
-
         let testConfigurations: [(width: CGFloat, height: CGFloat, appearanceName: String, appearance: NSAppearance?)] = [
-            (minFittingWidth, minFittingHeight, "min-dark", NSAppearance(named: .darkAqua)),
-            (minFittingWidth, minFittingHeight, "min-light", NSAppearance(named: .aqua)),
-            (defaultWidth, defaultHeight, "default-dark", NSAppearance(named: .darkAqua)),
-            (defaultWidth, defaultHeight, "default-light", NSAppearance(named: .aqua))
+            (640, 460, "min-dark", NSAppearance(named: .darkAqua)),
+            (640, 460, "min-light", NSAppearance(named: .aqua)),
+            (660, 560, "default-dark", NSAppearance(named: .darkAqua)),
+            (660, 560, "default-light", NSAppearance(named: .aqua))
         ]
 
         for config in testConfigurations {
@@ -940,101 +1002,58 @@ struct OCRResult {
             settingsWindow.appearance = config.appearance
             settingsWindow.setContentSize(NSSize(width: config.width, height: config.height))
             await settle(settingsWindow.contentView!)
-
-            // 1. Verify window toolbar has NO tab items or overflow
+            assert(settingsWindow.contentView!.bounds.width == config.width && settingsWindow.contentView!.bounds.height == config.height,
+                   "Titled window must render at the requested supported content size")
             if let toolbar = settingsWindow.toolbar {
                 assert(toolbar.items.isEmpty, "Window toolbar must not contain tabs or overflow items in config \(config.appearanceName)")
             }
             assert(!containsOverflowButton(in: settingsWindow.contentView!),
                    "No double-chevron overflow button should exist in content view for \(config.appearanceName)")
 
-            // 2. Find NSSegmentedControl in content view hierarchy
-            guard let segControl = findSegmentedControl(in: settingsWindow.contentView!) else {
-                fatalError("NSSegmentedControl for settings tabs not found in window for \(config.appearanceName)")
+            let headerResults = try recognizeText(in: saveOpaque(settingsWindow.contentView!, "navigation-header-\(config.appearanceName)"))
+            for title in expectedTabs {
+                assert(headerResults.contains(where: { $0.text == title && $0.boundingBox.minY > 0.8 }),
+                       "All seven navigation labels must be visible without overflow: missing \(title)")
             }
-
-            // 3. Verify exactly 7 segments with matching titles
-            assert(segControl.segmentCount == 7, "Expected exactly 7 segments in segmented control, found \(segControl.segmentCount)")
-            for (idx, expectedTitle) in expectedTabs.enumerated() {
-                let actualTitle = segControl.label(forSegment: idx)
-                assert(actualTitle == expectedTitle, "Segment \(idx) title mismatch: got \(actualTitle ?? "nil"), expected \(expectedTitle)")
-                assert(segControl.isEnabled(forSegment: idx), "Segment \(idx) (\(expectedTitle)) must be enabled")
-            }
-
-            // 4. Verify segmented control is fully within content view bounds without horizontal or vertical clipping
-            let segFrameInContent = segControl.convert(segControl.bounds, to: settingsWindow.contentView!)
-            assert(segFrameInContent.minX >= 0, "Segmented control minX (\(segFrameInContent.minX)) must be >= 0 to prevent clipping")
-            assert(segFrameInContent.maxX <= settingsWindow.contentView!.bounds.width,
-                   "Segmented control maxX (\(segFrameInContent.maxX)) must be <= content width (\(settingsWindow.contentView!.bounds.width))")
-            assert(segFrameInContent.minY >= 0, "Segmented control minY must be >= 0")
-            assert(segFrameInContent.maxY <= settingsWindow.contentView!.bounds.height,
-                   "Segmented control maxY must be <= content height")
-            assert(segControl.bounds.width > 0 && segControl.bounds.height > 0, "Segmented control size must be non-zero")
-
-            // 5. Test hittability and section switching without opening overflow
-            for tabIndex in 0..<7 {
-                let segWidth = segControl.bounds.width / CGFloat(segControl.segmentCount)
-                let clickPt = segControl.convert(NSPoint(x: (CGFloat(tabIndex) + 0.5) * segWidth, y: segControl.bounds.midY), to: nil)
+            for (tabIndex, title) in expectedTabs.enumerated() {
+                let clickPt = try navigationPoint(title)
                 let windowCountBefore = NSApp.windows.count
-
                 clickPoint(settingsWindow, at: clickPt)
                 await settle(settingsWindow.contentView!)
-
-                assert(segControl.selectedSegment == tabIndex, "Clicking segment \(tabIndex) must update selectedSegment to \(tabIndex)")
-                assert(NSApp.windows.count == windowCountBefore, "Clicking segment must not open any menu/overflow popup")
-
+                assert(NSApp.windows.count == windowCountBefore, "Clicking navigation must not open any menu/overflow popup")
                 let screenshot = saveOpaque(settingsWindow.contentView!, "titled-window-tab-\(tabIndex)-\(config.appearanceName)")
-                let ocrResults = try recognizeText(in: screenshot)
-                let joinedText = normalizeAndJoinReadingOrder(ocrResults)
+                let joinedText = normalizeAndJoinReadingOrder(try recognizeText(in: screenshot))
                 assert(containsToken(expectedTokens[tabIndex], in: joinedText),
-                       "Tab \(tabIndex) (\(expectedTabs[tabIndex])) expected token '\(expectedTokens[tabIndex])' not found in content text")
+                       "Native click on \(title) must show content token '\(expectedTokens[tabIndex])'")
+                assert(containsToken("Made with", in: joinedText) && containsToken("Deepak", in: joinedText),
+                       "Settings footer must remain visible for \(title) in \(config.appearanceName)")
             }
         }
 
-        // Test Storage on-demand scan and cooperative cancellation
         print("  Verifying Storage on-demand scan and cooperative cancellation...")
-        // Click Storage (segment 4)
-        guard let seg = findSegmentedControl(in: settingsWindow.contentView!) else {
-            fatalError("Segmented control missing")
-        }
-        let segWidth = seg.bounds.width / CGFloat(seg.segmentCount)
-        let storagePt = seg.convert(NSPoint(x: (CGFloat(4) + 0.5) * segWidth, y: seg.bounds.midY), to: nil)
-        clickPoint(settingsWindow, at: storagePt)
+        clickPoint(settingsWindow, at: try navigationPoint("Storage"))
         await settle(settingsWindow.contentView!, iterations: 5)
-        assert(seg.selectedSegment == 4, "Storage segment must be selected")
-
-        // Now click General (segment 0) to cancel Storage scan cooperatively
-        let generalPt = seg.convert(NSPoint(x: (CGFloat(0) + 0.5) * segWidth, y: seg.bounds.midY), to: nil)
-        clickPoint(settingsWindow, at: generalPt)
+        let storageText = normalizeAndJoinReadingOrder(try recognizeText(in: saveOpaque(settingsWindow.contentView!, "storage-navigation-active")))
+        assert(containsToken("Local data on disk", in: storageText), "Native navigation must select Storage")
+        clickPoint(settingsWindow, at: try navigationPoint("General"))
         await settle(settingsWindow.contentView!, iterations: 5)
-        assert(seg.selectedSegment == 0, "General segment must be selected")
+        let generalText = normalizeAndJoinReadingOrder(try recognizeText(in: saveOpaque(settingsWindow.contentView!, "storage-navigation-cancelled")))
+        assert(containsToken("Show Loom in Dock", in: generalText), "Native navigation must leave Storage for General")
         print("  PASS: Storage cooperative navigation and cancellation verified")
 
-        // Test deep links on actual titled window
         print("  Verifying provider deep links on titled window...")
-        controller.handleOpenURL(URL(string: "loom://provider/codex")!)
-        await settle(settingsWindow.contentView!)
-        guard let segAfterCodex = findSegmentedControl(in: settingsWindow.contentView!) else {
-            fatalError("Segmented control missing after codex deep link")
+        for provider in ["codex", "claude"] {
+            controller.handleOpenURL(URL(string: "loom://provider/\(provider)")!)
+            await settle(settingsWindow.contentView!)
+            assert(controller.settingsProviderContextID == ProviderID(provider), "Provider deep link must preserve its context")
+            let text = normalizeAndJoinReadingOrder(try recognizeText(in: saveOpaque(settingsWindow.contentView!, "titled-deep-link-\(provider)")))
+            assert(containsToken("Default Provider", in: text), "Provider deep link must select Providers content")
         }
-        assert(segAfterCodex.selectedSegment == 1, "Deep link loom://provider/codex must select Providers tab (segment 1)")
-        assert(controller.settingsProviderContextID == .codex, "Context ID must be codex")
-
-        controller.handleOpenURL(URL(string: "loom://provider/claude")!)
-        await settle(settingsWindow.contentView!)
-        guard let segAfterClaude = findSegmentedControl(in: settingsWindow.contentView!) else {
-            fatalError("Segmented control missing after claude deep link")
-        }
-        assert(segAfterClaude.selectedSegment == 1, "Deep link loom://provider/claude must select Providers tab (segment 1)")
-        assert(controller.settingsProviderContextID == .claude, "Context ID must be claude")
-
         controller.handleOpenURL(URL(string: "loom://settings")!)
         await settle(settingsWindow.contentView!)
-        guard let segAfterSettings = findSegmentedControl(in: settingsWindow.contentView!) else {
-            fatalError("Segmented control missing after settings deep link")
-        }
-        assert(segAfterSettings.selectedSegment == 0, "Deep link loom://settings must select General tab (segment 0)")
-        print("  PASS: Six navigation controls visible and hittable without overflow on titled window across widths, appearances, and deep links")
+        let settingsLinkText = normalizeAndJoinReadingOrder(try recognizeText(in: saveOpaque(settingsWindow.contentView!, "titled-deep-link-settings")))
+        assert(containsToken("Show Loom in Dock", in: settingsLinkText), "Settings deep link must select General content")
+        print("  PASS: Seven navigation controls visible and hittable without overflow on titled window across widths, appearances, and deep links")
         fflush(stdout)
 
         settingsWindow.close()

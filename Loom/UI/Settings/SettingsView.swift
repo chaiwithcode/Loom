@@ -55,8 +55,8 @@ public struct SettingsView: View {
 
     public var body: some View {
         GeometryReader { geometry in
-            LoomGlassContainer {
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                LoomGlassContainer {
                     HStack(spacing: 3) {
                         ForEach(SettingsTab.allCases) { tab in
                             Button {
@@ -89,32 +89,32 @@ public struct SettingsView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel("Settings Section")
                     .accessibilityIdentifier("picker-settings-tabs")
-
-                    Group {
-                        switch selectedTab {
-                        case .general:
-                            GeneralSettingsTab(settings: settings)
-                        case .providers:
-                            ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
-                        case .sessions:
-                            SessionsSettingsTab(settings: settings)
-                        case .notifications:
-                            NotificationsSettingsTab(settings: settings)
-                        case .storage:
-                            StorageSettingsTab(hidePaths: settings.hideProjectPaths)
-                        case .privacy:
-                            PrivacySettingsTab(settings: settings)
-                        case .about:
-                            AboutSettingsTab()
-                        }
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-                    .clipped()
-
-                    SettingsFooterView()
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height)
+
+                Group {
+                    switch selectedTab {
+                    case .general:
+                        GeneralSettingsTab(settings: settings)
+                    case .providers:
+                        ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
+                    case .sessions:
+                        SessionsSettingsTab(settings: settings)
+                    case .notifications:
+                        NotificationsSettingsTab(settings: settings)
+                    case .storage:
+                        StorageSettingsTab(hidePaths: settings.hideProjectPaths)
+                    case .privacy:
+                        PrivacySettingsTab(settings: settings)
+                    case .about:
+                        AboutSettingsTab()
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .clipped()
+
+                SettingsFooterView()
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .scrollContentBackground(.hidden)
         .background {
@@ -518,11 +518,13 @@ struct SettingsForm<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) { content }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 18)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
+            LoomGlassContainer {
+                VStack(alignment: .leading, spacing: 18) { content }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
+            }
         }
         .frame(minHeight: 0, maxHeight: .infinity)
         .clipped()

@@ -14,7 +14,7 @@ if [[ -f "${ROOT_DIR}/.release.local" ]]; then
     source "${ROOT_DIR}/.release.local"
 fi
 
-VERSION="${1:-${VERSION:-1.0}}"
+VERSION="${1:-${VERSION:-2.0.0}}"
 SKIP_NOTARIZATION="${SKIP_NOTARIZATION:-0}"
 for arg in "$@"; do
     if [[ "${arg}" == "--skip-notarization" ]]; then
@@ -30,6 +30,12 @@ CANONICAL_DMG="${DIST_DIR}/Loom-${VERSION}.dmg"
 DMG_SHA_FILE="${CANONICAL_DMG}.sha256"
 SUMS_FILE="${DIST_DIR}/SHA256SUMS.txt"
 APPCAST_FILE="${DIST_DIR}/appcast.xml"
+
+if [[ -e "${CANONICAL_ZIP}" ]]; then
+    echo "ERROR: Canonical ZIP already exists: ${CANONICAL_ZIP}" >&2
+    echo "Refusing to replace an immutable versioned artifact." >&2
+    exit 1
+fi
 
 mkdir -p "${DIST_DIR}"
 

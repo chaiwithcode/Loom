@@ -55,20 +55,24 @@ Configured under **Settings → Notifications**:
 | Setting Key | Default | Description |
 | :--- | :--- | :--- |
 | `notificationsEnabled` | `true` | Master toggle. Existing opt-outs are preserved; macOS authorization is still required. |
-| `quotaWarning15Percent` | `true` | Alerts when any enabled provider's remaining quota crosses below 15%. |
-| `quotaWarning5Percent` | `true` | Alerts when any enabled provider's remaining quota crosses below 5%. |
+| `quotaWarning15Percent` | `true` | Alerts when an enabled quota-capable provider's observed remaining quota crosses below 15% (Codex and Antigravity). |
+| `quotaWarning5Percent` | `true` | Alerts when an enabled quota-capable provider's observed remaining quota crosses below 5% (Codex and Antigravity). |
 | `quotaReplenishedAlert` | `true` | Alerts when a fresh observation confirms quota recovery to ~100% in a new window. |
 | `sessionWaitingAlert` | `true` | Alerts when an agent session transitions to `waiting` (requiring user input/decision). |
-| `sessionFinishedAlert` | `false` | Alerts when an active agent session concludes successfully. |
+| `sessionFinishedAlert` | `false` | Alerts when an active agent session concludes successfully and meets the observed Working duration. |
+| `minimumWorkingDuration` | `300 seconds` | Finished alerts only: Always, 2, 5 or 10 minutes of observed Working time; waiting/failure alerts stay immediate. |
 | `sessionFailedAlert` | `true` | Alerts when an agent process exits abnormally or encounters a fatal provider error. |
 
+- **Quota Support**: Codex and Antigravity expose observed quota data for threshold alerts. Claude Code does not expose quota through its upstream local interface; Loom does not synthesize Claude quota values.
 - **Permission Handling**: Notifications default to enabled. On normal launch, Loom requests macOS authorization only if notifications are enabled and permission has not been decided. Existing opt-outs and macOS denials remain unchanged; demo launches do not request permission. Enabling notifications in Settings can also request authorization.
 - **System Settings Link**: If permissions are denied at the OS level, Settings displays an inline warning banner with a direct link to macOS System Settings.
 - **Debug Test Notification**: Debug builds include **Send Test Notification** for manual development verification. Release builds exclude the button and test-alert implementation.
 
 ### Notification History Storage (`NotificationHistoryStore`)
 
-To provide transparency and auditability, Loom maintains a bounded local history of delivered notifications:
+Production quota threshold deduplication and window observations are persisted in UserDefaults across app restarts. Reset alerts require fresh, ordered observations crossing a known prior reset boundary and restoring at least 95% in a later window; a changed timestamp alone is insufficient. Upstream account/profile identity is not yet available for scoping this state.
+
+To provide transparency and auditability, Loom maintains a bounded local history of queued, failed or suppressed notifications:
 
 - **Storage Location**: Persisted in `UserDefaults` via `SharedAppGroup.suiteName` under `loom.notificationHistory`.
 - **Bounded Retention**: Stored as a circular ring buffer capped at the last **100 events** to prevent unbounded disk growth.

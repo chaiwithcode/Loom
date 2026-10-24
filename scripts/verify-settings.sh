@@ -53,12 +53,18 @@ swiftc -parse-as-library -module-cache-path "$probe_dir/cache" \
     -o "$probe_dir/SettingsProbe.app/Contents/MacOS/SettingsProbe"
 
 echo "==> Executing SettingsProbe..."
-"$probe_dir/SettingsProbe.app/Contents/MacOS/SettingsProbe" &
+probe_output="$probe_dir/probe.log"
+"$probe_dir/SettingsProbe.app/Contents/MacOS/SettingsProbe" > "$probe_output" 2>&1 &
 probe_pid=$!
-wait "$probe_pid"
-probe_status=$?
+probe_status=0
+wait "$probe_pid" || probe_status=$?
 probe_pid=""
+cat "$probe_output"
 echo "==> SettingsProbe finished with exit code $probe_status"
 
-exec 1>&- 2>&-
+if [[ "$probe_status" -eq 0 ]] && ! grep -Fxq 'ALL PROBE CHECKS PASSED SUCCESSFULLY' "$probe_output"; then
+    echo "ERROR: SettingsProbe exited without completing every check."
+    probe_status=1
+fi
+
 exit "$probe_status"

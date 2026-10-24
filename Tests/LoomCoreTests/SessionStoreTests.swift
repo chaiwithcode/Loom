@@ -546,19 +546,27 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(failStore.fixture, .failure)
         XCTAssertEqual(failStore.fixture.badgeLabel, "DEMO FAIL")
 
-        // Verify all 6 states are covered in default mock providers
+        // Verify expanded demo-mock sessions across 3 providers (10 per provider = 30 total sessions)
         let allDefaultProviders = MockAgentProvider.createDefaultProviders()
-        var coveredStates = Set<AgentState>()
+        XCTAssertEqual(allDefaultProviders.count, 3)
+        var allSessions: [AgentSession] = []
+        let expectedStates = Set(AgentState.allCases)
+
         for provider in allDefaultProviders {
-            for session in try await provider.discoverSessions() {
-                coveredStates.insert(session.state)
-            }
+            let sessions = try await provider.discoverSessions()
+            XCTAssertEqual(sessions.count, 10, "\(provider.displayName) must provide exactly 10 mock sessions")
+            let providerStates = Set(sessions.map(\.state))
+            XCTAssertEqual(
+                providerStates,
+                expectedStates,
+                "\(provider.displayName) mock sessions must cover all normalized AgentState values"
+            )
+            allSessions.append(contentsOf: sessions)
         }
-        XCTAssertEqual(
-            coveredStates,
-            Set(AgentState.allCases),
-            "Default mock providers must cover all six normalized AgentState values"
-        )
+
+        XCTAssertEqual(allSessions.count, 30, "Default mock providers must offer exactly 30 distinct sessions")
+        let sessionIDs = Set(allSessions.map(\.id))
+        XCTAssertEqual(sessionIDs.count, 30, "All 30 mock sessions must have unique IDs")
 
         // Verify empty fixture
         let emptyProviders = DemoFixture.empty.makeProviders()

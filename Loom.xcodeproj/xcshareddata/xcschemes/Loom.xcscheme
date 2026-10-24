@@ -68,6 +68,16 @@
                ReferencedContainer = "container:Loom.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A00000000000000000000200"
+               BuildableName = "LoomRegressionTests.xctest"
+               BlueprintName = "LoomRegressionTests"
+               ReferencedContainer = "container:Loom.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

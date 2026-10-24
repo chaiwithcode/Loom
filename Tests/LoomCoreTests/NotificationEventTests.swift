@@ -147,6 +147,7 @@ final class NotificationEventTests: XCTestCase {
         let evaluator = QuotaThresholdEvaluator()
 
         // 1. In Window 1, quota is depleted to 8% remaining
+        let t1 = Date(timeIntervalSince1970: 1799990000)
         let depletedBucketW1 = UsageBucket(
             identifier: "codex-primary",
             label: "5h Window",
@@ -154,10 +155,11 @@ final class NotificationEventTests: XCTestCase {
             resetsAt: Date(timeIntervalSince1970: 1800000000),
             windowDurationMins: 300
         )
-        let w1Events = evaluator.evaluate(provider: .codex, bucket: depletedBucketW1, windowId: "window-1")
+        let w1Events = evaluator.evaluate(provider: .codex, bucket: depletedBucketW1, windowId: "window-1", observedAt: t1)
         XCTAssertFalse(w1Events.isEmpty, "Should alert on low quota in window-1")
 
         // 2. New Window 2 arrives with fresh replenished quota (98% remaining)
+        let t2 = Date(timeIntervalSince1970: 1800000001)
         let replenishedBucketW2 = UsageBucket(
             identifier: "codex-primary",
             label: "5h Window",
@@ -165,7 +167,7 @@ final class NotificationEventTests: XCTestCase {
             resetsAt: Date(timeIntervalSince1970: 1800018000),
             windowDurationMins: 300
         )
-        let w2Events = evaluator.evaluate(provider: .codex, bucket: replenishedBucketW2, windowId: "window-2")
+        let w2Events = evaluator.evaluate(provider: .codex, bucket: replenishedBucketW2, windowId: "window-2", observedAt: t2)
         XCTAssertEqual(w2Events.count, 1)
 
         guard case let .quotaReplenished(provider, bucket, windowId) = w2Events.first else {
@@ -177,7 +179,8 @@ final class NotificationEventTests: XCTestCase {
         XCTAssertEqual(windowId, "window-2")
 
         // 3. Repeat poll in Window 2: must not fire duplicate replenishment alert
-        let w2RepeatEvents = evaluator.evaluate(provider: .codex, bucket: replenishedBucketW2, windowId: "window-2")
+        let t3 = Date(timeIntervalSince1970: 1800000060)
+        let w2RepeatEvents = evaluator.evaluate(provider: .codex, bucket: replenishedBucketW2, windowId: "window-2", observedAt: t3)
         XCTAssertTrue(w2RepeatEvents.isEmpty, "Repeat poll in window-2 must not duplicate replenishment alert")
     }
 

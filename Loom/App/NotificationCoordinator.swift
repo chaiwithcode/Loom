@@ -46,7 +46,9 @@ public struct DeepLinkPayload: Sendable, Equatable {
 
 @MainActor
 public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDelegate {
-    public static let shared = NotificationCoordinator()
+    public static let shared = NotificationCoordinator(
+        quotaEvaluator: QuotaThresholdEvaluator(userDefaults: .standard)
+    )
 
     public static let categoryIdentifier = "LOOM_NOTIFICATION_CATEGORY"
     public static let openActionIdentifier = "LOOM_ACTION_VIEW"
@@ -83,7 +85,8 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
         self.settings = settings
         updatePolicyFromSettings()
 
-        settings.onNotificationsEnabledChanged = { [weak self] _ in
+        settings.onNotificationsEnabledChanged = { [weak self] enabled in
+            if !enabled { self?.transitionDetector.reset() }
             self?.updatePolicyFromSettings()
         }
         settings.onNotifyQuota15PercentChanged = { [weak self] _ in
@@ -99,6 +102,9 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
             self?.updatePolicyFromSettings()
         }
         settings.onNotifySessionFinishedChanged = { [weak self] _ in
+            self?.updatePolicyFromSettings()
+        }
+        settings.onMinimumWorkingDurationChanged = { [weak self] _ in
             self?.updatePolicyFromSettings()
         }
         settings.onNotifySessionFailedChanged = { [weak self] _ in
@@ -284,11 +290,18 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
     }
 
     public func handleMonitoringEvent(_ event: MonitoringEvent) {
+        guard store?.fixture.isDemo != true else { return }
         guard let settings, settings.notificationsEnabled else { return }
 
         updatePolicyFromSettings()
 
-        guard policy.shouldDeliver(event: event) else {
+        let observedWorkingDuration: TimeInterval?
+        if case .sessionStateTransition(let session, _, _) = event {
+            observedWorkingDuration = transitionDetector.observedWorkingDuration(for: session.id)
+        } else {
+            observedWorkingDuration = nil
+        }
+        guard policy.shouldDeliver(event: event, observedWorkingDuration: observedWorkingDuration) else {
             return
         }
 
@@ -319,7 +332,7 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
     }
 
     public func processStoreUpdate() {
-        guard let store, let settings, settings.notificationsEnabled else { return }
+        guard let store, !store.fixture.isDemo, let settings, settings.notificationsEnabled else { return }
         updatePolicyFromSettings()
 
         // Evaluate quota thresholds
@@ -334,7 +347,9 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
 
         // Evaluate session transitions
         let allSessions = store.allSessions
-        let failedProviders = Set(store.providerSnapshots.filter { $0.errorMessage != nil }.map(\.providerID))
+        let failedProviders = Set(store.providerSnapshots.filter {
+            $0.errorMessage != nil || !settings.enabledProviderIDs.contains($0.providerID)
+        }.map(\.providerID))
         let transitionEvents = transitionDetector.detectTransitions(
             currentSessions: allSessions,
             failedProviders: failedProviders
@@ -354,6 +369,7 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
             quotaReplenishmentEnabled: settings.notifyQuotaReset,
             sessionWaitingEnabled: settings.notifySessionWaiting,
             sessionFinishedEnabled: settings.notifySessionFinished,
+            minimumWorkingDuration: TimeInterval(settings.minimumWorkingDuration.rawValue),
             sessionFailedEnabled: settings.notifySessionFailed,
             hideProjectPaths: settings.hideProjectPaths,
             enabledProviders: settings.enabledProviderIDs

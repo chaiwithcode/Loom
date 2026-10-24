@@ -66,13 +66,13 @@ run_check() {
 
     if [[ "${current_branch}" != "main" ]]; then
         echo "[WARN] (on branch '${current_branch}', recommended 'main')"
-        ((warn_count++))
+        warn_count=$((warn_count + 1))
     elif [[ -n "${git_status_dirty}" ]]; then
         echo "[WARN] (working tree has uncommitted changes)"
-        ((warn_count++))
+        warn_count=$((warn_count + 1))
     else
         echo "[PASS] (branch: main, clean working tree)"
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     fi
 
     # 2. Version configuration in scripts/build-app.sh
@@ -81,10 +81,10 @@ run_check() {
     build_ver="$(grep -A 1 'CFBundleShortVersionString' scripts/build-app.sh 2>/dev/null | grep '<string>' | sed -E 's/.*<string>(.*)<\/string>.*/\1/' || true)"
     if [[ -n "${build_ver}" ]]; then
         echo "[PASS] (scripts/build-app.sh specifies ${build_ver})"
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     else
         echo "[FAIL] (unable to read CFBundleShortVersionString from scripts/build-app.sh)"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
 
     # 3. Required CLI Tools
@@ -93,10 +93,10 @@ run_check() {
         echo -n "Checking tool '${tool}'... "
         if command -v "${tool}" >/dev/null 2>&1; then
             echo "[PASS]"
-            ((pass_count++))
+            pass_count=$((pass_count + 1))
         else
             echo "[FAIL] ('${tool}' command not found in PATH)"
-            ((fail_count++))
+            fail_count=$((fail_count + 1))
         fi
     done
 
@@ -106,22 +106,22 @@ run_check() {
     dev_id="$(security find-identity -v -p codesigning 2>/dev/null | grep "Developer ID Application:" | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)"
     if [[ -n "${dev_id}" ]]; then
         echo "[PASS] (${dev_id})"
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     else
         echo "[FAIL] (No 'Developer ID Application' certificate found in login Keychain)"
         echo "       Ensure your Apple Developer ID certificate is installed in Keychain Access."
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
 
     # 5. Apple Notary Profile
     echo -n "Checking notarytool profile '${NOTARY_PROFILE}'... "
     if xcrun notarytool history --keychain-profile "${NOTARY_PROFILE}" >/dev/null 2>&1; then
         echo "[PASS] (Keychain profile '${NOTARY_PROFILE}' validated via notarytool history)"
-        ((pass_count++))
+        pass_count=$((pass_count + 1))
     else
         echo "[WARN] (Failed to validate notary profile '${NOTARY_PROFILE}')"
         echo "       Ensure credentials profile exists in Keychain or override via NOTARY_PROFILE."
-        ((warn_count++))
+        warn_count=$((warn_count + 1))
     fi
 
     # 6. Sparkle 2 Ed25519 Private Key in Keychain
@@ -135,17 +135,17 @@ run_check() {
         expected_pubkey="$(grep -A 1 'SUPublicEDKey' Resources/Info.plist 2>/dev/null | grep '<string>' | sed -E 's/.*<string>(.*)<\/string>.*/\1/' || true)"
         if [[ -n "${extracted_pubkey}" && "${extracted_pubkey}" == "${expected_pubkey}" ]]; then
             echo "[PASS] (public key matches Info.plist: ${extracted_pubkey:0:12}...)"
-            ((pass_count++))
+            pass_count=$((pass_count + 1))
         elif [[ -n "${extracted_pubkey}" ]]; then
             echo "[WARN] (key found but differs from Info.plist: ${extracted_pubkey} vs ${expected_pubkey})"
-            ((warn_count++))
+            warn_count=$((warn_count + 1))
         else
             echo "[FAIL] (No Ed25519 key found in Keychain under https://sparkle-project.org)"
-            ((fail_count++))
+            fail_count=$((fail_count + 1))
         fi
     else
         echo "[FAIL] (Sparkle tooling not available)"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
 
     # 7. GitHub CLI Authentication
@@ -155,14 +155,14 @@ run_check() {
             local gh_user
             gh_user="$(gh api user -q .login 2>/dev/null || echo "authenticated")"
             echo "[PASS] (logged in as '${gh_user}')"
-            ((pass_count++))
+            pass_count=$((pass_count + 1))
         else
             echo "[FAIL] (gh CLI is not authenticated. Run 'gh auth login')"
-            ((fail_count++))
+            fail_count=$((fail_count + 1))
         fi
     else
         echo "[FAIL] (gh CLI not installed)"
-        ((fail_count++))
+        fail_count=$((fail_count + 1))
     fi
 
     echo ""
@@ -200,6 +200,13 @@ run_prepare() {
         exit 1
     fi
 
+    local existing_zip="${ROOT_DIR}/dist/Loom-${version}-macOS.zip"
+    if [[ -e "${existing_zip}" ]]; then
+        echo "ERROR: Canonical ZIP already exists: ${existing_zip}" >&2
+        echo "Refusing to replace an immutable versioned artifact." >&2
+        exit 1
+    fi
+
     # Check git tag collision
     if git rev-parse "v${version}" >/dev/null 2>&1; then
         echo "WARNING: Git tag 'v${version}' already exists locally." >&2
@@ -207,7 +214,7 @@ run_prepare() {
     fi
 
     if command -v gh >/dev/null 2>&1; then
-        if gh release view "v${version}" >/dev/null 2>&1; then
+        if gh release view "v${version}" --repo chaiwithcode/Loom >/dev/null 2>&1; then
             echo "WARNING: GitHub Release 'v${version}' already exists remotely." >&2
             echo "         Local preparation proceeding (publishing will enforce release uniqueness)." >&2
         fi
@@ -276,6 +283,96 @@ run_prepare() {
     echo "=========================================================="
 }
 
+# Read-only validation required before any public release mutation.
+public_release_preflight() {
+    local version="$1"
+    local tag="v${version}"
+    local build_ver
+    build_ver="$(grep -A 1 'CFBundleShortVersionString' scripts/build-app.sh | grep '<string>' | sed -E 's/.*<string>(.*)<\/string>.*/\1/')"
+    if [[ "${build_ver}" != "${version}" ]]; then
+        echo "ERROR: Requested version ${version} does not match scripts/build-app.sh (${build_ver})." >&2
+        return 1
+    fi
+
+    local dirty
+    dirty="$(git status --porcelain)"
+    if [[ -n "${dirty}" ]]; then
+        echo "ERROR: Public release requires a clean working tree." >&2
+        return 1
+    fi
+
+    local app_bundle="${ROOT_DIR}/.build/Loom.app"
+    local dmg="${ROOT_DIR}/dist/Loom-${version}.dmg"
+    local zip="${ROOT_DIR}/dist/Loom-${version}-macOS.zip"
+    local sums="${ROOT_DIR}/dist/SHA256SUMS.txt"
+    [[ -d "${app_bundle}" && -f "${dmg}" && -f "${zip}" && -f "${sums}" ]] || {
+        echo "ERROR: Public release requires the prepared app, ZIP, DMG, and checksums." >&2
+        return 1
+    }
+
+    local app_details dmg_details
+    app_details="$(codesign -dv --verbose=4 "${app_bundle}" 2>&1)" || { echo "ERROR: App signature is unavailable." >&2; return 1; }
+    dmg_details="$(codesign -dv --verbose=4 "${dmg}" 2>&1)" || { echo "ERROR: DMG signature is unavailable." >&2; return 1; }
+    if ! grep -q 'Authority=Developer ID Application:' <<<"${app_details}" || ! grep -q 'Authority=Developer ID Application:' <<<"${dmg_details}"; then
+        echo "ERROR: App and DMG must be signed with a Developer ID Application identity." >&2
+        return 1
+    fi
+    if ! grep -Eq 'flags=.*runtime' <<<"${app_details}"; then
+        echo "ERROR: App signature does not enable the hardened runtime." >&2
+        return 1
+    fi
+    codesign --verify --deep --strict --verbose=2 "${app_bundle}" || return 1
+    codesign --verify --strict --verbose=2 "${dmg}" || return 1
+    xcrun stapler validate "${app_bundle}" || { echo "ERROR: App notarization ticket is not stapled and valid." >&2; return 1; }
+    xcrun stapler validate "${dmg}" || { echo "ERROR: DMG notarization ticket is not stapled and valid." >&2; return 1; }
+    spctl --assess -vv --type execute "${app_bundle}" || { echo "ERROR: Gatekeeper rejected the app." >&2; return 1; }
+    spctl --assess -vv --type open "${dmg}" || { echo "ERROR: Gatekeeper rejected the DMG." >&2; return 1; }
+
+    local expected_zip expected_dmg actual_zip actual_dmg
+    expected_zip="$(awk -v name="Loom-${version}-macOS.zip" '$2 == name {print $1}' "${sums}")"
+    expected_dmg="$(awk -v name="Loom-${version}.dmg" '$2 == name {print $1}' "${sums}")"
+    actual_zip="$(shasum -a 256 "${zip}" | awk '{print $1}')"
+    actual_dmg="$(shasum -a 256 "${dmg}" | awk '{print $1}')"
+    if [[ -z "${expected_zip}" || "${expected_zip}" != "${actual_zip}" || -z "${expected_dmg}" || "${expected_dmg}" != "${actual_dmg}" ]]; then
+        echo "ERROR: Prepared ZIP/DMG checksums do not match SHA256SUMS.txt." >&2
+        return 1
+    fi
+
+    local head_sha local_tag_sha local_tag_object_sha remote_tag_sha remote_tag_object_sha remote_refs
+    head_sha="$(git rev-parse HEAD^{commit})"
+    if git rev-parse "${tag}^{commit}" >/dev/null 2>&1; then
+        local_tag_sha="$(git rev-parse "${tag}^{commit}")"
+        local_tag_object_sha="$(git rev-parse "${tag}")"
+        if [[ "${local_tag_sha}" != "${head_sha}" ]]; then
+            echo "ERROR: Local tag ${tag} does not point at HEAD." >&2
+            return 1
+        fi
+    fi
+    remote_refs="$(git ls-remote origin "refs/tags/${tag}" "refs/tags/${tag}^{}")" || { echo "ERROR: Unable to verify remote tag ${tag}." >&2; return 1; }
+    remote_tag_object_sha="$(awk -v ref="refs/tags/${tag}" '$2 == ref {print $1}' <<<"${remote_refs}")"
+    remote_tag_sha="$(awk -v ref="refs/tags/${tag}^{}" '$2 == ref {print $1}' <<<"${remote_refs}")"
+    if [[ -z "${remote_tag_sha}" ]]; then
+        remote_tag_sha="${remote_tag_object_sha}"
+    fi
+    if [[ -n "${remote_tag_sha}" && "${remote_tag_sha}" != "${head_sha}" ]]; then
+        echo "ERROR: Remote tag ${tag} does not point at HEAD (${head_sha})." >&2
+        return 1
+    fi
+    if [[ -n "${remote_tag_object_sha}" && -z "${local_tag_object_sha:-}" ]]; then
+        echo "ERROR: Remote tag ${tag} exists but is missing locally; fetch it before publishing." >&2
+        return 1
+    fi
+    if [[ -n "${local_tag_object_sha:-}" && -n "${remote_tag_object_sha}" && "${local_tag_object_sha}" != "${remote_tag_object_sha}" ]]; then
+        echo "ERROR: Local and remote tag ${tag} have different object SHAs." >&2
+        return 1
+    fi
+
+    if gh release view "${tag}" --repo chaiwithcode/Loom >/dev/null 2>&1; then
+        echo "ERROR: GitHub Release ${tag} already exists; refusing to replace immutable assets." >&2
+        return 1
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # Mode 3: Publish Release
 # -----------------------------------------------------------------------------
@@ -292,6 +389,8 @@ run_publish() {
     print_header
     echo "==> Initiating publish workflow for release v${version}..."
     echo ""
+
+    public_release_preflight "${version}" || exit 1
 
     local dist_dir="${ROOT_DIR}/dist"
     local canonical_zip="${dist_dir}/Loom-${version}-macOS.zip"
@@ -335,7 +434,7 @@ run_publish() {
         exit 1
     fi
 
-    if gh release view "v${version}" >/dev/null 2>&1; then
+    if gh release view "v${version}" --repo chaiwithcode/Loom >/dev/null 2>&1; then
         echo "Notice: GitHub Release 'v${version}' already exists remotely; canonical assets will be published/attached."
     fi
 
@@ -380,20 +479,21 @@ run_publish() {
     fi
 
     local notes_file="${dist_dir}/RELEASE_NOTES_v${version}.md"
-    if gh release view "v${version}" >/dev/null 2>&1; then
-        echo "    Attaching canonical assets to existing GitHub Release v${version}..."
-        gh release upload "v${version}" "${release_assets[@]}" --clobber
-        if [[ -f "${notes_file}" ]]; then
-            gh release edit "v${version}" --notes-file "${notes_file}" || true
-        fi
+    if gh release view "v${version}" --repo chaiwithcode/Loom >/dev/null 2>&1; then
+        echo "ERROR: GitHub Release v${version} appeared after preflight; refusing to attach or replace assets." >&2
+        exit 1
     else
         echo "    Creating new GitHub Release v${version}..."
         if [[ -f "${notes_file}" ]]; then
             gh release create "v${version}" "${release_assets[@]}" \
+                --repo chaiwithcode/Loom \
+                --verify-tag \
                 --title "v${version}" \
                 --notes-file "${notes_file}"
         else
             gh release create "v${version}" "${release_assets[@]}" \
+                --repo chaiwithcode/Loom \
+                --verify-tag \
                 --title "v${version}" \
                 --generate-notes
         fi
@@ -445,37 +545,37 @@ run_publish() {
     local pages_failed=0
     local pages_workflow="pages.yml"
 
-    if ! gh workflow view "${pages_workflow}" >/dev/null 2>&1; then
+    if ! gh workflow view "${pages_workflow}" --repo chaiwithcode/Loom >/dev/null 2>&1; then
         echo "ERROR: Workflow '${pages_workflow}' not found or inaccessible in GitHub Actions." >&2
         pages_failed=1
     else
         # Verify workflow supports manual dispatch (workflow_dispatch)
-        if ! gh workflow view "${pages_workflow}" --yaml 2>/dev/null | grep -q "workflow_dispatch"; then
+        if ! gh workflow view "${pages_workflow}" --repo chaiwithcode/Loom --yaml 2>/dev/null | grep -q "workflow_dispatch"; then
             echo "ERROR: Workflow '${pages_workflow}' does not configure 'workflow_dispatch' trigger." >&2
             pages_failed=1
         else
             local existing_status
-            existing_status="$(gh run list --workflow "${pages_workflow}" --limit 1 --json status -q '.[0].status' 2>/dev/null || true)"
+            existing_status="$(gh run list --repo chaiwithcode/Loom --workflow "${pages_workflow}" --limit 1 --json status -q '.[0].status' 2>/dev/null || true)"
             local run_id=""
 
             if [[ "${existing_status}" == "queued" || "${existing_status}" == "in_progress" ]]; then
-                run_id="$(gh run list --workflow "${pages_workflow}" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+                run_id="$(gh run list --repo chaiwithcode/Loom --workflow "${pages_workflow}" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
                 echo "    Detected running Pages workflow (ID: ${run_id}). Watching..."
             else
                 echo "    Dispatching GitHub Pages workflow '${pages_workflow}'..."
-                if ! gh workflow run "${pages_workflow}"; then
+                if ! gh workflow run "${pages_workflow}" --repo chaiwithcode/Loom; then
                     echo "ERROR: Failed to dispatch '${pages_workflow}' via gh CLI." >&2
                     pages_failed=1
                 else
                     echo "    Waiting for workflow run to start..."
                     sleep 5
-                    run_id="$(gh run list --workflow "${pages_workflow}" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+                    run_id="$(gh run list --repo chaiwithcode/Loom --workflow "${pages_workflow}" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
                 fi
             fi
 
             if [[ -n "${run_id}" && "${pages_failed}" -eq 0 ]]; then
                 echo "    Watching Pages deployment run ${run_id}..."
-                if ! gh run watch "${run_id}" --exit-status; then
+                if ! gh run watch "${run_id}" --repo chaiwithcode/Loom --exit-status; then
                     echo "ERROR: Pages workflow run ${run_id} failed!" >&2
                     pages_failed=1
                 fi
@@ -502,7 +602,7 @@ run_publish() {
             break
         fi
         sleep 5
-        ((attempt++))
+        attempt=$((attempt + 1))
     done
 
     if [[ "${feed_verified}" -eq 0 ]]; then
@@ -520,8 +620,8 @@ run_publish() {
         echo "  • Sparkle Pages:  FAILED (Update feed did not update or failed verification)"
         echo ""
         echo "Recovery Steps:"
-        echo "  1. Inspect workflow:   gh run list --workflow ${pages_workflow}"
-        echo "  2. Manually trigger:   gh workflow run ${pages_workflow}"
+        echo "  1. Inspect workflow:   gh run list --repo chaiwithcode/Loom --workflow ${pages_workflow}"
+        echo "  2. Manually trigger:   gh workflow run ${pages_workflow} --repo chaiwithcode/Loom"
         echo "  3. Verify public feed: curl -sSL ${appcast_url} | grep '${version}'"
         echo "=========================================================="
         exit 1

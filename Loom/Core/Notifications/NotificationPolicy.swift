@@ -16,6 +16,7 @@ public struct NotificationPolicyConfig: Sendable, Equatable {
     public var quotaFivePercentEnabled: Bool
     public var quotaReplenishmentEnabled: Bool
     public var sessionWaitingEnabled: Bool
+    public var minimumWorkingDuration: TimeInterval
     public var sessionFinishedEnabled: Bool
     public var sessionFailedEnabled: Bool
     public var hideProjectPaths: Bool
@@ -29,6 +30,7 @@ public struct NotificationPolicyConfig: Sendable, Equatable {
         quotaReplenishmentEnabled: Bool = true,
         sessionWaitingEnabled: Bool = true,
         sessionFinishedEnabled: Bool = true,
+        minimumWorkingDuration: TimeInterval = 0,
         sessionFailedEnabled: Bool = true,
         hideProjectPaths: Bool = false,
         enabledProviders: Set<ProviderID>? = nil
@@ -39,6 +41,7 @@ public struct NotificationPolicyConfig: Sendable, Equatable {
         self.quotaFivePercentEnabled = quotaFivePercentEnabled
         self.quotaReplenishmentEnabled = quotaReplenishmentEnabled
         self.sessionWaitingEnabled = sessionWaitingEnabled
+        self.minimumWorkingDuration = max(0, minimumWorkingDuration)
         self.sessionFinishedEnabled = sessionFinishedEnabled
         self.sessionFailedEnabled = sessionFailedEnabled
         self.hideProjectPaths = hideProjectPaths
@@ -78,7 +81,7 @@ public struct NotificationPolicy: Sendable {
     }
 
     /// Determines if an event should be delivered under the current policy preferences.
-    public func shouldDeliver(event: MonitoringEvent) -> Bool {
+    public func shouldDeliver(event: MonitoringEvent, observedWorkingDuration: TimeInterval? = nil) -> Bool {
         guard config.notificationsEnabled else { return false }
 
         // Filter out events from disabled providers if an explicit enabled set is supplied
@@ -105,7 +108,8 @@ public struct NotificationPolicy: Sendable {
             case .waiting:
                 return config.sessionWaitingEnabled
             case .finished:
-                return config.sessionFinishedEnabled
+                return config.sessionFinishedEnabled &&
+                    (observedWorkingDuration ?? 0) >= config.minimumWorkingDuration
             case .failed:
                 return config.sessionFailedEnabled
             default:

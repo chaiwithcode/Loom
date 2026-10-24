@@ -41,6 +41,11 @@ let package = Package(
             name: "LoomCoreTests",
             dependencies: ["LoomCore"],
             path: "Tests/LoomCoreTests"
+        ),
+        .testTarget(
+            name: "LoomRegressionTests",
+            dependencies: ["LoomCore"],
+            path: "Tests/LoomRegressionTests"
         )
     ]
 )

@@ -22,6 +22,7 @@ public struct ProviderSectionView: View {
     public let onSessionExpansionChange: ((String, Bool) -> Void)?
     @State private var isShowingAdditionalQuotas = false
     @State private var isShowingRecentFinished = false
+    @State private var isShowingUnidentifiedProcesses = false
 
     public init(
         snapshot: ProviderSnapshot,
@@ -80,6 +81,65 @@ public struct ProviderSectionView: View {
                 if lhsDate != rhsDate { return lhsDate > rhsDate }
                 return lhs.id < rhs.id
             }
+    }
+
+    // Only collapse the discovery engine's bare-process fallback. An unknown
+    // lifecycle state alone does not mean a session lacks a meaningful identity.
+    private var unidentifiedSessions: [AgentSession] {
+        activeSessions.filter { session in
+            let name = session.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let fallbackNames = ["", "\(session.provider.displayName) Session", "\(session.provider.rawValue.capitalized) Session", "Agent Session"]
+            return session.state == .unknown
+                && session.projectPath == nil
+                && (session.providerSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && (session.branch?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && (session.summary?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && fallbackNames.contains(name)
+                && session.processCount > 0
+                && session.discoveryEvidence.contains(
+                    "State: Unknown (bare process without worker subprocesses or session metadata)"
+                )
+        }
+    }
+
+    private var individuallyShownActiveSessions: [AgentSession] {
+        guard unidentifiedSessions.count > 1 else { return activeSessions }
+        let collapsedIDs = Set(unidentifiedSessions.map(\.id))
+        return activeSessions.filter { !collapsedIDs.contains($0.id) }
+    }
+
+    private var unidentifiedProcessesDisclosure: some View {
+        DisclosureGroup(isExpanded: $isShowingUnidentifiedProcesses) {
+            VStack(spacing: 3) {
+                ForEach(unidentifiedSessions) { session in
+                    SessionRowView(
+                        session: session,
+                        isExpanded: expandedSessionIds.contains(session.id),
+                        hideProjectPaths: settings?.hideProjectPaths ?? false,
+                        onExpansionChange: { onSessionExpansionChange?(session.id, $0) }
+                    )
+                }
+            }
+            .padding(.top, 4)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(unidentifiedSessions.reduce(0) { $0 + $1.processCount }) unidentified \(snapshot.displayName) processes")
+                    .font(.system(size: 11, weight: .medium))
+                Text("No session or workspace identified")
+                    .font(.system(size: 10.5))
+                if let latestActivity = unidentifiedSessions.compactMap(\.lastActivityAt).max() {
+                    HStack(spacing: 3) {
+                        Text("Latest activity")
+                        Text(latestActivity, style: .relative)
+                        Text("ago")
+                    }
+                    .font(.system(size: 10.5))
+                }
+            }
+            .foregroundStyle(.secondary)
+        }
+        .tint(.secondary)
+        .padding(.vertical, 4)
     }
 
     private func activeSessionRank(_ session: AgentSession) -> Int {
@@ -162,7 +222,7 @@ public struct ProviderSectionView: View {
                         }
 
                         VStack(spacing: 3) {
-                            ForEach(activeSessions) { session in
+                            ForEach(individuallyShownActiveSessions) { session in
                                 SessionRowView(
                                     session: session,
                                     isExpanded: expandedSessionIds.contains(session.id),
@@ -171,6 +231,10 @@ public struct ProviderSectionView: View {
                                 )
                             }
                         }
+                    }
+
+                    if unidentifiedSessions.count > 1 {
+                        unidentifiedProcessesDisclosure
                     }
 
                     // 3. Completed Sessions (Finished)

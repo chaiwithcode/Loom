@@ -17,7 +17,17 @@ public final class SessionTransitionDetector: @unchecked Sendable {
     private var hasSeeded = false
     private var seededProviders: Set<ProviderID> = []
 
+    private var lastObservations: [String: Date] = [:]
+    private var workingDurations: [String: TimeInterval] = [:]
+
     public init() {}
+
+    /// Conservative observed working time; never inferred from process/session age.
+    public func observedWorkingDuration(for sessionID: String) -> TimeInterval {
+        lock.lock()
+        defer { lock.unlock() }
+        return workingDurations[sessionID] ?? 0
+    }
 
     /// Explicitly pre-seeds known sessions (e.g. from prior cache or startup scan) without firing alerts.
     public func seed(sessions: [AgentSession], for provider: ProviderID? = nil) {
@@ -26,6 +36,7 @@ public final class SessionTransitionDetector: @unchecked Sendable {
 
         for session in sessions {
             knownSessions[session.id] = session
+            lastObservations[session.id] = Date()
             seededProviders.insert(session.provider)
         }
         if let provider {
@@ -44,7 +55,8 @@ public final class SessionTransitionDetector: @unchecked Sendable {
     public func detectTransitions(
         currentSessions: [AgentSession],
         failedProviders: Set<ProviderID> = [],
-        cancelledProviders: Set<ProviderID> = []
+        cancelledProviders: Set<ProviderID> = [],
+        observedAt: Date = Date()
     ) -> [MonitoringEvent] {
         lock.lock()
         defer { lock.unlock() }
@@ -55,6 +67,23 @@ public final class SessionTransitionDetector: @unchecked Sendable {
             if dedupedCurrent[session.id] == nil {
                 dedupedCurrent[session.id] = session
             }
+        }
+
+        // Count only intervals bounded by two Working observations. Gaps caused by
+        // failed/cancelled scans or long suspensions are not counted, nor is the final
+        // unobserved interval. Ten minutes permits the longest supported refresh cadence.
+        for (id, session) in dedupedCurrent {
+            if !failedProviders.contains(session.provider), !cancelledProviders.contains(session.provider),
+               session.state == .working, knownSessions[id]?.state == .working,
+               let prior = lastObservations[id], observedAt > prior,
+               observedAt.timeIntervalSince(prior) <= 600 {
+                workingDurations[id, default: 0] += observedAt.timeIntervalSince(prior)
+            }
+            lastObservations[id] = failedProviders.contains(session.provider) || cancelledProviders.contains(session.provider)
+                ? nil : observedAt
+        }
+        for id in lastObservations.keys where dedupedCurrent[id] == nil {
+            lastObservations.removeValue(forKey: id)
         }
 
         // On very first global scan, seed initial sessions without firing any notifications
@@ -102,7 +131,7 @@ public final class SessionTransitionDetector: @unchecked Sendable {
                     let isProviderCompromised = failedProviders.contains(session.provider) ||
                         cancelledProviders.contains(session.provider) ||
                         isProviderFailureEvidence(session: session)
-                    if !isProviderCompromised {
+                    if !isProviderCompromised && fromState != .unknown {
                         events.append(.sessionStateTransition(
                             session: session,
                             fromState: fromState,
@@ -177,6 +206,8 @@ public final class SessionTransitionDetector: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         knownSessions.removeAll()
+        lastObservations.removeAll()
+        workingDurations.removeAll()
         seededProviders.removeAll()
         hasSeeded = false
     }
