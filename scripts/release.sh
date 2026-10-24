@@ -326,7 +326,7 @@ public_release_preflight() {
     xcrun stapler validate "${app_bundle}" || { echo "ERROR: App notarization ticket is not stapled and valid." >&2; return 1; }
     xcrun stapler validate "${dmg}" || { echo "ERROR: DMG notarization ticket is not stapled and valid." >&2; return 1; }
     spctl --assess -vv --type execute "${app_bundle}" || { echo "ERROR: Gatekeeper rejected the app." >&2; return 1; }
-    spctl --assess -vv --type open "${dmg}" || { echo "ERROR: Gatekeeper rejected the DMG." >&2; return 1; }
+    spctl --assess -vv --type open --context context:primary-signature "${dmg}" || { echo "ERROR: Gatekeeper rejected the DMG." >&2; return 1; }
 
     local expected_zip expected_dmg actual_zip actual_dmg
     expected_zip="$(awk -v name="Loom-${version}-macOS.zip" '$2 == name {print $1}' "${sums}")"
