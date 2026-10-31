@@ -17,17 +17,20 @@ public struct MenuBarStatusResult: Equatable, Sendable {
     public let text: String?
     public let hasAttention: Bool
     public let activeCount: Int
+    public let attentionCount: Int
     public let lowestQuotaPercent: Int?
 
     public init(
         text: String? = nil,
         hasAttention: Bool = false,
         activeCount: Int = 0,
+        attentionCount: Int = 0,
         lowestQuotaPercent: Int? = nil
     ) {
         self.text = text
         self.hasAttention = hasAttention
         self.activeCount = activeCount
+        self.attentionCount = attentionCount
         self.lowestQuotaPercent = lowestQuotaPercent
     }
 }
@@ -50,9 +53,9 @@ public enum MenuBarStatusEvaluator {
         }.count
 
         // 2. Restrained attention indicator for confirmed sessions needing input or failed
-        let hasAttention = allSessions.contains { session in
+        let attentionCount = allSessions.filter { session in
             session.state == .waiting || session.state == .failed
-        }
+        }.count
 
         // 3. Lowest quota percentage:
         // Must be non-stale, non-errored, and supported.
@@ -82,14 +85,17 @@ public enum MenuBarStatusEvaluator {
             text = nil
         case .activeSessionCount:
             text = activeCount > 0 ? "\(activeCount)" : nil
+        case .needsAttentionCount:
+            text = attentionCount > 0 ? "\(attentionCount)" : nil
         case .lowestQuota:
             text = lowestQuotaPercent.map { "\($0)%" }
         }
 
         return MenuBarStatusResult(
             text: text,
-            hasAttention: hasAttention,
+            hasAttention: attentionCount > 0,
             activeCount: activeCount,
+            attentionCount: attentionCount,
             lowestQuotaPercent: lowestQuotaPercent
         )
     }
@@ -139,7 +145,7 @@ public final class StatusItemController {
             parts.append(text)
         }
         if status.hasAttention {
-            parts.append("Confirmed session requires attention")
+            parts.append("\(status.attentionCount) \(status.attentionCount == 1 ? "session needs" : "sessions need") attention")
         }
         return parts.joined(separator: ", ")
     }
@@ -187,7 +193,7 @@ public struct MenuBarStatusLabel: View {
             parts.append(text)
         }
         if result.hasAttention {
-            parts.append("Session needs attention")
+            parts.append("\(result.attentionCount) \(result.attentionCount == 1 ? "session needs" : "sessions need") attention")
         }
         return parts.joined(separator: ", ")
     }

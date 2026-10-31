@@ -37,6 +37,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.hideFinishedAfter, .never, "Default hideFinishedAfter must be .never")
         XCTAssertFalse(settings.hideProjectPaths, "Default hideProjectPaths must be false")
         XCTAssertFalse(settings.showVersionInMenuBar, "Default showVersionInMenuBar must be false")
+        XCTAssertFalse(settings.hasDismissedGitHubStarPrompt, "Default hasDismissedGitHubStarPrompt must be false")
 
         // Notification preferences defaults
         XCTAssertTrue(settings.notificationsEnabled, "Default notificationsEnabled must be true")
@@ -145,6 +146,10 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.menuBarStatusMode, .activeSessionCount)
         XCTAssertEqual(settings.menuBarStatusMode.displayName, "Active Sessions")
         XCTAssertEqual(settings.menuBarStatusMode.id, "activeSessionCount")
+
+        settings.menuBarStatusMode = .needsAttentionCount
+        XCTAssertEqual(LoomSettings(defaults: testDefaults).menuBarStatusMode, .needsAttentionCount)
+        XCTAssertEqual(settings.menuBarStatusMode.displayName, "Needs Attention")
 
         settings.menuBarStatusMode = .lowestQuota
         XCTAssertEqual(settings.menuBarStatusMode, .lowestQuota)
@@ -705,5 +710,92 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(LoomSettings.safeProjectName(for: sessionWithTildePath, hidePaths: true), "SecretTool")
         XCTAssertEqual(LoomSettings.safeProjectName(for: sessionWithCleanName, hidePaths: true), "MobileApp")
         XCTAssertEqual(LoomSettings.safeProjectName(for: sessionNilName, hidePaths: true), "BackendAPI")
+    }
+
+    @MainActor
+    func testGitHubStarPromptPersistenceAndCallbacks() throws {
+        let settings = LoomSettings(defaults: testDefaults)
+        XCTAssertFalse(settings.hasDismissedGitHubStarPrompt)
+
+        var notifiedDismissed: Bool?
+        settings.onHasDismissedGitHubStarPromptChanged = { notifiedDismissed = $0 }
+
+        settings.hasDismissedGitHubStarPrompt = true
+        XCTAssertTrue(settings.hasDismissedGitHubStarPrompt)
+        XCTAssertEqual(notifiedDismissed, true)
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.hasDismissedGitHubStarPromptKey))
+
+        // Verify restoration from defaults
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(reloaded.hasDismissedGitHubStarPrompt)
+
+        // Verify Codable round-trip
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(settings)
+        let decoded = try JSONDecoder().decode(LoomSettings.self, from: data)
+        XCTAssertTrue(decoded.hasDismissedGitHubStarPrompt)
+
+        // Verify resetToDefaults resets it back to false
+        settings.resetToDefaults()
+        XCTAssertFalse(settings.hasDismissedGitHubStarPrompt)
+    }
+
+    @MainActor
+    func testGitHubStarPromptEligibilityConditions() {
+        let settings = LoomSettings(defaults: testDefaults)
+        let now = Date()
+
+        // 1. Initial launch state: 0 days, 0 sessions -> not eligible
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 2. 6 days elapsed but 0 sessions -> not eligible
+        settings.firstLaunchDate = now.addingTimeInterval(-6 * 86400)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 3. 6 days elapsed, 2 distinct sessions -> not eligible
+        settings.recordDiscoveredSessions(["sess-1", "sess-2"])
+        XCTAssertEqual(settings.distinctObservedSessionIDs.count, 2)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 4. Duplicate sessions do not increment count (polling refresh safety)
+        settings.recordDiscoveredSessions(["sess-1", "sess-2"])
+        XCTAssertEqual(settings.distinctObservedSessionIDs.count, 2)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 5. 6 days elapsed, 3 distinct sessions, but no providers available -> not eligible
+        settings.recordDiscoveredSessions(["sess-3"])
+        XCTAssertEqual(settings.distinctObservedSessionIDs.count, 3)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: false, now: now))
+
+        // 6. 3 sessions, providers available, but only 4 days elapsed -> not eligible
+        let fourDaysLater = settings.firstLaunchDate.addingTimeInterval(4 * 86400)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fourDaysLater))
+
+        // 7. >= 5 days elapsed, >= 3 distinct sessions, providers available -> eligible!
+        let fiveDaysLater = settings.firstLaunchDate.addingTimeInterval(5 * 86400)
+        XCTAssertTrue(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fiveDaysLater))
+
+        // 8. Dismissal permanently suppresses prompt
+        settings.dismissGitHubStarPrompt()
+        XCTAssertTrue(settings.hasDismissedGitHubStarPrompt)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fiveDaysLater))
+
+        // 9. Reloader verifies persistence of dismissal and sessions across instances
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(reloaded.hasDismissedGitHubStarPrompt)
+        XCTAssertEqual(reloaded.distinctObservedSessionIDs.count, 3)
+        XCTAssertFalse(reloaded.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fiveDaysLater))
+    }
+
+    @MainActor
+    func testPriorDismissalStateRemainsSuppressed() {
+        // Prior dismissal key in standard UserDefaults suppresses prompts immediately
+        testDefaults.set(true, forKey: LoomSettings.hasDismissedGitHubStarPromptKey)
+        let settings = LoomSettings(defaults: testDefaults)
+        settings.firstLaunchDate = Date().addingTimeInterval(-10 * 86400)
+        settings.recordDiscoveredSessions(["s1", "s2", "s3", "s4"])
+
+        XCTAssertTrue(settings.hasDismissedGitHubStarPrompt)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: Date()))
     }
 }

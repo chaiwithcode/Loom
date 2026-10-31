@@ -52,6 +52,7 @@ public enum HideFinishedInterval: String, CaseIterable, Identifiable, Sendable {
 public enum MenuBarStatusMode: String, CaseIterable, Identifiable, Codable, Sendable {
     case iconOnly = "iconOnly"
     case activeSessionCount = "activeSessionCount"
+    case needsAttentionCount = "needsAttentionCount"
     case lowestQuota = "lowestQuota"
 
     public var id: String { rawValue }
@@ -60,6 +61,7 @@ public enum MenuBarStatusMode: String, CaseIterable, Identifiable, Codable, Send
         switch self {
         case .iconOnly: return "Icon Only"
         case .activeSessionCount: return "Active Sessions"
+        case .needsAttentionCount: return "Needs Attention"
         case .lowestQuota: return "Lowest Quota"
         }
     }
@@ -170,6 +172,11 @@ public final class LoomSettings {
     public nonisolated static let defaultNotifySessionFinished: Bool = false
     public nonisolated static let defaultNotifySessionFailed: Bool = true
     public nonisolated static let defaultMenuBarStatusMode: MenuBarStatusMode = .iconOnly
+    public nonisolated static let hasDismissedGitHubStarPromptKey = "com.loom.hasDismissedGitHubStarPrompt"
+    public nonisolated static let defaultHasDismissedGitHubStarPrompt: Bool = false
+    public nonisolated static let firstLaunchDateKey = "com.loom.firstLaunchDate"
+    public nonisolated static let distinctObservedSessionIDsKey = "com.loom.distinctObservedSessionIDs"
+    public nonisolated static let gitHubRepoURL = URL(string: "https://github.com/chaiwithcode/Loom")!
 
     private let defaults: UserDefaults
 
@@ -191,6 +198,7 @@ public final class LoomSettings {
     public var onNotifySessionFailedChanged: (@MainActor (Bool) -> Void)?
     public var onMinimumWorkingDurationChanged: (@MainActor (MinimumWorkingDuration) -> Void)?
     public var onMenuBarStatusModeChanged: (@MainActor (MenuBarStatusMode) -> Void)?
+    public var onHasDismissedGitHubStarPromptChanged: (@MainActor (Bool) -> Void)?
 
     @ObservationIgnored private var isNormalizingRefreshInterval = false
     @ObservationIgnored private var isNormalizingDefaultProvider = false
@@ -286,6 +294,27 @@ public final class LoomSettings {
             if showVersionInMenuBar != oldValue {
                 onShowVersionInMenuBarChanged?(showVersionInMenuBar)
             }
+        }
+    }
+
+    public var hasDismissedGitHubStarPrompt: Bool {
+        didSet {
+            defaults.set(hasDismissedGitHubStarPrompt, forKey: Self.hasDismissedGitHubStarPromptKey)
+            if hasDismissedGitHubStarPrompt != oldValue {
+                onHasDismissedGitHubStarPromptChanged?(hasDismissedGitHubStarPrompt)
+            }
+        }
+    }
+
+    public var firstLaunchDate: Date {
+        didSet {
+            defaults.set(firstLaunchDate, forKey: Self.firstLaunchDateKey)
+        }
+    }
+
+    public var distinctObservedSessionIDs: Set<String> {
+        didSet {
+            defaults.set(Array(distinctObservedSessionIDs).sorted(), forKey: Self.distinctObservedSessionIDsKey)
         }
     }
 
@@ -487,6 +516,29 @@ public final class LoomSettings {
             self.showVersionInMenuBar = Self.defaultShowVersionInMenuBar
         }
 
+        // hasDismissedGitHubStarPrompt: validate boolean type, default false
+        if let num = defaults.object(forKey: Self.hasDismissedGitHubStarPromptKey) as? NSNumber {
+            self.hasDismissedGitHubStarPrompt = num.boolValue
+        } else {
+            self.hasDismissedGitHubStarPrompt = Self.defaultHasDismissedGitHubStarPrompt
+        }
+
+        // firstLaunchDate: retrieve stored date or record current date
+        if let storedDate = defaults.object(forKey: Self.firstLaunchDateKey) as? Date {
+            self.firstLaunchDate = storedDate
+        } else {
+            let now = Date()
+            defaults.set(now, forKey: Self.firstLaunchDateKey)
+            self.firstLaunchDate = now
+        }
+
+        // distinctObservedSessionIDs: retrieve stored unique session identifiers
+        if let storedSessions = defaults.stringArray(forKey: Self.distinctObservedSessionIDsKey) {
+            self.distinctObservedSessionIDs = Set(storedSessions)
+        } else {
+            self.distinctObservedSessionIDs = []
+        }
+
         // notificationsEnabled: validate boolean type, default true; preserve a stored opt-out
         if let num = defaults.object(forKey: Self.notificationsEnabledKey) as? NSNumber {
             self.notificationsEnabled = num.boolValue
@@ -590,6 +642,37 @@ public final class LoomSettings {
         notifySessionFailed = Self.defaultNotifySessionFailed
         minimumWorkingDuration = Self.defaultMinimumWorkingDuration
         menuBarStatusMode = Self.defaultMenuBarStatusMode
+        hasDismissedGitHubStarPrompt = Self.defaultHasDismissedGitHubStarPrompt
+    }
+
+    public func recordDiscoveredSessions(_ sessionIDs: [String]) {
+        let nonEmpty = sessionIDs.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard !nonEmpty.isEmpty else { return }
+        let currentCount = distinctObservedSessionIDs.count
+        var updated = distinctObservedSessionIDs
+        updated.formUnion(nonEmpty)
+        if updated.count != currentCount {
+            distinctObservedSessionIDs = updated
+        }
+    }
+
+    public func isEligibleForGitHubStarPrompt(hasAvailableProviders: Bool = true, now: Date = Date()) -> Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--force-github-star-card") ||
+           ProcessInfo.processInfo.environment["LOOM_FORCE_GITHUB_STAR_CARD"] == "1" {
+            return true
+        }
+        #endif
+        guard !hasDismissedGitHubStarPrompt else { return false }
+        guard hasAvailableProviders else { return false }
+        guard distinctObservedSessionIDs.count >= 3 else { return false }
+        let fiveDaysInSeconds: TimeInterval = 5 * 86400
+        guard now.timeIntervalSince(firstLaunchDate) >= fiveDaysInSeconds else { return false }
+        return true
+    }
+
+    public func dismissGitHubStarPrompt() {
+        hasDismissedGitHubStarPrompt = true
     }
 
     public func persistToSharedAppGroup(appGroup: SharedAppGroup = .shared) {
@@ -682,6 +765,7 @@ extension LoomSettings: @preconcurrency Codable {
         case notifySessionFailed
         case minimumWorkingDuration
         case menuBarStatusMode
+        case hasDismissedGitHubStarPrompt
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -717,6 +801,9 @@ extension LoomSettings: @preconcurrency Codable {
         if let ver = try container.decodeIfPresent(Bool.self, forKey: .showVersionInMenuBar) {
             self.showVersionInMenuBar = ver
         }
+        if let dismissedStar = try container.decodeIfPresent(Bool.self, forKey: .hasDismissedGitHubStarPrompt) {
+            self.hasDismissedGitHubStarPrompt = dismissedStar
+        }
 
         // Notification preferences with backward-compatible defaults:
         self.notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? Self.defaultNotificationsEnabled
@@ -740,6 +827,7 @@ extension LoomSettings: @preconcurrency Codable {
         try container.encode(hideFinishedAfter.rawValue, forKey: .hideFinishedAfter)
         try container.encode(hideProjectPaths, forKey: .hideProjectPaths)
         try container.encode(showVersionInMenuBar, forKey: .showVersionInMenuBar)
+        try container.encode(hasDismissedGitHubStarPrompt, forKey: .hasDismissedGitHubStarPrompt)
         try container.encode(notificationsEnabled, forKey: .notificationsEnabled)
         try container.encode(notifyQuota15Percent, forKey: .notifyQuota15Percent)
         try container.encode(notifyQuota5Percent, forKey: .notifyQuota5Percent)

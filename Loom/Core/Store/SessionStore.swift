@@ -243,6 +243,9 @@ public final class SessionStore {
     /// Optional callback hook called when session state transitions or quota thresholds occur.
     public var onMonitoringEvent: (@Sendable (MonitoringEvent) -> Void)?
 
+    /// Reference to settings for recording discovered monitoring sessions.
+    public weak var settings: LoomSettings?
+
     public var enabledSnapshots: [ProviderSnapshot] {
         providerSnapshots.filter(\.isEnabled)
     }
@@ -700,9 +703,14 @@ public final class SessionStore {
 
             guard !Task.isCancelled else { return }
 
+            let current = self.allSessions
+            if !current.isEmpty {
+                self.settings?.recordDiscoveredSessions(current.map(\.id))
+            }
+
             // Evaluate state transitions and route to onMonitoringEvent hook
             let events = self.transitionDetector.detectTransitions(
-                currentSessions: self.allSessions,
+                currentSessions: current,
                 failedProviders: failedProviders,
                 cancelledProviders: cancelledProviders
             )

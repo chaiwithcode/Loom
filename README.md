@@ -34,6 +34,8 @@ The Sessions view brings agent activity into one place. Waiting and failed sessi
 
 Search by repository, branch, or host app, then filter by attention, working, or recent activity. Available actions include focusing the host app, copying process or session details, and revealing a workspace in Finder.
 
+In Settings, the menu bar can show the number of detected waiting or failed sessions. Unknown means Loom does not have enough evidence to determine a session's state.
+
 Loom supports session discovery for **OpenAI Codex**, **Google Antigravity**, and **Anthropic Claude Code**. Discovery and workspace details depend on the evidence each provider exposes locally; Loom reports diagnostics rather than guaranteeing a session for every repository or process.
 
 *Loom is an independent open-source project and is not affiliated with or endorsed by OpenAI, Anthropic, or Google.*

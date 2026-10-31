@@ -94,7 +94,7 @@ public struct SettingsView: View {
                 Group {
                     switch selectedTab {
                     case .general:
-                        GeneralSettingsTab(settings: settings)
+                        GeneralSettingsTab(settings: settings, store: store)
                     case .providers:
                         ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
                     case .sessions:
@@ -124,7 +124,7 @@ public struct SettingsView: View {
                 SettingsWindowBackdrop()
             }
         }
-        .frame(minWidth: 640, idealWidth: 660, minHeight: 460, idealHeight: 560)
+        .frame(minWidth: 640, idealWidth: 660, minHeight: 460, idealHeight: 710)
     }
 }
 
@@ -152,6 +152,11 @@ public struct SettingsFooterView: View {
 
 private struct GeneralSettingsTab: View {
     @Bindable var settings: LoomSettings
+    let store: SessionStore?
+
+    private var hasAvailableProviders: Bool {
+        store?.providerSnapshots.contains(where: { $0.availability.isAvailable }) ?? false
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -203,6 +208,23 @@ private struct GeneralSettingsTab: View {
                         .accessibilityIdentifier("picker-menu-bar-status-mode")
                         .accessibilityLabel("Menu bar status display")
                     }
+                }
+
+                if settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: hasAvailableProviders) {
+                    GitHubStarInvitationCard(
+                        onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                settings.dismissGitHubStarPrompt()
+                            }
+                        },
+                        onStar: {
+                            NSWorkspace.shared.open(LoomSettings.gitHubRepoURL)
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                settings.dismissGitHubStarPrompt()
+                            }
+                        }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
                 SoftwareUpdatesSettingsSection()
@@ -482,7 +504,9 @@ private struct AboutSettingsTab: View {
 
             SettingsSection("Open Source") {
                 HStack(spacing: 16) {
-                    Link("Source Code", destination: URL(string: "https://github.com/chaiwithcode/Loom")!)
+                    Link("Source Code", destination: LoomSettings.gitHubRepoURL)
+                    Spacer(minLength: 0)
+                    Link("Star on GitHub", destination: LoomSettings.gitHubRepoURL)
                     Spacer(minLength: 0)
                     Link("Release Notes", destination: URL(string: "https://github.com/chaiwithcode/Loom/releases")!)
                     Spacer(minLength: 0)

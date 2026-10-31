@@ -17,6 +17,7 @@
 		A00000000000000000000077 /* AgentUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002C /* AgentUsage.swift */; };
 		A00000000000000000000080 /* LoomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000020 /* LoomApp.swift */; };
 		A00000000000000000000081 /* MenuBarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000021 /* MenuBarRootView.swift */; };
+		D00000000000000000000021 /* GitHubStarInvitationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000020 /* GitHubStarInvitationCard.swift */; };
 		A00000000000000000000082 /* ProviderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000022 /* ProviderSectionView.swift */; };
 		A00000000000000000000083 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000023 /* SessionRowView.swift */; };
 		A00000000000000000000084 /* LoomIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000002F /* LoomIcon.swift */; };
@@ -165,6 +166,7 @@
 /* Begin PBXFileReference section */
 		A00000000000000000000020 /* LoomApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomApp.swift; sourceTree = "<group>"; };
 		A00000000000000000000021 /* MenuBarRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarRootView.swift; sourceTree = "<group>"; };
+		D00000000000000000000020 /* GitHubStarInvitationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubStarInvitationCard.swift; sourceTree = "<group>"; };
 		A00000000000000000000022 /* ProviderSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderSectionView.swift; sourceTree = "<group>"; };
 		A00000000000000000000023 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
 		A00000000000000000000024 /* AgentState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentState.swift; sourceTree = "<group>"; };
@@ -529,6 +531,7 @@
 		A000000000000000000000FB /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				D00000000000000000000020 /* GitHubStarInvitationCard.swift */,
 				D00000000000000000000010 /* NotificationsSettingsTab.swift */,
 				B00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift */,
 				A000000000000000000000F5 /* SettingsView.swift */,
@@ -830,6 +833,7 @@
 				C00000000000000000000003 /* Loom/UI/Settings/StorageSettingsTab.swift in Sources */,
 				A00000000000000000000080 /* LoomApp.swift in Sources */,
 				A00000000000000000000081 /* MenuBarRootView.swift in Sources */,
+				D00000000000000000000021 /* GitHubStarInvitationCard.swift in Sources */,
 				A00000000000000000000082 /* ProviderSectionView.swift in Sources */,
 				A00000000000000000000083 /* SessionRowView.swift in Sources */,
 				A00000000000000000000084 /* LoomIcon.swift in Sources */,

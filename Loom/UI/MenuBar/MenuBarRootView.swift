@@ -126,69 +126,7 @@ public struct MenuBarRootView: View {
                     ForEach(MenuTab.allCases, id: \.self) { tab in
                         ScrollView {
                             VStack(alignment: .leading, spacing: 14) {
-                                if tab == .storage {
-                                    storageTabContent
-                                } else if store.providerSnapshots.isEmpty {
-                                    Text("No providers registered")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                        .frame(maxWidth: .infinity, alignment: .center)
-                                        .padding(.vertical, 24)
-                                } else if store.enabledSnapshots.isEmpty {
-                                    VStack(spacing: 12) {
-                                        Image(systemName: "pause.circle")
-                                            .font(.system(size: 28))
-                                            .foregroundStyle(.secondary)
-                                        Text("All Providers Disabled")
-                                            .font(.headline)
-                                        Text("Monitoring is disabled for all providers. Enable providers in Settings to monitor sessions and usage.")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                            .multilineTextAlignment(.center)
-                                            .padding(.horizontal, 24)
-                                        Button("Open Settings…") {
-                                            DockController.shared.showSettings(store: store)
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .controlSize(.regular)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding(.vertical, 32)
-                                } else if tab == .agents {
-                                    if let selectedSnapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
-                                        ProviderSectionView(
-                                            snapshot: selectedSnapshot,
-                                            showsSessions: true,
-                                            showsUsage: false,
-                                            expandedSessionIds: expandedSessionIds,
-                                            settings: settings,
-                                            sessions: matchingSessions(for: selectedSnapshot),
-                                            searchText: searchText,
-                                            selectedFilter: selectedFilter,
-                                            onClearFilters: {
-                                                searchText = ""
-                                                selectedFilter = .all
-                                            },
-                                            onSessionExpansionChange: { id, expanded in
-                                                if expanded { expandedSessionIds.insert(id) }
-                                                else { expandedSessionIds.remove(id) }
-                                            }
-                                        )
-                                    }
-                                } else if tab == .usage {
-                                    ForEach(store.enabledSnapshots) { snapshot in
-                                        ProviderSectionView(
-                                            snapshot: snapshot,
-                                            showsSessions: false,
-                                            showsUsage: true,
-                                            expandedSessionIds: expandedSessionIds,
-                                            settings: settings
-                                        )
-                                        if snapshot.id != store.enabledSnapshots.last?.id {
-                                            Divider().padding(.vertical, 4)
-                                        }
-                                    }
-                                }
+                                tabScrollContent(for: tab)
                             }
                             .padding(.horizontal, 16)
                             .padding(.bottom, 16)
@@ -342,6 +280,99 @@ public struct MenuBarRootView: View {
         case .storage:
             return "scroll-storage"
         }
+    }
+
+    @ViewBuilder
+    private func tabScrollContent(for tab: MenuTab) -> some View {
+        if tab == .storage {
+            storageTabContent
+        } else if store.providerSnapshots.isEmpty {
+            noProvidersRegisteredView
+        } else if store.enabledSnapshots.isEmpty {
+            allProvidersDisabledView
+        } else if tab == .agents {
+            agentsTabContent
+        } else if tab == .usage {
+            usageTabContent
+        }
+    }
+
+    @ViewBuilder
+    private var noProvidersRegisteredView: some View {
+        Text("No providers registered")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 24)
+    }
+
+    @ViewBuilder
+    private var allProvidersDisabledView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "pause.circle")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text("All Providers Disabled")
+                .font(.headline)
+            Text("Monitoring is disabled for all providers. Enable providers in Settings to monitor sessions and usage.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Button("Open Settings…") {
+                DockController.shared.showSettings(store: store)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, 32)
+    }
+
+    @ViewBuilder
+    private var agentsTabContent: some View {
+        if let selectedSnapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
+            ProviderSectionView(
+                snapshot: selectedSnapshot,
+                showsSessions: true,
+                showsUsage: false,
+                expandedSessionIds: expandedSessionIds,
+                settings: settings,
+                sessions: matchingSessions(for: selectedSnapshot),
+                searchText: searchText,
+                selectedFilter: selectedFilter,
+                onClearFilters: {
+                    searchText = ""
+                    selectedFilter = .all
+                },
+                onSessionExpansionChange: { id, expanded in
+                    if expanded { expandedSessionIds.insert(id) }
+                    else { expandedSessionIds.remove(id) }
+                }
+            )
+        }
+        Text("Unknown means Loom cannot determine the session’s state.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var usageTabContent: some View {
+        ForEach(store.enabledSnapshots) { snapshot in
+            ProviderSectionView(
+                snapshot: snapshot,
+                showsSessions: false,
+                showsUsage: true,
+                expandedSessionIds: expandedSessionIds,
+                settings: settings
+            )
+            if snapshot.id != store.enabledSnapshots.last?.id {
+                Divider().padding(.vertical, 4)
+            }
+        }
+        Text("Claude Code quota is unavailable through its local interface.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 
     @ViewBuilder

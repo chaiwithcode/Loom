@@ -158,6 +158,7 @@ struct LoomApp: App {
             fixture: fixture,
             enabledProviderIDs: initialSettings.enabledProviderIDs
         )
+        initialStore.settings = initialSettings
         initialStore.startPeriodicRefresh(interval: TimeInterval(initialSettings.refreshIntervalSeconds))
         initialSettings.onRefreshIntervalChanged = { [weak initialStore] interval in
             initialStore?.startPeriodicRefresh(interval: TimeInterval(interval))

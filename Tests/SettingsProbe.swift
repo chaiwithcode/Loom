@@ -279,6 +279,22 @@ struct OCRResult {
         assert(MenuBarStatusEvaluator.evaluate(mode: .iconOnly, snapshots: [statusSnapshot]).text == nil)
         assert(MenuBarStatusEvaluator.evaluate(mode: .activeSessionCount, snapshots: [statusSnapshot]).text == "1")
         assert(MenuBarStatusEvaluator.evaluate(mode: .lowestQuota, snapshots: [statusSnapshot]).text == "12%")
+        var attentionSnapshot = statusSnapshot
+        attentionSnapshot.sessions = [
+            AgentSession(id: "waiting", provider: .codex, state: .waiting),
+            AgentSession(id: "failed", provider: .codex, state: .failed),
+            AgentSession(id: "unknown", provider: .codex, state: .unknown),
+            statusSession
+        ]
+        let attention = MenuBarStatusEvaluator.evaluate(mode: .needsAttentionCount, snapshots: [attentionSnapshot])
+        assert(attention.text == "2" && attention.attentionCount == 2 && attention.hasAttention)
+        assert(MenuBarStatusEvaluator.evaluate(mode: .needsAttentionCount, snapshots: [statusSnapshot]).text == nil)
+        var disabledAttention = attentionSnapshot
+        disabledAttention.isEnabled = false
+        assert(MenuBarStatusEvaluator.evaluate(mode: .needsAttentionCount, snapshots: [disabledAttention]).text == nil)
+        var unavailableAttention = attentionSnapshot
+        unavailableAttention.availability = .error(reason: "Provider unavailable")
+        assert(MenuBarStatusEvaluator.evaluate(mode: .needsAttentionCount, snapshots: [unavailableAttention]).text == nil)
         var failedStatusSnapshot = statusSnapshot
         failedStatusSnapshot.availability = .error(reason: "Provider unavailable")
         assert(MenuBarStatusEvaluator.evaluate(mode: .lowestQuota, snapshots: [failedStatusSnapshot]).text == nil)
@@ -1054,6 +1070,50 @@ struct OCRResult {
         let settingsLinkText = normalizeAndJoinReadingOrder(try recognizeText(in: saveOpaque(settingsWindow.contentView!, "titled-deep-link-settings")))
         assert(containsToken("Show Loom in Dock", in: settingsLinkText), "Settings deep link must select General content")
         print("  PASS: Seven navigation controls visible and hittable without overflow on titled window across widths, appearances, and deep links")
+        fflush(stdout)
+
+        // =====================================================================
+        // Test 14: GitHub Star invitation card visual verification (Dark & Light)
+        // =====================================================================
+        print("Check 14: GitHub Star invitation card visual appearance & dismissal")
+        let starSettings = LoomSettings(defaults: testDefaults)
+        starSettings.firstLaunchDate = Date().addingTimeInterval(-6 * 86400)
+        starSettings.recordDiscoveredSessions(["sess-alpha", "sess-beta", "sess-gamma"])
+        assert(starSettings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true), "Star invitation must be eligible with >= 5 days and >= 3 sessions")
+
+        let starHost = NSHostingView(rootView: SettingsView(settings: starSettings, store: healthStore, initialTab: .general).frame(width: 660, height: 710))
+        
+        // 14a. Dark mode capture & OCR assertion
+        starHost.appearance = NSAppearance(named: .darkAqua)
+        probeWindow.contentView = starHost
+        await settle(starHost)
+        let starDarkRep = saveOpaque(starHost, "settings-general-star-card-dark")
+        let starDarkResults = try recognizeText(in: starDarkRep)
+        let starDarkText = normalizeAndJoinReadingOrder(starDarkResults)
+        assert(containsToken("Enjoying Loom?", in: starDarkText), "Dark mode must render 'Enjoying Loom?' card title")
+        assert(containsToken("giving it a star on GitHub", in: starDarkText), "Dark mode must render invitation message")
+        assert(containsToken("Not now", in: starDarkText), "Dark mode must render 'Not now' dismiss button")
+        assert(containsToken("Star on GitHub", in: starDarkText), "Dark mode must render 'Star on GitHub' action button")
+
+        // 14b. Light mode capture & OCR assertion
+        starHost.appearance = NSAppearance(named: .aqua)
+        await settle(starHost)
+        let starLightRep = saveOpaque(starHost, "settings-general-star-card-light")
+        let starLightResults = try recognizeText(in: starLightRep)
+        let starLightText = normalizeAndJoinReadingOrder(starLightResults)
+        assert(containsToken("Enjoying Loom?", in: starLightText), "Light mode must render 'Enjoying Loom?' card title")
+        assert(containsToken("giving it a star on GitHub", in: starLightText), "Light mode must render invitation message")
+        assert(containsToken("Not now", in: starLightText), "Light mode must render 'Not now' dismiss button")
+        assert(containsToken("Star on GitHub", in: starLightText), "Light mode must render 'Star on GitHub' action button")
+
+        // 14c. Dismissal removes card from view
+        starSettings.dismissGitHubStarPrompt()
+        assert(!starSettings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true), "Dismissal must render prompt ineligible")
+        await settle(starHost)
+        let dismissedRep = saveOpaque(starHost, "settings-general-star-card-dismissed")
+        let dismissedText = normalizeAndJoinReadingOrder(try recognizeText(in: dismissedRep))
+        assert(!containsToken("Enjoying Loom?", in: dismissedText), "Dismissed star card must not appear on General tab")
+        print("  PASS: GitHub Star invitation card visual appearance (light & dark mode) and dismissal verified")
         fflush(stdout)
 
         settingsWindow.close()

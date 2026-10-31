@@ -140,6 +140,9 @@ public enum TestMenuBarStatusEvaluator {
             text = nil
         case .activeSessionCount:
             text = activeCount > 0 ? "\(activeCount)" : nil
+        case .needsAttentionCount:
+            let count = allSessions.filter { $0.state == .waiting || $0.state == .failed }.count
+            text = count > 0 ? "\(count)" : nil
         case .lowestQuota:
             text = lowestQuotaPercent.map { "\($0)%" }
         }
