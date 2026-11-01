@@ -426,6 +426,12 @@ public struct MenuBarRootView: View {
                         onSessionExpansionChange: { id, expanded in
                             if expanded { expandedSessionIds.insert(id) }
                             else { expandedSessionIds.remove(id) }
+                        },
+                        onAfterLaunchApp: {
+                            Task {
+                                try? await Task.sleep(for: .seconds(2.5))
+                                await store.refresh()
+                            }
                         }
                     )
                 }
@@ -447,6 +453,12 @@ public struct MenuBarRootView: View {
                 onSessionExpansionChange: { id, expanded in
                     if expanded { expandedSessionIds.insert(id) }
                     else { expandedSessionIds.remove(id) }
+                },
+                onAfterLaunchApp: {
+                    Task {
+                        try? await Task.sleep(for: .seconds(2.5))
+                        await store.refresh()
+                    }
                 }
             )
         }
@@ -464,7 +476,13 @@ public struct MenuBarRootView: View {
                 showsSessions: false,
                 showsUsage: true,
                 expandedSessionIds: expandedSessionIds,
-                settings: settings
+                settings: settings,
+                onAfterLaunchApp: {
+                    Task {
+                        try? await Task.sleep(for: .seconds(2.5))
+                        await store.refresh()
+                    }
+                }
             )
             if snapshot.id != usageSnapshots.last?.id {
                 Divider().padding(.vertical, 4)

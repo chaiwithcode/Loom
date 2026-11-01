@@ -51,7 +51,7 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
 
     public var hasWarning: Bool {
         guard isEnabled else { return false }
-        if providerID == .antigravity && usage == nil && (usageErrorMessage?.contains("language_server") == true || usageErrorMessage?.contains("not running") == true) {
+        if providerID == .antigravity && usage == nil && Self.isAntigravityNotRunningMessage(usageErrorMessage) {
             return errorMessage != nil || !availability.isAvailable
         }
         return errorMessage != nil ||
@@ -59,6 +59,16 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
         usageErrorMessage != nil ||
         (usage?.isStale ?? false) ||
         usage?.errorMessage != nil
+    }
+
+    private static func isAntigravityNotRunningMessage(_ msg: String?) -> Bool {
+        guard let lower = msg?.lowercased(), !lower.isEmpty else { return true }
+        return lower.contains("language_server")
+            || lower.contains("processnotfound")
+            || lower.contains("process not found")
+            || lower.contains("not running")
+            || lower.contains("open the provider app")
+            || lower.contains("unavailable")
     }
 }
 

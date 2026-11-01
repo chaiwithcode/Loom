@@ -221,10 +221,14 @@ final class StorageAndRefreshTests: XCTestCase {
 
         // 1. With absolute path overrides
         let envOverrides = [
+            "T3CODE_HOME": "/custom/path/to/t3",
             "CODEX_HOME": "/custom/path/to/codex",
             "CLAUDE_CONFIG_DIR": "/custom/path/to/claude"
         ]
         let overridden = ProviderStorageLocations.local(home: customHome, environment: envOverrides)
+
+        let t3Locations = overridden.first(where: { $0.id == .t3Code })?.locations
+        XCTAssertEqual(t3Locations?.first?.url.path, "/custom/path/to/t3/worktrees")
 
         let codexLocations = overridden.first(where: { $0.id == .codex })?.locations
         XCTAssertEqual(codexLocations?.first?.url.path, "/custom/path/to/codex")
@@ -234,10 +238,14 @@ final class StorageAndRefreshTests: XCTestCase {
 
         // 2. Reject non-absolute (relative) paths and fallback to home
         let relativeEnv = [
+            "T3CODE_HOME": "relative/t3",
             "CODEX_HOME": "relative/codex",
             "CLAUDE_CONFIG_DIR": "relative/claude"
         ]
         let fallback = ProviderStorageLocations.local(home: customHome, environment: relativeEnv)
+        let t3Fallback = fallback.first(where: { $0.id == .t3Code })?.locations
+        XCTAssertEqual(t3Fallback?.first?.url.path, "/Users/testuser/.t3/worktrees")
+
         let codexFallback = fallback.first(where: { $0.id == .codex })?.locations
         XCTAssertEqual(codexFallback?.first?.url.path, "/Users/testuser/.codex")
 
