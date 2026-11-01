@@ -51,6 +51,9 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
 
     public var hasWarning: Bool {
         guard isEnabled else { return false }
+        if providerID == .antigravity && usage == nil && (usageErrorMessage?.contains("language_server") == true || usageErrorMessage?.contains("not running") == true) {
+            return errorMessage != nil || !availability.isAvailable
+        }
         return errorMessage != nil ||
         !availability.isAvailable ||
         usageErrorMessage != nil ||

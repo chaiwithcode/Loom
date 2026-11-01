@@ -131,7 +131,7 @@ public final class StatusItemController {
             let title = currentStatus.hasAttention ? "\(text) •" : text
             button.title = " \(title)"
         } else if currentStatus.hasAttention {
-            button.title = " •"
+            button.title = " \(currentStatus.attentionCount) •"
         } else {
             button.title = ""
         }
@@ -143,6 +143,8 @@ public final class StatusItemController {
         var parts: [String] = ["Loom"]
         if let text = status.text {
             parts.append(text)
+        } else if status.hasAttention {
+            parts.append("\(status.attentionCount) waiting")
         }
         if status.hasAttention {
             parts.append("\(status.attentionCount) \(status.attentionCount == 1 ? "session needs" : "sessions need") attention")
@@ -175,6 +177,10 @@ public struct MenuBarStatusLabel: View {
             if let text = result.text {
                 Text(text)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
+            } else if result.hasAttention {
+                Text("\(result.attentionCount)")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.orange)
             }
 
             if result.hasAttention {
@@ -191,6 +197,8 @@ public struct MenuBarStatusLabel: View {
         var parts: [String] = ["Loom"]
         if let text = result.text {
             parts.append(text)
+        } else if result.hasAttention {
+            parts.append("\(result.attentionCount) waiting")
         }
         if result.hasAttention {
             parts.append("\(result.attentionCount) \(result.attentionCount == 1 ? "session needs" : "sessions need") attention")

@@ -63,12 +63,12 @@ public final class AntigravityProvider: AgentProvider, Sendable {
     }
 
     public func fetchUsage() async throws -> ProviderUsageSnapshot? {
-        var isRunning = await processDiscoverer.isAntigravityRunning()
-        if !isRunning && processDiscoverer is DefaultAntigravityProcessDiscoverer {
-            let agyStatuses = await SharedCLIDiscoveryCache.shared.snapshot().antigravityStatuses
-            isRunning = !agyStatuses.filter { $0.state != .inactive }.isEmpty
-        }
-        guard isRunning else {
+        let isGUIRunning = await processDiscoverer.isAntigravityRunning()
+        guard isGUIRunning else {
+            // When only CLI is running (or GUI app is closed), return nil gracefully to avoid spurious warning badge on Menu Bar
+            if processDiscoverer is DefaultAntigravityProcessDiscoverer {
+                return nil
+            }
             throw AntigravityUsageError.processNotFound
         }
         return try await usageFetcher.fetchUsage()

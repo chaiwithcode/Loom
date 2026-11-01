@@ -168,6 +168,10 @@ public struct ProviderSectionView: View {
                     }
                 } else if snapshot.id == .claude {
                     claudeQuotaNotice
+                } else if snapshot.id == .antigravity && (snapshot.usageErrorMessage == nil || snapshot.usageErrorMessage?.contains("language_server") == true || snapshot.usageErrorMessage?.contains("processNotFound") == true) {
+                    antigravityQuotaNotice
+                } else if snapshot.id == .t3Code {
+                    t3CodeQuotaNotice
                 } else if let error = snapshot.usageErrorMessage, !error.isEmpty {
                     issueNotice(.usage(hasSavedData: false), details: error, color: .orange)
                 } else if snapshot.availability.isAvailable && !snapshot.isRefreshing {
@@ -341,6 +345,50 @@ public struct ProviderSectionView: View {
         .loomCard(cornerRadius: 10)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Quota monitoring not exposed by CLI. Claude Code does not provide a local quota command or telemetry endpoint.")
+    }
+
+    private var antigravityQuotaNotice: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Open Antigravity app to view quota")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text("Antigravity quota telemetry is exposed via the desktop app loopback server.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .loomCard(cornerRadius: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Open Antigravity app to view quota. Antigravity quota telemetry is exposed via the desktop app loopback server.")
+    }
+
+    private var t3CodeQuotaNotice: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Quota monitoring not exposed by T3 Code")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text("T3 Code does not provide a local quota command or telemetry endpoint.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .loomCard(cornerRadius: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Quota monitoring not exposed by T3 Code. T3 Code does not provide a local quota command or telemetry endpoint.")
     }
 
     private func issueNotice(_ issue: ProviderIssue, details: String, color: Color) -> some View {
