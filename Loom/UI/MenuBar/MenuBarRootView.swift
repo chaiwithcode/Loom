@@ -17,6 +17,7 @@ public struct MenuBarRootView: View {
     @State private var contentHeights: [MenuTab: CGFloat] = [.agents: 180, .usage: 180, .storage: 180]
     @State private var selectedTab: MenuTab
     @State private var selectedProviderID: ProviderID?
+    @State private var isAllProvidersSelected: Bool
     @State private var searchText = ""
     @State private var selectedFilter: SessionFilterCriterion = .all
     @State private var expandedSessionIds: Set<String>
@@ -40,11 +41,13 @@ public struct MenuBarRootView: View {
         self._selectedTab = State(initialValue: isUsageExpanded ? .usage : .agents)
         self._expandedSessionIds = State(initialValue: expandedSessionIds)
         self._selectedProviderID = State(initialValue: selectedProviderID)
+        self._isAllProvidersSelected = State(initialValue: selectedProviderID == nil)
         self._searchText = State(initialValue: initialSearchText)
         self._selectedFilter = State(initialValue: initialFilter)
     }
 
     private var resolvedSelectedProviderID: ProviderID? {
+        guard !isAllProvidersSelected else { return nil }
         let enabled = store.enabledSnapshots
         guard !enabled.isEmpty else { return nil }
 
@@ -59,6 +62,22 @@ public struct MenuBarRootView: View {
         }
 
         return enabled.first?.id
+    }
+
+    private var allFilteredSessions: [AgentSession] {
+        store.enabledSnapshots.flatMap { filteredSessions(for: $0) }
+    }
+
+    private var allFilterCounts: [SessionFilterCriterion: Int] {
+        let eligible = allFilteredSessions
+        return Dictionary(uniqueKeysWithValues: SessionFilterCriterion.allCases.map { criterion in
+            (criterion, SessionFilterEngine.filterSessions(
+                eligible,
+                query: searchText,
+                filter: criterion,
+                hideProjectPaths: settings?.hideProjectPaths ?? false
+            ).count)
+        })
     }
 
     private func filteredSessions(for snapshot: ProviderSnapshot) -> [AgentSession] {
@@ -110,7 +129,14 @@ public struct MenuBarRootView: View {
                 if selectedTab == .agents && !store.enabledSnapshots.isEmpty {
                     providerSelector
                         .background(MenuHeightReader(part: "selector"))
-                    if let snapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
+                    if isAllProvidersSelected {
+                        SessionFilterBar(
+                            searchText: $searchText,
+                            selectedFilter: $selectedFilter,
+                            counts: allFilterCounts
+                        )
+                        .background(MenuHeightReader(part: "filters"))
+                    } else if let snapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
                         SessionFilterBar(
                             searchText: $searchText,
                             selectedFilter: $selectedFilter,
@@ -215,27 +241,21 @@ public struct MenuBarRootView: View {
         let snapshots = store.enabledSnapshots
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 4) {
+                allProviderButton
                 ForEach(snapshots) { snapshot in
                     providerButton(for: snapshot)
                 }
             }
-            .fixedSize(horizontal: true, vertical: false)
 
-            VStack(alignment: .leading, spacing: 3) {
+            ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
-                    ForEach(Array(snapshots.prefix(2))) { snapshot in
+                    allProviderButton
+                    ForEach(snapshots) { snapshot in
                         providerButton(for: snapshot)
                     }
                 }
-                if snapshots.count > 2 {
-                    HStack(spacing: 4) {
-                        ForEach(Array(snapshots.dropFirst(2))) { snapshot in
-                            providerButton(for: snapshot)
-                        }
-                    }
-                }
+                .padding(.horizontal, 1)
             }
-            .fixedSize(horizontal: true, vertical: false)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -244,18 +264,46 @@ public struct MenuBarRootView: View {
         .accessibilityLabel("Provider selector")
     }
 
-    private func providerButton(for snapshot: ProviderSnapshot) -> some View {
-        let isSelected = resolvedSelectedProviderID == snapshot.id
-        let sessionCount = filteredSessions(for: snapshot).count
-        let needsAttention = snapshot.sessions.contains { $0.state == .waiting || $0.state == .failed }
+    private var allProviderButton: some View {
+        let isSelected = isAllProvidersSelected
+        let sessionCount = allFilteredSessions.count
+        let needsAttention = store.enabledSnapshots.contains { snapshot in
+            snapshot.sessions.contains { $0.state == .waiting || $0.state == .failed }
+        }
 
         return ProviderFilterPill(
-            snapshot: snapshot,
+            title: "All",
+            iconName: "square.grid.2x2",
+            providerID: nil,
             sessionCount: sessionCount,
             needsAttention: needsAttention,
-            isSelected: isSelected
+            isSelected: isSelected,
+            accessibilityId: "provider-tab-all"
         ) {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                isAllProvidersSelected = true
+                selectedProviderID = nil
+            }
+        }
+    }
+
+    private func providerButton(for snapshot: ProviderSnapshot) -> some View {
+        let isSelected = !isAllProvidersSelected && resolvedSelectedProviderID == snapshot.id
+        let sessionCount = filteredSessions(for: snapshot).count
+        let needsAttention = snapshot.sessions.contains { $0.state == .waiting || $0.state == .failed }
+        let displayName = snapshot.id == .claude ? "Claude" : snapshot.displayName
+
+        return ProviderFilterPill(
+            title: displayName,
+            iconName: nil,
+            providerID: snapshot.id,
+            sessionCount: sessionCount,
+            needsAttention: needsAttention,
+            isSelected: isSelected,
+            accessibilityId: "provider-tab-\(snapshot.id.rawValue)"
+        ) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                isAllProvidersSelected = false
                 selectedProviderID = snapshot.id
             }
         }
@@ -274,7 +322,8 @@ public struct MenuBarRootView: View {
     private func scrollId(for tab: MenuTab) -> String {
         switch tab {
         case .agents:
-            return "scroll-agents-\(resolvedSelectedProviderID?.rawValue ?? "none")-\(selectedFilter.rawValue)-\(searchText.isEmpty ? "normal" : "search")"
+            let providerKey = isAllProvidersSelected ? "all" : (resolvedSelectedProviderID?.rawValue ?? "none")
+            return "scroll-agents-\(providerKey)-\(selectedFilter.rawValue)-\(searchText.isEmpty ? "normal" : "search")"
         case .usage:
             return "scroll-usage"
         case .storage:
@@ -294,6 +343,23 @@ public struct MenuBarRootView: View {
             agentsTabContent
         } else if tab == .usage {
             usageTabContent
+        }
+
+        if let settings, settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: !store.enabledSnapshots.isEmpty) {
+            GitHubStarInvitationCard(
+                onDismiss: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        settings.dismissGitHubStarPrompt()
+                    }
+                },
+                onStar: {
+                    NSWorkspace.shared.open(LoomSettings.gitHubRepoURL)
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        settings.dismissGitHubStarPrompt()
+                    }
+                }
+            )
+            .padding(.top, 4)
         }
     }
 
@@ -331,7 +397,44 @@ public struct MenuBarRootView: View {
 
     @ViewBuilder
     private var agentsTabContent: some View {
-        if let selectedSnapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
+        if isAllProvidersSelected {
+            let matchingSnapshots = store.enabledSnapshots.compactMap { snapshot -> (ProviderSnapshot, [AgentSession])? in
+                let matches = matchingSessions(for: snapshot)
+                return matches.isEmpty ? nil : (snapshot, matches)
+            }
+
+            if matchingSnapshots.isEmpty {
+                SessionFilterEmptyStateView(
+                    query: searchText,
+                    filter: selectedFilter,
+                    onClearFilters: {
+                        searchText = ""
+                        selectedFilter = .all
+                    }
+                )
+            } else {
+                ForEach(matchingSnapshots, id: \.0.id) { snapshot, sessions in
+                    ProviderSectionView(
+                        snapshot: snapshot,
+                        showsSessions: true,
+                        showsUsage: false,
+                        expandedSessionIds: expandedSessionIds,
+                        settings: settings,
+                        sessions: sessions,
+                        searchText: searchText,
+                        selectedFilter: selectedFilter,
+                        onClearFilters: {
+                            searchText = ""
+                            selectedFilter = .all
+                        },
+                        onSessionExpansionChange: { id, expanded in
+                            if expanded { expandedSessionIds.insert(id) }
+                            else { expandedSessionIds.remove(id) }
+                        }
+                    )
+                }
+            }
+        } else if let selectedSnapshot = store.enabledSnapshots.first(where: { $0.id == resolvedSelectedProviderID }) {
             ProviderSectionView(
                 snapshot: selectedSnapshot,
                 showsSessions: true,
@@ -534,19 +637,27 @@ private struct FloatingGlassSegmentedControl: View {
 }
 
 private struct ProviderFilterPill: View {
-    let snapshot: ProviderSnapshot
+    let title: String
+    var iconName: String? = nil
+    var providerID: ProviderID? = nil
     let sessionCount: Int
     let needsAttention: Bool
     let isSelected: Bool
+    let accessibilityId: String
     let action: () -> Void
     @State private var isHovered = false
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                ProviderIconView(providerID: snapshot.id, size: 12)
+                if let providerID {
+                    ProviderIconView(providerID: providerID, size: 12)
+                } else if let iconName {
+                    Image(systemName: iconName)
+                        .font(.system(size: 11, weight: .medium))
+                }
 
-                Text(snapshot.displayName)
+                Text(title)
                     .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
@@ -561,6 +672,8 @@ private struct ProviderFilterPill: View {
                 Text("\(sessionCount)")
                     .font(.system(size: 10, weight: isSelected ? .semibold : .medium, design: .rounded))
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
             .padding(.horizontal, 6)
@@ -570,10 +683,10 @@ private struct ProviderFilterPill: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(snapshot.displayName), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")\(needsAttention ? ", needs attention" : "")")
+        .accessibilityLabel("\(title), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")\(needsAttention ? ", needs attention" : "")")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .accessibilityValue(isSelected ? "Selected" : "")
-        .accessibilityIdentifier("provider-tab-\(snapshot.id.rawValue)")
+        .accessibilityIdentifier(accessibilityId)
         .onHover { isHovered = $0 }
     }
 }
