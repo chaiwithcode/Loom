@@ -83,7 +83,7 @@ public final class CodexProvider: AgentProvider, Sendable {
             processTree = ProcessTree(nodes: [])
         }
 
-        let correlatedSessions: [AgentSession]
+        var correlatedSessions: [AgentSession]
         if !processes.isEmpty {
             correlatedSessions = await correlationEngine.correlate(
                 processes: processes,
@@ -92,6 +92,62 @@ public final class CodexProvider: AgentProvider, Sendable {
             )
         } else {
             correlatedSessions = []
+        }
+
+        if gitResolver is DefaultGitRepositoryResolver && processDiscoverer is DefaultCodexProcessDiscoverer {
+            let cliSnapshot = await SharedCLIDiscoveryCache.shared.snapshot()
+            let t3ChildPIDs = Set(cliSnapshot.codexStatuses.filter { $0.surface == .t3Orchestrated }.compactMap { $0.pid.map(Int.init) })
+            correlatedSessions = correlatedSessions.filter { session in
+                guard let pid = session.pid else { return true }
+                return !t3ChildPIDs.contains(pid)
+            }
+
+            let standaloneStatuses = cliSnapshot.codexStatuses.filter { $0.surface == .cli && $0.state != .inactive }
+            for status in standaloneStatuses {
+                let statusPID = status.pid.map(Int.init)
+                let statusNormPath = status.workspacePath.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+                if let idx = correlatedSessions.firstIndex(where: { existing in
+                    if let sp = statusPID, let ep = existing.pid, sp == ep { return true }
+                    if let sn = statusNormPath, let en = existing.projectPath?.standardizedFileURL.path, sn == en { return true }
+                    return false
+                }) {
+                    let existing = correlatedSessions[idx]
+                    var extraSummary: [String] = []
+                    if let model = status.modelName, !model.isEmpty { extraSummary.append(model) }
+                    if let usage = status.tokenUsage, usage.totalTokens > 0 { extraSummary.append(SharedCLIDiscoveryCache.formatTokens(usage.totalTokens)) }
+                    let newSummary: String
+                    if !extraSummary.isEmpty {
+                        newSummary = existing.summary.map { "\($0) • \(extraSummary.joined(separator: " • "))" } ?? extraSummary.joined(separator: " • ")
+                    } else {
+                        newSummary = existing.summary ?? existing.projectName ?? "Codex Session"
+                    }
+                    var newEvidence = existing.discoveryEvidence
+                    if let usage = status.tokenUsage, usage.totalTokens > 0 {
+                        newEvidence.append("Tokens: \(SharedCLIDiscoveryCache.formatTokens(usage.totalTokens))")
+                    }
+                    correlatedSessions[idx] = AgentSession(
+                        id: existing.id,
+                        provider: existing.provider,
+                        projectName: existing.projectName,
+                        projectPath: existing.projectPath,
+                        state: existing.state,
+                        startedAt: existing.startedAt,
+                        lastActivityAt: existing.lastActivityAt,
+                        branch: existing.branch,
+                        summary: newSummary,
+                        pid: existing.pid,
+                        providerSessionID: existing.providerSessionID,
+                        associatedProcesses: existing.associatedProcesses,
+                        hostApp: existing.hostApp,
+                        diagnostics: existing.diagnostics,
+                        discoveryEvidence: newEvidence
+                    )
+                } else {
+                    correlatedSessions.append(
+                        SharedCLIDiscoveryCache.toAgentSession(status, providerID: .codex)
+                    )
+                }
+            }
         }
 
         let duration = Date().timeIntervalSince(startTime)

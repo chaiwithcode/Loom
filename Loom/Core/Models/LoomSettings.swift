@@ -157,7 +157,7 @@ public final class LoomSettings {
     public nonisolated static let defaultShowInDock = false
     public nonisolated static let defaultRefreshIntervalSeconds = 60
     public nonisolated static let supportedRefreshIntervals = [30, 60, 120, 300]
-    public nonisolated static let defaultProviderIDs: Set<ProviderID> = [.codex, .claude, .antigravity]
+    public nonisolated static let defaultProviderIDs: Set<ProviderID> = [.t3Code, .codex, .claude, .antigravity]
     public nonisolated static let defaultProviderID: ProviderID = .codex
     public nonisolated static let defaultIncludeRecentSessions = true
     public nonisolated static let defaultHideFinishedAfter: HideFinishedInterval = .never

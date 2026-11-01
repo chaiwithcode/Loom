@@ -36,6 +36,13 @@ public struct ProviderPresentation: Sendable, Equatable, Identifiable {
     public static func presentation(for id: ProviderID) -> ProviderPresentation {
         let normalized = id.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         switch normalized {
+        case "t3code", "t3-code", "t3":
+            return ProviderPresentation(
+                providerID: .t3Code,
+                displayName: "T3 Code",
+                iconAssetName: "provider-t3code",
+                iconRenderingMode: .template
+            )
         case "codex":
             return ProviderPresentation(
                 providerID: .codex,

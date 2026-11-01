@@ -307,12 +307,13 @@ public final class T3CodeDetector: Sendable {
         if !sqliteThreads.isEmpty {
             var sessions: [AgentSessionStatus] = []
             for thread in sqliteThreads {
-                let projectName = thread.workspaceRoot.map { URL(fileURLWithPath: $0).lastPathComponent }
-                    ?? thread.projectTitle
+                let projectName = thread.projectTitle
+                    ?? thread.workspaceRoot.map { URL(fileURLWithPath: $0).lastPathComponent }
                     ?? thread.title
+                let threadID = thread.threadID.hasPrefix("t3-") ? thread.threadID : "t3-\(thread.threadID)"
                 sessions.append(
                     AgentSessionStatus(
-                        id: "t3-\(thread.threadID)",
+                        id: threadID,
                         provider: .t3Code,
                         surface: .gui,
                         pid: primaryPID,

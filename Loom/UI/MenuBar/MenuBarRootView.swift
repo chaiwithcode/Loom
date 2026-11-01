@@ -358,7 +358,8 @@ public struct MenuBarRootView: View {
 
     @ViewBuilder
     private var usageTabContent: some View {
-        ForEach(store.enabledSnapshots) { snapshot in
+        let usageSnapshots = store.enabledSnapshots.filter { $0.providerID != .t3Code }
+        ForEach(usageSnapshots) { snapshot in
             ProviderSectionView(
                 snapshot: snapshot,
                 showsSessions: false,
@@ -366,11 +367,11 @@ public struct MenuBarRootView: View {
                 expandedSessionIds: expandedSessionIds,
                 settings: settings
             )
-            if snapshot.id != store.enabledSnapshots.last?.id {
+            if snapshot.id != usageSnapshots.last?.id {
                 Divider().padding(.vertical, 4)
             }
         }
-        Text("Claude Code quota is unavailable through its local interface.")
+        Text("Claude Code and T3 Code quota is unavailable through local interfaces.")
             .font(.caption)
             .foregroundStyle(.secondary)
     }

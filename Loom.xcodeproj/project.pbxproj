@@ -80,6 +80,7 @@
 		D00000000000000000000048 /* ClaudeCodeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000047 /* ClaudeCodeDetector.swift */; };
 		D0000000000000000000004C /* AntigravityCLIDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000004B /* AntigravityCLIDetector.swift */; };
 		D00000000000000000000050 /* AgentMonitoringCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000004F /* AgentMonitoringCoordinator.swift */; };
+		D0000000000000000000005A /* SharedCLIDiscoveryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000059 /* SharedCLIDiscoveryCache.swift */; };
 		A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000125 /* ClaudeTranscriptInspector.swift */; };
 		A00000000000000000000126 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000127 /* ClaudeProvider.swift */; };
 		A00000000000000000000128 /* ClaudeProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000129 /* ClaudeProviderTests.swift */; };
@@ -257,6 +258,7 @@
 		D00000000000000000000047 /* ClaudeCodeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeDetector.swift; sourceTree = "<group>"; };
 		D0000000000000000000004B /* AntigravityCLIDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityCLIDetector.swift; sourceTree = "<group>"; };
 		D0000000000000000000004F /* AgentMonitoringCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMonitoringCoordinator.swift; sourceTree = "<group>"; };
+		D00000000000000000000059 /* SharedCLIDiscoveryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCLIDiscoveryCache.swift; sourceTree = "<group>"; };
 		A00000000000000000000125 /* ClaudeTranscriptInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptInspector.swift; sourceTree = "<group>"; };
 		A00000000000000000000127 /* ClaudeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProvider.swift; sourceTree = "<group>"; };
 		A00000000000000000000129 /* ClaudeProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProviderTests.swift; sourceTree = "<group>"; };
@@ -619,6 +621,7 @@
 				A00000000000000000000109 /* SessionCorrelationEngine.swift */,
 				A00000000000000000000117 /* SessionLifecycleReconciler.swift */,
 				D0000000000000000000004F /* AgentMonitoringCoordinator.swift */,
+				D00000000000000000000059 /* SharedCLIDiscoveryCache.swift */,
 			);
 			path = Discovery;
 			sourceTree = "<group>";
@@ -893,6 +896,7 @@
 				D00000000000000000000048 /* ClaudeCodeDetector.swift in Sources */,
 				D0000000000000000000004C /* AntigravityCLIDetector.swift in Sources */,
 				D00000000000000000000050 /* AgentMonitoringCoordinator.swift in Sources */,
+				D0000000000000000000005A /* SharedCLIDiscoveryCache.swift in Sources */,
 				A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */,
 				A00000000000000000000126 /* ClaudeProvider.swift in Sources */,
 				A00000000000000000000132 /* AppVersion.swift in Sources */,

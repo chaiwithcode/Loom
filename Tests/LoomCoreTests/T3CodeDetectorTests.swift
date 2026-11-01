@@ -204,7 +204,7 @@ final class T3CodeDetectorTests: XCTestCase {
         let runtimeURL = userdata.appendingPathComponent("server-runtime.json")
 
         let myPID = getpid()
-        let json = "{\"version\": 1, \"pid\": \(myPID), \"port\": 3773, \"origin\": \"http://127.0.0.1:3773\"}"
+        let json = "{\"version\": 1, \"pid\": \(myPID), \"port\": 65530, \"origin\": \"http://127.0.0.1:65530\"}"
         try json.data(using: .utf8)?.write(to: runtimeURL)
 
         let dbURL = userdata.appendingPathComponent("statev2.sqlite")
@@ -212,6 +212,7 @@ final class T3CodeDetectorTests: XCTestCase {
         XCTAssertEqual(sqlite3_open(dbURL.path, &db), SQLITE_OK)
         defer { sqlite3_close(db) }
 
+        let nowISO = ISO8601DateFormatter().string(from: Date())
         let schema = """
         CREATE TABLE projection_projects (
             project_id TEXT PRIMARY KEY,
@@ -266,10 +267,10 @@ final class T3CodeDetectorTests: XCTestCase {
         VALUES ('proj-loom', 'Loom Desktop', '/Users/deepak/Desktop/Projects/OSS/Loom');
 
         INSERT INTO orchestration_v2_projection_threads (thread_id, project_id, title, default_provider, created_at, updated_at)
-        VALUES ('t3-thread-live', 'proj-loom', 'Active Task', 'acpRegistry_google_antigravity', '2026-10-31T20:00:00Z', '2026-10-31T20:05:00Z');
+        VALUES ('t3-thread-live', 'proj-loom', 'Active Task', 'acpRegistry_google_antigravity', '\(nowISO)', '\(nowISO)');
 
         INSERT INTO orchestration_v2_projection_runs (run_id, thread_id, ordinal, provider, status, requested_at)
-        VALUES ('run-live', 't3-thread-live', 1, 'acpRegistry_google_antigravity', 'running', '2026-10-31T20:05:00Z');
+        VALUES ('run-live', 't3-thread-live', 1, 'acpRegistry_google_antigravity', 'running', '\(nowISO)');
         """
         XCTAssertEqual(sqlite3_exec(db, schema, nil, nil, nil), SQLITE_OK)
 
