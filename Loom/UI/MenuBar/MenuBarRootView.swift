@@ -269,7 +269,7 @@ public struct MenuBarRootView: View {
         }
 
         return ProviderFilterPill(
-            title: "All Providers",
+            title: "All",
             iconName: "square.grid.2x2",
             providerID: nil,
             sessionCount: sessionCount,
@@ -543,8 +543,14 @@ public struct MenuBarRootView: View {
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 8)
                 } else {
+                    let order = settings?.orderedProviderIDs ?? LoomSettings.defaultOrderedProviderIDs
+                    let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+                    let sortedSummaries = overview.summaries.sorted {
+                        (rank[$0.providerID] ?? Int.max) < (rank[$1.providerID] ?? Int.max)
+                    }
+
                     VStack(spacing: 8) {
-                        ForEach(overview.summaries) { summary in
+                        ForEach(sortedSummaries) { summary in
                             providerStorageRow(summary, overview: overview)
                         }
                     }

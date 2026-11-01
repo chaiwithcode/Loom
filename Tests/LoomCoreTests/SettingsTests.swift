@@ -817,4 +817,74 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(settings.hasDismissedGitHubStarPrompt)
         XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: Date()))
     }
+
+    @MainActor
+    func testOrderedProviderIDsDefaultsAndPersistence() {
+        let settings = LoomSettings(defaults: testDefaults)
+        XCTAssertEqual(settings.orderedProviderIDs, LoomSettings.defaultOrderedProviderIDs)
+
+        var notifiedOrder: [ProviderID]?
+        settings.onOrderedProviderIDsChanged = { notifiedOrder = $0 }
+
+        // Change order: Antigravity first
+        let newOrder: [ProviderID] = [.antigravity, .t3Code, .codex, .claude]
+        settings.orderedProviderIDs = newOrder
+        XCTAssertEqual(settings.orderedProviderIDs, newOrder)
+        XCTAssertEqual(notifiedOrder, newOrder)
+
+        // Verify persisted to UserDefaults
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertEqual(reloaded.orderedProviderIDs, newOrder)
+    }
+
+    @MainActor
+    func testMoveProviderReordering() {
+        let settings = LoomSettings(defaults: testDefaults)
+        // Default: [.t3Code, .codex, .claude, .antigravity]
+        XCTAssertEqual(settings.orderedProviderIDs, [.t3Code, .codex, .claude, .antigravity])
+
+        // Move .antigravity (index 3) to top (destination 0)
+        settings.moveProvider(fromOffsets: IndexSet(integer: 3), toOffset: 0)
+        XCTAssertEqual(settings.orderedProviderIDs, [.antigravity, .t3Code, .codex, .claude])
+
+        // Move .codex (now at index 2) down after .claude (index 3 -> destination 4)
+        settings.moveProvider(fromOffsets: IndexSet(integer: 2), toOffset: 4)
+        XCTAssertEqual(settings.orderedProviderIDs, [.antigravity, .t3Code, .claude, .codex])
+    }
+
+    @MainActor
+    func testOrderedProviderIDsSanitization() {
+        // Unknown or duplicate IDs are sanitized
+        testDefaults.set(["unknown", "antigravity", "antigravity", "claude"], forKey: LoomSettings.orderedProviderIDsKey)
+        let settings = LoomSettings(defaults: testDefaults)
+        // Antigravity and claude loaded first, then remaining known providers (.t3Code, .codex) appended
+        XCTAssertEqual(settings.orderedProviderIDs, [.antigravity, .claude, .t3Code, .codex])
+    }
+
+    @MainActor
+    func testSessionStoreEnabledSnapshotsRespectsOrderedProviderIDs() {
+        let settings = LoomSettings(defaults: testDefaults)
+        settings.orderedProviderIDs = [.antigravity, .claude, .codex, .t3Code]
+
+        let fixture = DemoFixture.resolve()
+        let providers = fixture.makeProviders()
+        let store = SessionStore(providers: providers, fixture: fixture, enabledProviderIDs: LoomSettings.defaultProviderIDs)
+        store.settings = settings
+
+        let order = store.enabledSnapshots.map(\.providerID)
+        XCTAssertEqual(order, [.antigravity, .claude, .codex, .t3Code], "enabledSnapshots must reflect settings.orderedProviderIDs order")
+        XCTAssertEqual(store.orderedSnapshots.map(\.providerID), [.antigravity, .claude, .codex, .t3Code], "orderedSnapshots must reflect settings.orderedProviderIDs order")
+
+        let widgetSnapshot = LoomWidgetSnapshot.make(from: store)
+        XCTAssertEqual(widgetSnapshot.providers.map { ProviderID($0.id) }, [.antigravity, .claude, .codex, .t3Code], "Widget snapshot must reflect orderedProviderIDs order")
+
+        // Reorder via moveProvider
+        settings.moveProvider(fromOffsets: IndexSet(integer: 3), toOffset: 0) // move .t3Code to top
+        let updatedOrder = store.enabledSnapshots.map(\.providerID)
+        XCTAssertEqual(updatedOrder, [.t3Code, .antigravity, .claude, .codex], "enabledSnapshots must dynamically update after reordering")
+        XCTAssertEqual(store.orderedSnapshots.map(\.providerID), [.t3Code, .antigravity, .claude, .codex], "orderedSnapshots must dynamically update after reordering")
+
+        let updatedWidgetSnapshot = LoomWidgetSnapshot.make(from: store)
+        XCTAssertEqual(updatedWidgetSnapshot.providers.map { ProviderID($0.id) }, [.t3Code, .antigravity, .claude, .codex], "Widget snapshot must update after reordering")
+    }
 }

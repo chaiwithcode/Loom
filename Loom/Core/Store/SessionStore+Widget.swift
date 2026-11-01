@@ -20,7 +20,7 @@ extension LoomWidgetSnapshot {
         let total = store.allSessions.count
 
         var summaries: [ProviderWidgetSummary] = []
-        for snapshot in store.providerSnapshots {
+        for snapshot in store.orderedSnapshots {
             let isDegradedOrUnavailable: Bool
             let healthStr: String
             if !snapshot.isEnabled {

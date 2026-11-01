@@ -158,8 +158,10 @@ public final class LoomSettings {
     public nonisolated static let defaultRefreshIntervalSeconds = 60
     public nonisolated static let supportedRefreshIntervals = [30, 60, 120, 300]
     public nonisolated static let didMigrateT3CodeProviderKey = "com.loom.didMigrateT3CodeProvider_v1"
-    public nonisolated static let orderedProviderIDs: [ProviderID] = [.t3Code, .codex, .claude, .antigravity]
-    public nonisolated static let defaultProviderIDs: Set<ProviderID> = Set(orderedProviderIDs)
+    public nonisolated static let orderedProviderIDsKey = "com.loom.orderedProviderIDs"
+    public nonisolated static let defaultOrderedProviderIDs: [ProviderID] = [.t3Code, .codex, .claude, .antigravity]
+    public nonisolated static let orderedProviderIDs: [ProviderID] = defaultOrderedProviderIDs
+    public nonisolated static let defaultProviderIDs: Set<ProviderID> = Set(defaultOrderedProviderIDs)
     public nonisolated static let defaultProviderID: ProviderID = .codex
     public nonisolated static let defaultIncludeRecentSessions = true
     public nonisolated static let defaultHideFinishedAfter: HideFinishedInterval = .never
@@ -201,9 +203,31 @@ public final class LoomSettings {
     public var onMinimumWorkingDurationChanged: (@MainActor (MinimumWorkingDuration) -> Void)?
     public var onMenuBarStatusModeChanged: (@MainActor (MenuBarStatusMode) -> Void)?
     public var onHasDismissedGitHubStarPromptChanged: (@MainActor (Bool) -> Void)?
+    public var onOrderedProviderIDsChanged: (@MainActor ([ProviderID]) -> Void)?
 
     @ObservationIgnored private var isNormalizingRefreshInterval = false
     @ObservationIgnored private var isNormalizingDefaultProvider = false
+
+    public var orderedProviderIDs: [ProviderID] {
+        didSet {
+            var sanitized: [ProviderID] = []
+            for id in orderedProviderIDs where Self.defaultProviderIDs.contains(id) && !sanitized.contains(id) {
+                sanitized.append(id)
+            }
+            for defaultID in Self.defaultOrderedProviderIDs where !sanitized.contains(defaultID) {
+                sanitized.append(defaultID)
+            }
+            if sanitized != orderedProviderIDs {
+                orderedProviderIDs = sanitized
+                return
+            }
+            let rawList = orderedProviderIDs.map(\.rawValue)
+            defaults.set(rawList, forKey: Self.orderedProviderIDsKey)
+            if orderedProviderIDs != oldValue {
+                onOrderedProviderIDsChanged?(orderedProviderIDs)
+            }
+        }
+    }
 
     public var showInDock: Bool {
         didSet {
@@ -484,6 +508,23 @@ public final class LoomSettings {
             self.enabledProviderIDs = Self.defaultProviderIDs
         }
 
+        // orderedProviderIDs:
+        if let rawArray = defaults.object(forKey: Self.orderedProviderIDsKey) as? [String] {
+            var loaded: [ProviderID] = []
+            for raw in rawArray {
+                let pid = ProviderID(raw)
+                if Self.defaultProviderIDs.contains(pid) && !loaded.contains(pid) {
+                    loaded.append(pid)
+                }
+            }
+            for defaultID in Self.defaultOrderedProviderIDs where !loaded.contains(defaultID) {
+                loaded.append(defaultID)
+            }
+            self.orderedProviderIDs = loaded
+        } else {
+            self.orderedProviderIDs = Self.defaultOrderedProviderIDs
+        }
+
         // defaultProviderID: invalid restores Codex
         if let rawDefault = defaults.string(forKey: Self.defaultProviderIDKey) {
             let candidate = ProviderID(rawDefault)
@@ -637,6 +678,7 @@ public final class LoomSettings {
         showInDock = Self.defaultShowInDock
         refreshIntervalSeconds = Self.defaultRefreshIntervalSeconds
         enabledProviderIDs = Self.defaultProviderIDs
+        orderedProviderIDs = Self.defaultOrderedProviderIDs
         defaultProviderID = Self.defaultProviderID
         includeRecentSessions = Self.defaultIncludeRecentSessions
         hideFinishedAfter = Self.defaultHideFinishedAfter
@@ -652,6 +694,20 @@ public final class LoomSettings {
         minimumWorkingDuration = Self.defaultMinimumWorkingDuration
         menuBarStatusMode = Self.defaultMenuBarStatusMode
         hasDismissedGitHubStarPrompt = Self.defaultHasDismissedGitHubStarPrompt
+    }
+
+    public func moveProvider(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var current = orderedProviderIDs
+        current.move(fromOffsets: source, toOffset: destination)
+        // Ensure any newly added providers not currently in orderedProviderIDs are appended
+        for provider in ProviderID.knownProviders where !current.contains(provider) {
+            current.append(provider)
+        }
+        orderedProviderIDs = current
+    }
+
+    public func setProviderEnabled(_ providerID: ProviderID, enabled: Bool) {
+        setProvider(providerID, enabled: enabled)
     }
 
     public func recordDiscoveredSessions(_ sessionIDs: [String]) {

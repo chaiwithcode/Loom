@@ -12,11 +12,20 @@ import LoomCore
 
 struct StorageSettingsTab: View {
     let hidePaths: Bool
+    var orderedProviderIDs: [ProviderID]? = nil
     @State private var measurements: [ProviderID: [StorageMeasurement]] = [:]
     @State private var scanning = false
     @State private var scannedAt: Date?
     @State private var scanID = UUID()
     private let providers = ProviderStorageLocations.local()
+
+    private var sortedProviders: [ProviderStorageLocations] {
+        let order = orderedProviderIDs ?? LoomSettings.defaultOrderedProviderIDs
+        let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return providers.sorted {
+            (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max)
+        }
+    }
 
     var body: some View {
         SettingsForm {
@@ -36,7 +45,7 @@ struct StorageSettingsTab: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            ForEach(providers) { provider in
+            ForEach(sortedProviders) { provider in
                 SettingsSection(provider.name) {
                     if let results = measurements[provider.id] {
                         let bytes = results.reduce(Int64(0)) { $0 + $1.bytes }

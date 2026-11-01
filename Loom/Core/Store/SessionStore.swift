@@ -257,10 +257,27 @@ public final class SessionStore {
     public var onMonitoringEvent: (@Sendable (MonitoringEvent) -> Void)?
 
     /// Reference to settings for recording discovered monitoring sessions.
-    public weak var settings: LoomSettings?
+    public weak var settings: LoomSettings? {
+        didSet {
+            guard let settings else { return }
+            let prior = settings.onOrderedProviderIDsChanged
+            settings.onOrderedProviderIDsChanged = { [weak self] order in
+                prior?(order)
+                self?.publishWidgetSnapshot()
+            }
+        }
+    }
+
+    public var orderedSnapshots: [ProviderSnapshot] {
+        let order = settings?.orderedProviderIDs ?? LoomSettings.defaultOrderedProviderIDs
+        let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return providerSnapshots.sorted {
+            (rank[$0.providerID] ?? Int.max) < (rank[$1.providerID] ?? Int.max)
+        }
+    }
 
     public var enabledSnapshots: [ProviderSnapshot] {
-        providerSnapshots.filter(\.isEnabled)
+        orderedSnapshots.filter(\.isEnabled)
     }
 
     private let registeredProviders: [any AgentProvider]
