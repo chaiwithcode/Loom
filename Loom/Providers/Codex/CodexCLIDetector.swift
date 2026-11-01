@@ -140,12 +140,34 @@ public final class CodexCLIDetector: Sendable {
                 return Self.normalizePath(procCWD) == Self.normalizePath(fileCWD)
             }
 
+            // Filter out background codex helper processes whose cwd == "/" if they have no matching transcript
+            let isRootOrEmptyCWD = proc.cwd == nil || proc.cwd == "/" || proc.cwd?.isEmpty == true
+            if isRootOrEmptyCWD && matchingRollout == nil {
+                continue
+            }
+
             if let match = matchingRollout {
                 matchedRolloutURLs.insert(match.url)
             }
 
-            let resolvedCWD = proc.cwd ?? matchingRollout?.parsed.cwd
-            let projectName = resolvedCWD.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "codex"
+            let resolvedCWD: String? = {
+                if let fileCWD = matchingRollout?.parsed.cwd, fileCWD != "/" && !fileCWD.isEmpty {
+                    return fileCWD
+                }
+                if let procCWD = proc.cwd, procCWD != "/" && !procCWD.isEmpty {
+                    return procCWD
+                }
+                return nil
+            }()
+
+            let projectName: String = {
+                if let path = resolvedCWD {
+                    let rawName = URL(fileURLWithPath: path).lastPathComponent
+                    return (rawName.isEmpty || rawName == "/") ? "Codex Session" : rawName
+                }
+                return "Codex Session"
+            }()
+
             let hasActiveChild = processTable.values.contains { $0.ppid == proc.pid }
 
             let state = inferState(
@@ -178,8 +200,17 @@ public final class CodexCLIDetector: Sendable {
         // 4. Include recent inactive sessions from today (so daily token totals remain visible after exit)
         for item in parsedRollouts where !matchedRolloutURLs.contains(item.url) {
             guard Calendar.current.isDateInToday(item.snapshot.modifiedAt) else { continue }
-            let cwd = item.parsed.cwd
-            let projectName = cwd.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "codex"
+            let cwd: String? = {
+                guard let path = item.parsed.cwd, path != "/" && !path.isEmpty else { return nil }
+                return path
+            }()
+            let projectName: String = {
+                if let path = cwd {
+                    let rawName = URL(fileURLWithPath: path).lastPathComponent
+                    return (rawName.isEmpty || rawName == "/") ? "Codex Session" : rawName
+                }
+                return "Codex Session"
+            }()
             let sessionID = item.parsed.sessionID ?? item.url.deletingPathExtension().lastPathComponent
 
             results.append(

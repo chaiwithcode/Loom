@@ -239,27 +239,24 @@ public struct MenuBarRootView: View {
     @ViewBuilder
     private var providerSelector: some View {
         let snapshots = store.enabledSnapshots
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
                 allProviderButton
-                ForEach(snapshots) { snapshot in
+                ForEach(Array(snapshots.prefix(2))) { snapshot in
                     providerButton(for: snapshot)
                 }
             }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    allProviderButton
-                    ForEach(snapshots) { snapshot in
+            if snapshots.count > 2 {
+                HStack(spacing: 6) {
+                    ForEach(Array(snapshots.dropFirst(2))) { snapshot in
                         providerButton(for: snapshot)
                     }
                 }
-                .padding(.horizontal, 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Provider selector")
     }
@@ -272,7 +269,7 @@ public struct MenuBarRootView: View {
         }
 
         return ProviderFilterPill(
-            title: "All",
+            title: "All Providers",
             iconName: "square.grid.2x2",
             providerID: nil,
             sessionCount: sessionCount,
@@ -288,13 +285,12 @@ public struct MenuBarRootView: View {
     }
 
     private func providerButton(for snapshot: ProviderSnapshot) -> some View {
-        let isSelected = !isAllProvidersSelected && resolvedSelectedProviderID == snapshot.id
+        let isSelected = !isAllProvidersSelected && (resolvedSelectedProviderID == snapshot.id)
         let sessionCount = filteredSessions(for: snapshot).count
         let needsAttention = snapshot.sessions.contains { $0.state == .waiting || $0.state == .failed }
-        let displayName = snapshot.id == .claude ? "Claude" : snapshot.displayName
 
         return ProviderFilterPill(
-            title: displayName,
+            title: snapshot.displayName,
             iconName: nil,
             providerID: snapshot.id,
             sessionCount: sessionCount,
@@ -682,6 +678,7 @@ private struct ProviderFilterPill: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title), \(sessionCount) \(sessionCount == 1 ? "session" : "sessions")\(needsAttention ? ", needs attention" : "")")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])

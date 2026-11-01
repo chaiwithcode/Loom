@@ -96,7 +96,15 @@ public actor SharedCLIDiscoveryCache {
         diagnostics: ProviderDiscoveryDiagnostics? = nil
     ) -> AgentSession {
         let mappedState = mapState(status.state)
-        let projectURL = status.workspacePath.map { URL(fileURLWithPath: $0) }
+
+        let rawProjectName = status.projectName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let projectName = (rawProjectName.isEmpty || rawProjectName == "/") ? "\(providerID.displayName) Session" : rawProjectName
+
+        let safeWorkspacePath: String? = {
+            guard let path = status.workspacePath, !path.isEmpty, path != "/" else { return nil }
+            return path
+        }()
+        let projectURL = safeWorkspacePath.map { URL(fileURLWithPath: $0) }
 
         var summaryParts: [String] = []
         if status.state == .awaitingApproval {
@@ -120,7 +128,7 @@ public actor SharedCLIDiscoveryCache {
             summaryParts.insert("Driving \(childLabels.joined(separator: ", "))", at: 0)
         }
 
-        let summaryText = summaryParts.isEmpty ? status.projectName : summaryParts.joined(separator: " • ")
+        let summaryText = summaryParts.isEmpty ? projectName : summaryParts.joined(separator: " • ")
 
         let host: HostApp = {
             switch status.surface {
@@ -134,7 +142,7 @@ public actor SharedCLIDiscoveryCache {
         }()
 
         var processes: [AgentProcess] = []
-        if let pid = status.pid {
+        if mappedState != .finished, let pid = status.pid {
             processes.append(
                 AgentProcess(
                     pid: pid,
@@ -150,21 +158,23 @@ public actor SharedCLIDiscoveryCache {
             )
         }
 
-        for child in orchestratedChildren {
-            if let cpid = child.pid {
-                processes.append(
-                    AgentProcess(
-                        pid: cpid,
-                        parentPID: child.parentT3PID ?? status.pid,
-                        executable: child.provider.rawValue,
-                        commandLine: child.provider.rawValue,
-                        workingDirectory: child.workspacePath.map { URL(fileURLWithPath: $0) },
-                        startedAt: child.lastUpdated,
-                        provider: providerID,
-                        hostApp: .custom("T3 Code"),
-                        sessionIDToken: child.id
+        if mappedState != .finished {
+            for child in orchestratedChildren {
+                if let cpid = child.pid {
+                    processes.append(
+                        AgentProcess(
+                            pid: cpid,
+                            parentPID: child.parentT3PID ?? status.pid,
+                            executable: child.provider.rawValue,
+                            commandLine: child.provider.rawValue,
+                            workingDirectory: child.workspacePath.map { URL(fileURLWithPath: $0) },
+                            startedAt: child.lastUpdated,
+                            provider: providerID,
+                            hostApp: .custom("T3 Code"),
+                            sessionIDToken: child.id
+                        )
                     )
-                )
+                }
             }
         }
 
@@ -182,19 +192,22 @@ public actor SharedCLIDiscoveryCache {
             evidence.append("Orchestrated child CLIs: \(orchestratedChildren.count)")
         }
 
+        let finalPID: Int? = mappedState == .finished ? nil : status.pid.map { Int($0) }
+        let finalProcesses: [AgentProcess] = mappedState == .finished ? [] : processes
+
         return AgentSession(
             id: status.id,
             provider: providerID,
-            projectName: status.projectName,
+            projectName: projectName,
             projectPath: projectURL,
             state: mappedState,
             startedAt: status.lastUpdated,
             lastActivityAt: status.lastUpdated,
             branch: status.gitBranch,
             summary: summaryText,
-            pid: status.pid.map { Int($0) },
+            pid: finalPID,
             providerSessionID: status.id,
-            associatedProcesses: processes,
+            associatedProcesses: finalProcesses,
             hostApp: host,
             diagnostics: diagnostics,
             discoveryEvidence: evidence
