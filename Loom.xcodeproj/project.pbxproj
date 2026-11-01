@@ -43,7 +43,6 @@
 		D00000000000000000000046 /* CodexCLIDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000045 /* CodexCLIDetectorTests.swift */; };
 		D0000000000000000000004A /* ClaudeCodeDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000049 /* ClaudeCodeDetectorTests.swift */; };
 		D0000000000000000000004E /* AntigravityCLIDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000004D /* AntigravityCLIDetectorTests.swift */; };
-		D00000000000000000000052 /* AgentMonitoringCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000051 /* AgentMonitoringCoordinatorTests.swift */; };
 		A000000000000000000000B1 /* AntigravityProcessInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E1 /* AntigravityProcessInspector.swift */; };
 		A000000000000000000000B2 /* AntigravityParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E2 /* AntigravityParser.swift */; };
 		A000000000000000000000B3 /* DefaultAntigravityProcessDiscoverer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */; };
@@ -79,7 +78,6 @@
 		A00000000000000000000122 /* ClaudeParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000123 /* ClaudeParser.swift */; };
 		D00000000000000000000048 /* ClaudeCodeDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000047 /* ClaudeCodeDetector.swift */; };
 		D0000000000000000000004C /* AntigravityCLIDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000004B /* AntigravityCLIDetector.swift */; };
-		D00000000000000000000050 /* AgentMonitoringCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0000000000000000000004F /* AgentMonitoringCoordinator.swift */; };
 		D0000000000000000000005A /* SharedCLIDiscoveryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000059 /* SharedCLIDiscoveryCache.swift */; };
 		A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000125 /* ClaudeTranscriptInspector.swift */; };
 		A00000000000000000000126 /* ClaudeProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000127 /* ClaudeProvider.swift */; };
@@ -123,9 +121,6 @@
 		D00000000000000000000101 /* LICENSE.lobehub in Resources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000100 /* LICENSE.lobehub */; };
 		A00000000000000000000206 /* LoomCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A00000000000000000000030 /* LoomCore.framework */; };
 		A00000000000000000000209 /* LoomRegressionTestSuite.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000208 /* LoomRegressionTestSuite.swift */; };
-		D00000000000000000000053 /* AgentSessionsSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000054 /* AgentSessionsSectionView.swift */; };
-		D00000000000000000000056 /* AgentSessionsSectionViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000057 /* AgentSessionsSectionViewTests.swift */; };
-		D00000000000000000000058 /* AgentSessionsSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000054 /* AgentSessionsSectionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -221,7 +216,6 @@
 		D00000000000000000000045 /* CodexCLIDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexCLIDetectorTests.swift; sourceTree = "<group>"; };
 		D00000000000000000000049 /* ClaudeCodeDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeDetectorTests.swift; sourceTree = "<group>"; };
 		D0000000000000000000004D /* AntigravityCLIDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityCLIDetectorTests.swift; sourceTree = "<group>"; };
-		D00000000000000000000051 /* AgentMonitoringCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMonitoringCoordinatorTests.swift; sourceTree = "<group>"; };
 		A000000000000000000000E1 /* AntigravityProcessInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityProcessInspector.swift; sourceTree = "<group>"; };
 		A000000000000000000000E2 /* AntigravityParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityParser.swift; sourceTree = "<group>"; };
 		A000000000000000000000E3 /* DefaultAntigravityProcessDiscoverer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultAntigravityProcessDiscoverer.swift; sourceTree = "<group>"; };
@@ -257,7 +251,6 @@
 		A00000000000000000000123 /* ClaudeParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeParser.swift; sourceTree = "<group>"; };
 		D00000000000000000000047 /* ClaudeCodeDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeDetector.swift; sourceTree = "<group>"; };
 		D0000000000000000000004B /* AntigravityCLIDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntigravityCLIDetector.swift; sourceTree = "<group>"; };
-		D0000000000000000000004F /* AgentMonitoringCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMonitoringCoordinator.swift; sourceTree = "<group>"; };
 		D00000000000000000000059 /* SharedCLIDiscoveryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedCLIDiscoveryCache.swift; sourceTree = "<group>"; };
 		A00000000000000000000125 /* ClaudeTranscriptInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptInspector.swift; sourceTree = "<group>"; };
 		A00000000000000000000127 /* ClaudeProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProvider.swift; sourceTree = "<group>"; };
@@ -300,8 +293,6 @@
 		D00000000000000000000100 /* LICENSE.lobehub */ = {isa = PBXFileReference; lastKnownFileType = text; path = ProviderSources/LICENSE.lobehub; sourceTree = "<group>"; };
 		A00000000000000000000201 /* LoomRegressionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LoomRegressionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000208 /* LoomRegressionTestSuite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoomRegressionTestSuite.swift; sourceTree = "<group>"; };
-		D00000000000000000000054 /* AgentSessionsSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionsSectionView.swift; sourceTree = "<group>"; };
-		D00000000000000000000057 /* AgentSessionsSectionViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionsSectionViewTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -393,18 +384,9 @@
 			path = App;
 			sourceTree = "<group>";
 		};
-				D00000000000000000000055 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				D00000000000000000000054 /* AgentSessionsSectionView.swift */,
-			);
-			path = Components;
-			sourceTree = "<group>";
-		};
 		A00000000000000000000012 /* UI */ = {
 			isa = PBXGroup;
 			children = (
-				D00000000000000000000055 /* Components */,
 				A00000000000000000000013 /* MenuBar */,
 				A000000000000000000000FB /* Settings */,
 			);
@@ -520,7 +502,6 @@
 		A0000000000000000000001B /* LoomCoreTests */ = {
 			isa = PBXGroup;
 			children = (
-				D00000000000000000000057 /* AgentSessionsSectionViewTests.swift */,
 				B00000000000000000000005 /* Tests/LoomCoreTests/StorageAndRefreshTests.swift */,
 				A0000000000000000000002B /* SessionStoreTests.swift */,
 				A000000000000000000000C6 /* CodexProviderTests.swift */,
@@ -532,7 +513,6 @@
 				D00000000000000000000045 /* CodexCLIDetectorTests.swift */,
 				D00000000000000000000049 /* ClaudeCodeDetectorTests.swift */,
 				D0000000000000000000004D /* AntigravityCLIDetectorTests.swift */,
-				D00000000000000000000051 /* AgentMonitoringCoordinatorTests.swift */,
 				A000000000000000000000F7 /* SettingsTests.swift */,
 				A000000000000000000000F9 /* MenuLayoutTests.swift */,
 				A0000000000000000000010B /* DiscoveryPipelineTests.swift */,
@@ -620,7 +600,6 @@
 				A00000000000000000000107 /* WorkspaceResolver.swift */,
 				A00000000000000000000109 /* SessionCorrelationEngine.swift */,
 				A00000000000000000000117 /* SessionLifecycleReconciler.swift */,
-				D0000000000000000000004F /* AgentMonitoringCoordinator.swift */,
 				D00000000000000000000059 /* SharedCLIDiscoveryCache.swift */,
 			);
 			path = Discovery;
@@ -895,7 +874,6 @@
 				A00000000000000000000122 /* ClaudeParser.swift in Sources */,
 				D00000000000000000000048 /* ClaudeCodeDetector.swift in Sources */,
 				D0000000000000000000004C /* AntigravityCLIDetector.swift in Sources */,
-				D00000000000000000000050 /* AgentMonitoringCoordinator.swift in Sources */,
 				D0000000000000000000005A /* SharedCLIDiscoveryCache.swift in Sources */,
 				A00000000000000000000124 /* ClaudeTranscriptInspector.swift in Sources */,
 				A00000000000000000000126 /* ClaudeProvider.swift in Sources */,
@@ -911,7 +889,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D00000000000000000000053 /* AgentSessionsSectionView.swift in Sources */,
 				D00000000000000000000019 /* DiagnosticsDisclosureView.swift in Sources */,
 				D00000000000000000000017 /* SessionFilterBar.swift in Sources */,
 				D00000000000000000000015 /* LoomGlassStyles.swift in Sources */,
@@ -939,8 +916,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D00000000000000000000056 /* AgentSessionsSectionViewTests.swift in Sources */,
-				D00000000000000000000058 /* AgentSessionsSectionView.swift in Sources */,
 				C00000000000000000000005 /* Tests/LoomCoreTests/StorageAndRefreshTests.swift in Sources */,
 				A00000000000000000000088 /* SessionStoreTests.swift in Sources */,
 				A000000000000000000000A6 /* CodexProviderTests.swift in Sources */,
@@ -952,7 +927,6 @@
 				D00000000000000000000046 /* CodexCLIDetectorTests.swift in Sources */,
 				D0000000000000000000004A /* ClaudeCodeDetectorTests.swift in Sources */,
 				D0000000000000000000004E /* AntigravityCLIDetectorTests.swift in Sources */,
-				D00000000000000000000052 /* AgentMonitoringCoordinatorTests.swift in Sources */,
 				A000000000000000000000F8 /* SettingsTests.swift in Sources */,
 				A000000000000000000000FA /* MenuLayoutTests.swift in Sources */,
 				A0000000000000000000010C /* DiscoveryPipelineTests.swift in Sources */,
