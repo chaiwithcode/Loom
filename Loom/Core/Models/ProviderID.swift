@@ -25,6 +25,7 @@ public struct ProviderID: Hashable, Equatable, Sendable, RawRepresentable, Ident
     public static let codex = ProviderID("codex")
     public static let claude = ProviderID("claude")
     public static let antigravity = ProviderID("antigravity")
+    public static let t3Code = ProviderID("t3code")
 
     public var displayName: String {
         switch self {
@@ -34,6 +35,8 @@ public struct ProviderID: Hashable, Equatable, Sendable, RawRepresentable, Ident
             return "Claude Code"
         case .antigravity:
             return "Antigravity"
+        case .t3Code:
+            return "T3 Code"
         default:
             return rawValue.capitalized
         }

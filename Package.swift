@@ -24,8 +24,8 @@ let package = Package(
             name: "LoomCore",
             dependencies: [],
             path: "Loom",
-            exclude: ["App", "UI", "Update"],
-            sources: ["Core", "Providers"]
+            exclude: ["App", "UI/MenuBar", "UI/SessionDetail", "UI/Settings", "Update"],
+            sources: ["Core", "Providers", "UI/Components"]
         ),
         .executableTarget(
             name: "Loom",
@@ -34,8 +34,8 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Loom",
-            exclude: ["Core", "Providers"],
-            sources: ["App", "UI", "Update"]
+            exclude: ["Core", "Providers", "UI/Components"],
+            sources: ["App", "UI/MenuBar", "UI/SessionDetail", "UI/Settings", "Update"]
         ),
         .testTarget(
             name: "LoomCoreTests",
