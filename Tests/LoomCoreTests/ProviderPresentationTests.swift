@@ -11,6 +11,14 @@ import AppKit
 @testable import LoomCore
 
 final class ProviderPresentationTests: XCTestCase {
+    func testT3CodePresentation() {
+        let presentation = ProviderPresentation.presentation(for: .t3Code)
+        XCTAssertEqual(presentation.id, .t3Code)
+        XCTAssertEqual(presentation.displayName, "T3 Code")
+        XCTAssertEqual(presentation.iconAssetName, "provider-t3code")
+        XCTAssertEqual(presentation.iconRenderingMode, .original)
+    }
+
     func testCodexPresentation() {
         let presentation = ProviderPresentation.presentation(for: .codex)
         XCTAssertEqual(presentation.id, .codex)
@@ -46,11 +54,14 @@ final class ProviderPresentationTests: XCTestCase {
 
     func testProviderIDNormalizationAndAliases() {
         // Casing and whitespace
+        XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID(" T3Code ")).id, .t3Code)
         XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID(" Codex ")).id, .codex)
         XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID("CLAUDE")).id, .claude)
         XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID("AntiGravity")).id, .antigravity)
 
         // Aliases
+        XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID("t3-code")).id, .t3Code)
+        XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID("t3")).id, .t3Code)
         XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID("claude-code")).id, .claude)
         XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID("claudecode")).id, .claude)
         XCTAssertEqual(ProviderPresentation.presentation(for: ProviderID("gemini-antigravity")).id, .antigravity)
@@ -58,7 +69,7 @@ final class ProviderPresentationTests: XCTestCase {
     }
 
     func testKnownProviderAssetsCanBeResolvedAndDecoded() {
-        let knownProviders: [ProviderID] = [.codex, .claude, .antigravity]
+        let knownProviders: [ProviderID] = [.t3Code, .codex, .claude, .antigravity]
 
         for providerID in knownProviders {
             let presentation = ProviderPresentation.presentation(for: providerID)
@@ -96,6 +107,10 @@ final class ProviderPresentationTests: XCTestCase {
 
             // 5. Provider-specific assertions
             switch providerID {
+            case .t3Code:
+                XCTAssertEqual(presentation.iconRenderingMode, .original)
+                XCTAssertEqual(resolvedURL?.pathExtension, "png")
+                XCTAssertGreaterThanOrEqual(img.representations.first?.pixelsWide ?? 0, 256)
             case .codex:
                 XCTAssertEqual(presentation.iconRenderingMode, .original)
                 XCTAssertEqual(img.size.width, 104.0)

@@ -106,6 +106,7 @@
 		A00000000000000000000192 /* provider-codex.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000191 /* provider-codex.png */; };
 		A00000000000000000000194 /* provider-claude.pdf in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000193 /* provider-claude.pdf */; };
 		A00000000000000000000196 /* provider-antigravity.png in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000195 /* provider-antigravity.png */; };
+		D00000000000000000000198 /* provider-t3code.png in Resources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000197 /* provider-t3code.png */; };
 		D00000000000000000000003 /* NotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000002 /* NotificationCoordinator.swift */; };
 		D00000000000000000000005 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000004 /* StatusItemController.swift */; };
 		D00000000000000000000007 /* QuotaThresholdEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000006 /* QuotaThresholdEvaluator.swift */; };
@@ -278,6 +279,7 @@
 		A00000000000000000000191 /* provider-codex.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-codex.png; sourceTree = "<group>"; };
 		A00000000000000000000193 /* provider-claude.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = provider-claude.pdf; sourceTree = "<group>"; };
 		A00000000000000000000195 /* provider-antigravity.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-antigravity.png; sourceTree = "<group>"; };
+		D00000000000000000000197 /* provider-t3code.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = provider-t3code.png; sourceTree = "<group>"; };
 		D00000000000000000000002 /* NotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationCoordinator.swift; sourceTree = "<group>"; };
 		D00000000000000000000004 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		D00000000000000000000006 /* QuotaThresholdEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaThresholdEvaluator.swift; sourceTree = "<group>"; };
@@ -543,6 +545,7 @@
 				A00000000000000000000191 /* provider-codex.png */,
 				A00000000000000000000193 /* provider-claude.pdf */,
 				A00000000000000000000195 /* provider-antigravity.png */,
+				D00000000000000000000197 /* provider-t3code.png */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -814,6 +817,7 @@
 				A00000000000000000000192 /* provider-codex.png in Resources */,
 				A00000000000000000000194 /* provider-claude.pdf in Resources */,
 				A00000000000000000000196 /* provider-antigravity.png in Resources */,
+				D00000000000000000000198 /* provider-t3code.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -376,6 +376,25 @@ final class SettingsTests: XCTestCase {
     }
 
     @MainActor
+    func testT3CodeProviderMigrationAutoEnablesForExistingUserDefaults() {
+        // Simulate an existing installation that saved [.codex, .claude, .antigravity] before .t3Code existed
+        testDefaults.set(["codex", "claude", "antigravity"], forKey: LoomSettings.enabledProviderIDsKey)
+        testDefaults.set(false, forKey: LoomSettings.didMigrateT3CodeProviderKey)
+
+        let settings = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.t3Code), "Migration must auto-enable .t3Code for existing installations")
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.codex))
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.claude))
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.antigravity))
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.didMigrateT3CodeProviderKey))
+
+        // Subsequent launches should retain user modifications (e.g. user manually disables .t3Code)
+        settings.enabledProviderIDs = [.codex]
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertEqual(reloaded.enabledProviderIDs, [.codex], "After migration has run, user preference should be respected")
+    }
+
+    @MainActor
     func testDefaultProviderPersistenceAndSanitization() {
         let settings = LoomSettings(defaults: testDefaults)
         var notifiedDefault: ProviderID?

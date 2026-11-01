@@ -157,7 +157,9 @@ public final class LoomSettings {
     public nonisolated static let defaultShowInDock = false
     public nonisolated static let defaultRefreshIntervalSeconds = 60
     public nonisolated static let supportedRefreshIntervals = [30, 60, 120, 300]
-    public nonisolated static let defaultProviderIDs: Set<ProviderID> = [.t3Code, .codex, .claude, .antigravity]
+    public nonisolated static let didMigrateT3CodeProviderKey = "com.loom.didMigrateT3CodeProvider_v1"
+    public nonisolated static let orderedProviderIDs: [ProviderID] = [.t3Code, .codex, .claude, .antigravity]
+    public nonisolated static let defaultProviderIDs: Set<ProviderID> = Set(orderedProviderIDs)
     public nonisolated static let defaultProviderID: ProviderID = .codex
     public nonisolated static let defaultIncludeRecentSessions = true
     public nonisolated static let defaultHideFinishedAfter: HideFinishedInterval = .never
@@ -468,10 +470,17 @@ public final class LoomSettings {
                 if validIDs.isEmpty {
                     self.enabledProviderIDs = Self.defaultProviderIDs
                 } else {
-                    self.enabledProviderIDs = validIDs
+                    var migrated = validIDs
+                    if !defaults.bool(forKey: Self.didMigrateT3CodeProviderKey) {
+                        migrated.insert(.t3Code)
+                        defaults.set(true, forKey: Self.didMigrateT3CodeProviderKey)
+                        defaults.set(Array(migrated.map(\.rawValue)).sorted(), forKey: Self.enabledProviderIDsKey)
+                    }
+                    self.enabledProviderIDs = migrated
                 }
             }
         } else {
+            defaults.set(true, forKey: Self.didMigrateT3CodeProviderKey)
             self.enabledProviderIDs = Self.defaultProviderIDs
         }
 

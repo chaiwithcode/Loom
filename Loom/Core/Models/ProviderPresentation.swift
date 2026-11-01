@@ -41,7 +41,7 @@ public struct ProviderPresentation: Sendable, Equatable, Identifiable {
                 providerID: .t3Code,
                 displayName: "T3 Code",
                 iconAssetName: "provider-t3code",
-                iconRenderingMode: .template
+                iconRenderingMode: .original
             )
         case "codex":
             return ProviderPresentation(

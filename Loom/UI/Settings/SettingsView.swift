@@ -258,7 +258,7 @@ private struct ProvidersSettingsTab: View {
     let focusedProviderID: ProviderID?
 
     private var supportedProviders: [ProviderRowItem] {
-        let supported = LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })
+        let supported = LoomSettings.orderedProviderIDs
         return supported.map { id in
             let snapshot = store?.providerSnapshots.first(where: { $0.providerID == id })
             let displayName = snapshot?.displayName ?? id.displayName
@@ -273,7 +273,7 @@ private struct ProvidersSettingsTab: View {
                     Text("Default Provider")
                     Spacer(minLength: 16)
                     Picker("Default Provider", selection: $settings.defaultProviderID) {
-                        ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
+                        ForEach(LoomSettings.orderedProviderIDs) { id in
                             Text(id.displayName).tag(id)
                         }
                     }
