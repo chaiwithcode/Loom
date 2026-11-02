@@ -108,8 +108,9 @@ public final class DockController: NSObject, NSApplicationDelegate {
             initialProviderID: providerID
         )
         let minContentSize = NSSize(width: 640, height: 460)
+        let defaultContentSize = NSSize(width: 660, height: 710)
         let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: 660, height: 560)),
+            contentRect: NSRect(origin: .zero, size: defaultContentSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false

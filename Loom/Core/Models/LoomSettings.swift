@@ -52,6 +52,7 @@ public enum HideFinishedInterval: String, CaseIterable, Identifiable, Sendable {
 public enum MenuBarStatusMode: String, CaseIterable, Identifiable, Codable, Sendable {
     case iconOnly = "iconOnly"
     case activeSessionCount = "activeSessionCount"
+    case needsAttentionCount = "needsAttentionCount"
     case lowestQuota = "lowestQuota"
 
     public var id: String { rawValue }
@@ -60,6 +61,7 @@ public enum MenuBarStatusMode: String, CaseIterable, Identifiable, Codable, Send
         switch self {
         case .iconOnly: return "Icon Only"
         case .activeSessionCount: return "Active Sessions"
+        case .needsAttentionCount: return "Needs Attention"
         case .lowestQuota: return "Lowest Quota"
         }
     }
@@ -155,7 +157,11 @@ public final class LoomSettings {
     public nonisolated static let defaultShowInDock = false
     public nonisolated static let defaultRefreshIntervalSeconds = 60
     public nonisolated static let supportedRefreshIntervals = [30, 60, 120, 300]
-    public nonisolated static let defaultProviderIDs: Set<ProviderID> = [.codex, .claude, .antigravity]
+    public nonisolated static let didMigrateT3CodeProviderKey = "com.loom.didMigrateT3CodeProvider_v1"
+    public nonisolated static let orderedProviderIDsKey = "com.loom.orderedProviderIDs"
+    public nonisolated static let defaultOrderedProviderIDs: [ProviderID] = [.t3Code, .codex, .claude, .antigravity]
+    public nonisolated static let orderedProviderIDs: [ProviderID] = defaultOrderedProviderIDs
+    public nonisolated static let defaultProviderIDs: Set<ProviderID> = Set(defaultOrderedProviderIDs)
     public nonisolated static let defaultProviderID: ProviderID = .codex
     public nonisolated static let defaultIncludeRecentSessions = true
     public nonisolated static let defaultHideFinishedAfter: HideFinishedInterval = .never
@@ -170,6 +176,11 @@ public final class LoomSettings {
     public nonisolated static let defaultNotifySessionFinished: Bool = false
     public nonisolated static let defaultNotifySessionFailed: Bool = true
     public nonisolated static let defaultMenuBarStatusMode: MenuBarStatusMode = .iconOnly
+    public nonisolated static let hasDismissedGitHubStarPromptKey = "com.loom.hasDismissedGitHubStarPrompt"
+    public nonisolated static let defaultHasDismissedGitHubStarPrompt: Bool = false
+    public nonisolated static let firstLaunchDateKey = "com.loom.firstLaunchDate"
+    public nonisolated static let distinctObservedSessionIDsKey = "com.loom.distinctObservedSessionIDs"
+    public nonisolated static let gitHubRepoURL = URL(string: "https://github.com/chaiwithcode/Loom")!
 
     private let defaults: UserDefaults
 
@@ -191,9 +202,32 @@ public final class LoomSettings {
     public var onNotifySessionFailedChanged: (@MainActor (Bool) -> Void)?
     public var onMinimumWorkingDurationChanged: (@MainActor (MinimumWorkingDuration) -> Void)?
     public var onMenuBarStatusModeChanged: (@MainActor (MenuBarStatusMode) -> Void)?
+    public var onHasDismissedGitHubStarPromptChanged: (@MainActor (Bool) -> Void)?
+    public var onOrderedProviderIDsChanged: (@MainActor ([ProviderID]) -> Void)?
 
     @ObservationIgnored private var isNormalizingRefreshInterval = false
     @ObservationIgnored private var isNormalizingDefaultProvider = false
+
+    public var orderedProviderIDs: [ProviderID] {
+        didSet {
+            var sanitized: [ProviderID] = []
+            for id in orderedProviderIDs where Self.defaultProviderIDs.contains(id) && !sanitized.contains(id) {
+                sanitized.append(id)
+            }
+            for defaultID in Self.defaultOrderedProviderIDs where !sanitized.contains(defaultID) {
+                sanitized.append(defaultID)
+            }
+            if sanitized != orderedProviderIDs {
+                orderedProviderIDs = sanitized
+                return
+            }
+            let rawList = orderedProviderIDs.map(\.rawValue)
+            defaults.set(rawList, forKey: Self.orderedProviderIDsKey)
+            if orderedProviderIDs != oldValue {
+                onOrderedProviderIDsChanged?(orderedProviderIDs)
+            }
+        }
+    }
 
     public var showInDock: Bool {
         didSet {
@@ -286,6 +320,27 @@ public final class LoomSettings {
             if showVersionInMenuBar != oldValue {
                 onShowVersionInMenuBarChanged?(showVersionInMenuBar)
             }
+        }
+    }
+
+    public var hasDismissedGitHubStarPrompt: Bool {
+        didSet {
+            defaults.set(hasDismissedGitHubStarPrompt, forKey: Self.hasDismissedGitHubStarPromptKey)
+            if hasDismissedGitHubStarPrompt != oldValue {
+                onHasDismissedGitHubStarPromptChanged?(hasDismissedGitHubStarPrompt)
+            }
+        }
+    }
+
+    public var firstLaunchDate: Date {
+        didSet {
+            defaults.set(firstLaunchDate, forKey: Self.firstLaunchDateKey)
+        }
+    }
+
+    public var distinctObservedSessionIDs: Set<String> {
+        didSet {
+            defaults.set(Array(distinctObservedSessionIDs).sorted(), forKey: Self.distinctObservedSessionIDsKey)
         }
     }
 
@@ -439,11 +494,35 @@ public final class LoomSettings {
                 if validIDs.isEmpty {
                     self.enabledProviderIDs = Self.defaultProviderIDs
                 } else {
-                    self.enabledProviderIDs = validIDs
+                    var migrated = validIDs
+                    if !defaults.bool(forKey: Self.didMigrateT3CodeProviderKey) {
+                        migrated.insert(.t3Code)
+                        defaults.set(true, forKey: Self.didMigrateT3CodeProviderKey)
+                        defaults.set(Array(migrated.map(\.rawValue)).sorted(), forKey: Self.enabledProviderIDsKey)
+                    }
+                    self.enabledProviderIDs = migrated
                 }
             }
         } else {
+            defaults.set(true, forKey: Self.didMigrateT3CodeProviderKey)
             self.enabledProviderIDs = Self.defaultProviderIDs
+        }
+
+        // orderedProviderIDs:
+        if let rawArray = defaults.object(forKey: Self.orderedProviderIDsKey) as? [String] {
+            var loaded: [ProviderID] = []
+            for raw in rawArray {
+                let pid = ProviderID(raw)
+                if Self.defaultProviderIDs.contains(pid) && !loaded.contains(pid) {
+                    loaded.append(pid)
+                }
+            }
+            for defaultID in Self.defaultOrderedProviderIDs where !loaded.contains(defaultID) {
+                loaded.append(defaultID)
+            }
+            self.orderedProviderIDs = loaded
+        } else {
+            self.orderedProviderIDs = Self.defaultOrderedProviderIDs
         }
 
         // defaultProviderID: invalid restores Codex
@@ -485,6 +564,29 @@ public final class LoomSettings {
             self.showVersionInMenuBar = num.boolValue
         } else {
             self.showVersionInMenuBar = Self.defaultShowVersionInMenuBar
+        }
+
+        // hasDismissedGitHubStarPrompt: validate boolean type, default false
+        if let num = defaults.object(forKey: Self.hasDismissedGitHubStarPromptKey) as? NSNumber {
+            self.hasDismissedGitHubStarPrompt = num.boolValue
+        } else {
+            self.hasDismissedGitHubStarPrompt = Self.defaultHasDismissedGitHubStarPrompt
+        }
+
+        // firstLaunchDate: retrieve stored date or record current date
+        if let storedDate = defaults.object(forKey: Self.firstLaunchDateKey) as? Date {
+            self.firstLaunchDate = storedDate
+        } else {
+            let now = Date()
+            defaults.set(now, forKey: Self.firstLaunchDateKey)
+            self.firstLaunchDate = now
+        }
+
+        // distinctObservedSessionIDs: retrieve stored unique session identifiers
+        if let storedSessions = defaults.stringArray(forKey: Self.distinctObservedSessionIDsKey) {
+            self.distinctObservedSessionIDs = Set(storedSessions)
+        } else {
+            self.distinctObservedSessionIDs = []
         }
 
         // notificationsEnabled: validate boolean type, default true; preserve a stored opt-out
@@ -576,6 +678,7 @@ public final class LoomSettings {
         showInDock = Self.defaultShowInDock
         refreshIntervalSeconds = Self.defaultRefreshIntervalSeconds
         enabledProviderIDs = Self.defaultProviderIDs
+        orderedProviderIDs = Self.defaultOrderedProviderIDs
         defaultProviderID = Self.defaultProviderID
         includeRecentSessions = Self.defaultIncludeRecentSessions
         hideFinishedAfter = Self.defaultHideFinishedAfter
@@ -590,6 +693,51 @@ public final class LoomSettings {
         notifySessionFailed = Self.defaultNotifySessionFailed
         minimumWorkingDuration = Self.defaultMinimumWorkingDuration
         menuBarStatusMode = Self.defaultMenuBarStatusMode
+        hasDismissedGitHubStarPrompt = Self.defaultHasDismissedGitHubStarPrompt
+    }
+
+    public func moveProvider(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var current = orderedProviderIDs
+        current.move(fromOffsets: source, toOffset: destination)
+        // Ensure any newly added providers not currently in orderedProviderIDs are appended
+        for provider in ProviderID.knownProviders where !current.contains(provider) {
+            current.append(provider)
+        }
+        orderedProviderIDs = current
+    }
+
+    public func setProviderEnabled(_ providerID: ProviderID, enabled: Bool) {
+        setProvider(providerID, enabled: enabled)
+    }
+
+    public func recordDiscoveredSessions(_ sessionIDs: [String]) {
+        let nonEmpty = sessionIDs.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard !nonEmpty.isEmpty else { return }
+        let currentCount = distinctObservedSessionIDs.count
+        var updated = distinctObservedSessionIDs
+        updated.formUnion(nonEmpty)
+        if updated.count != currentCount {
+            distinctObservedSessionIDs = updated
+        }
+    }
+
+    public func isEligibleForGitHubStarPrompt(hasAvailableProviders: Bool = true, now: Date = Date()) -> Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--force-github-star-card") ||
+           ProcessInfo.processInfo.environment["LOOM_FORCE_GITHUB_STAR_CARD"] == "1" {
+            return true
+        }
+        #endif
+        guard !hasDismissedGitHubStarPrompt else { return false }
+        guard hasAvailableProviders else { return false }
+        guard distinctObservedSessionIDs.count >= 3 else { return false }
+        let fiveDaysInSeconds: TimeInterval = 5 * 86400
+        guard now.timeIntervalSince(firstLaunchDate) >= fiveDaysInSeconds else { return false }
+        return true
+    }
+
+    public func dismissGitHubStarPrompt() {
+        hasDismissedGitHubStarPrompt = true
     }
 
     public func persistToSharedAppGroup(appGroup: SharedAppGroup = .shared) {
@@ -682,6 +830,7 @@ extension LoomSettings: @preconcurrency Codable {
         case notifySessionFailed
         case minimumWorkingDuration
         case menuBarStatusMode
+        case hasDismissedGitHubStarPrompt
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -717,6 +866,9 @@ extension LoomSettings: @preconcurrency Codable {
         if let ver = try container.decodeIfPresent(Bool.self, forKey: .showVersionInMenuBar) {
             self.showVersionInMenuBar = ver
         }
+        if let dismissedStar = try container.decodeIfPresent(Bool.self, forKey: .hasDismissedGitHubStarPrompt) {
+            self.hasDismissedGitHubStarPrompt = dismissedStar
+        }
 
         // Notification preferences with backward-compatible defaults:
         self.notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? Self.defaultNotificationsEnabled
@@ -740,6 +892,7 @@ extension LoomSettings: @preconcurrency Codable {
         try container.encode(hideFinishedAfter.rawValue, forKey: .hideFinishedAfter)
         try container.encode(hideProjectPaths, forKey: .hideProjectPaths)
         try container.encode(showVersionInMenuBar, forKey: .showVersionInMenuBar)
+        try container.encode(hasDismissedGitHubStarPrompt, forKey: .hasDismissedGitHubStarPrompt)
         try container.encode(notificationsEnabled, forKey: .notificationsEnabled)
         try container.encode(notifyQuota15Percent, forKey: .notifyQuota15Percent)
         try container.encode(notifyQuota5Percent, forKey: .notifyQuota5Percent)

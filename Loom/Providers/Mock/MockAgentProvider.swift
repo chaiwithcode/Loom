@@ -1026,7 +1026,7 @@ public enum DemoFixture: Sendable, Equatable {
     public func makeProviders() -> [any AgentProvider] {
         switch self {
         case .standard:
-            return [CodexProvider(), ClaudeProvider(), AntigravityProvider()]
+            return [T3CodeProvider(), CodexProvider(), ClaudeProvider(), AntigravityProvider()]
         case .mock:
             return MockAgentProvider.createDefaultProviders()
         case .empty:

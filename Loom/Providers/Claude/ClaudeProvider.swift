@@ -238,6 +238,50 @@ public final class ClaudeProvider: AgentProvider, Sendable {
             sessions.append(session)
         }
 
+        if gitResolver is DefaultGitRepositoryResolver && processDiscoverer is DefaultClaudeProcessDiscoverer {
+            let cliSnapshot = await SharedCLIDiscoveryCache.shared.snapshot()
+            let t3ChildPIDs = Set(cliSnapshot.claudeStatuses.filter { $0.surface == .t3Orchestrated }.compactMap { $0.pid.map(Int.init) })
+            sessions = sessions.filter { session in
+                guard let pid = session.pid else { return true }
+                return !t3ChildPIDs.contains(pid)
+            }
+
+            let standaloneStatuses = cliSnapshot.claudeStatuses.filter { $0.surface == .cli }
+            for status in standaloneStatuses {
+                guard let usage = status.tokenUsage, usage.totalTokens > 0 else { continue }
+                let statusPID = status.pid.map(Int.init)
+                let statusNormPath = status.workspacePath.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+                if let idx = sessions.firstIndex(where: { existing in
+                    if let sp = statusPID, let ep = existing.pid, sp == ep { return true }
+                    if let sn = statusNormPath, let en = existing.projectPath?.standardizedFileURL.path, sn == en { return true }
+                    return false
+                }) {
+                    let existing = sessions[idx]
+                    let formattedTok = SharedCLIDiscoveryCache.formatTokens(usage.totalTokens)
+                    let newSummary = existing.summary.map { "\($0) • \(formattedTok)" } ?? formattedTok
+                    var newEvidence = existing.discoveryEvidence
+                    newEvidence.append("Tokens: \(formattedTok) (in: \(usage.inputTokens), cached: \(usage.cachedInputTokens), out: \(usage.outputTokens))")
+                    sessions[idx] = AgentSession(
+                        id: existing.id,
+                        provider: existing.provider,
+                        projectName: existing.projectName,
+                        projectPath: existing.projectPath,
+                        state: existing.state,
+                        startedAt: existing.startedAt,
+                        lastActivityAt: existing.lastActivityAt,
+                        branch: existing.branch,
+                        summary: newSummary,
+                        pid: existing.pid,
+                        providerSessionID: existing.providerSessionID,
+                        associatedProcesses: existing.associatedProcesses,
+                        hostApp: existing.hostApp,
+                        diagnostics: existing.diagnostics,
+                        discoveryEvidence: newEvidence
+                    )
+                }
+            }
+        }
+
         let duration = Date().timeIntervalSince(startTime)
         let diagnostics = ProviderDiscoveryDiagnostics(
             processesDetected: processes.count,

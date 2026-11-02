@@ -39,7 +39,7 @@ cat << 'EOF' > "$probe_dir/NotificationProbe.app/Contents/Info.plist"
     <key>CFBundleExecutable</key>
     <string>NotificationProbe</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.0.0</string>
+    <string>2.1.0</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

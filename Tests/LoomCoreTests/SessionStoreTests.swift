@@ -514,8 +514,8 @@ final class SessionStoreTests: XCTestCase {
     @MainActor
     func testDemoFixturesAndStates() async throws {
         let standardProviders = DemoFixture.standard.makeProviders()
-        XCTAssertEqual(standardProviders.count, 3)
-        XCTAssertEqual(standardProviders.map(\.id), [.codex, .claude, .antigravity])
+        XCTAssertEqual(standardProviders.count, 4)
+        XCTAssertEqual(standardProviders.map(\.id), [.t3Code, .codex, .claude, .antigravity])
 
         // Verify DemoFixture metadata
         XCTAssertNil(DemoFixture.standard.badgeLabel)

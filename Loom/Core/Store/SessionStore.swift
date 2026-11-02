@@ -51,11 +51,24 @@ public struct ProviderSnapshot: Identifiable, Hashable, Equatable, Sendable {
 
     public var hasWarning: Bool {
         guard isEnabled else { return false }
+        if providerID == .antigravity && usage == nil && Self.isAntigravityNotRunningMessage(usageErrorMessage) {
+            return errorMessage != nil || !availability.isAvailable
+        }
         return errorMessage != nil ||
         !availability.isAvailable ||
         usageErrorMessage != nil ||
         (usage?.isStale ?? false) ||
         usage?.errorMessage != nil
+    }
+
+    private static func isAntigravityNotRunningMessage(_ msg: String?) -> Bool {
+        guard let lower = msg?.lowercased(), !lower.isEmpty else { return true }
+        return lower.contains("language_server")
+            || lower.contains("processnotfound")
+            || lower.contains("process not found")
+            || lower.contains("not running")
+            || lower.contains("open the provider app")
+            || lower.contains("unavailable")
     }
 }
 
@@ -243,8 +256,28 @@ public final class SessionStore {
     /// Optional callback hook called when session state transitions or quota thresholds occur.
     public var onMonitoringEvent: (@Sendable (MonitoringEvent) -> Void)?
 
+    /// Reference to settings for recording discovered monitoring sessions.
+    public weak var settings: LoomSettings? {
+        didSet {
+            guard let settings else { return }
+            let prior = settings.onOrderedProviderIDsChanged
+            settings.onOrderedProviderIDsChanged = { [weak self] order in
+                prior?(order)
+                self?.publishWidgetSnapshot()
+            }
+        }
+    }
+
+    public var orderedSnapshots: [ProviderSnapshot] {
+        let order = settings?.orderedProviderIDs ?? LoomSettings.defaultOrderedProviderIDs
+        let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return providerSnapshots.sorted {
+            (rank[$0.providerID] ?? Int.max) < (rank[$1.providerID] ?? Int.max)
+        }
+    }
+
     public var enabledSnapshots: [ProviderSnapshot] {
-        providerSnapshots.filter(\.isEnabled)
+        orderedSnapshots.filter(\.isEnabled)
     }
 
     private let registeredProviders: [any AgentProvider]
@@ -700,9 +733,14 @@ public final class SessionStore {
 
             guard !Task.isCancelled else { return }
 
+            let current = self.allSessions
+            if !current.isEmpty {
+                self.settings?.recordDiscoveredSessions(current.map(\.id))
+            }
+
             // Evaluate state transitions and route to onMonitoringEvent hook
             let events = self.transitionDetector.detectTransitions(
-                currentSessions: self.allSessions,
+                currentSessions: current,
                 failedProviders: failedProviders,
                 cancelledProviders: cancelledProviders
             )

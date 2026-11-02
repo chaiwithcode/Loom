@@ -20,6 +20,7 @@ public struct ProviderSectionView: View {
     public let selectedFilter: SessionFilterCriterion
     public let onClearFilters: (() -> Void)?
     public let onSessionExpansionChange: ((String, Bool) -> Void)?
+    public let onAfterLaunchApp: (() -> Void)?
     @State private var isShowingAdditionalQuotas = false
     @State private var isShowingRecentFinished = false
     @State private var isShowingUnidentifiedProcesses = false
@@ -34,7 +35,8 @@ public struct ProviderSectionView: View {
         searchText: String = "",
         selectedFilter: SessionFilterCriterion = .all,
         onClearFilters: (() -> Void)? = nil,
-        onSessionExpansionChange: ((String, Bool) -> Void)? = nil
+        onSessionExpansionChange: ((String, Bool) -> Void)? = nil,
+        onAfterLaunchApp: (() -> Void)? = nil
     ) {
         self.snapshot = snapshot
         self.showsSessions = showsSessions
@@ -46,6 +48,7 @@ public struct ProviderSectionView: View {
         self.selectedFilter = selectedFilter
         self.onClearFilters = onClearFilters
         self.onSessionExpansionChange = onSessionExpansionChange
+        self.onAfterLaunchApp = onAfterLaunchApp
     }
 
     private var status: (label: String, color: Color) {
@@ -168,6 +171,10 @@ public struct ProviderSectionView: View {
                     }
                 } else if snapshot.id == .claude {
                     claudeQuotaNotice
+                } else if snapshot.id == .antigravity && Self.isAppNotRunningUsageMessage(snapshot.usageErrorMessage) {
+                    antigravityQuotaNotice
+                } else if snapshot.id == .t3Code {
+                    t3CodeQuotaNotice
                 } else if let error = snapshot.usageErrorMessage, !error.isEmpty {
                     issueNotice(.usage(hasSavedData: false), details: error, color: .orange)
                 } else if snapshot.availability.isAvailable && !snapshot.isRefreshing {
@@ -283,10 +290,24 @@ public struct ProviderSectionView: View {
                         onClearFilters: onClearFilters
                     )
                 } else if snapshot.availability.isAvailable && snapshot.errorMessage == nil && !snapshot.isRefreshing {
-                    Text("No active sessions")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 4)
+                    HStack {
+                        Text("No active sessions")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+
+                        if ProviderAppLauncher.canLaunchApp(for: snapshot.id) {
+                            Spacer()
+                            Button {
+                                ProviderAppLauncher.launchApp(for: snapshot.id, onAfterLaunch: onAfterLaunchApp)
+                            } label: {
+                                Label("Open \(ProviderAppLauncher.appName(for: snapshot.id))", systemImage: "arrow.up.forward.app")
+                                    .font(.system(size: 10.5, weight: .medium))
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
 
                 DiagnosticsDisclosureView(
@@ -343,12 +364,100 @@ public struct ProviderSectionView: View {
         .accessibilityLabel("Quota monitoring not exposed by CLI. Claude Code does not provide a local quota command or telemetry endpoint.")
     }
 
+    private var antigravityQuotaNotice: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Open Antigravity app to view quota")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text("Antigravity quota telemetry is exposed via the desktop app loopback server.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if ProviderAppLauncher.canLaunchApp(for: .antigravity) {
+                HStack {
+                    Spacer()
+                    Button {
+                        ProviderAppLauncher.launchApp(for: .antigravity, onAfterLaunch: onAfterLaunchApp)
+                    } label: {
+                        Label("Open Antigravity", systemImage: "arrow.up.forward.app")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                .padding(.top, 2)
+            }
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .loomCard(cornerRadius: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Open Antigravity app to view quota. Antigravity quota telemetry is exposed via the desktop app loopback server.")
+    }
+
+    private var t3CodeQuotaNotice: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Quota monitoring not exposed by T3 Code")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            Text("T3 Code does not provide a local quota command or telemetry endpoint.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if ProviderAppLauncher.canLaunchApp(for: .t3Code) {
+                HStack {
+                    Spacer()
+                    Button {
+                        ProviderAppLauncher.launchApp(for: .t3Code, onAfterLaunch: onAfterLaunchApp)
+                    } label: {
+                        Label("Open T3 Code", systemImage: "arrow.up.forward.app")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .padding(.top, 2)
+            }
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .loomCard(cornerRadius: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Quota monitoring not exposed by T3 Code. T3 Code does not provide a local quota command or telemetry endpoint.")
+    }
+
     private func issueNotice(_ issue: ProviderIssue, details: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Label(issue.title, systemImage: "exclamationmark.triangle")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(color)
-            Text(issue.recovery).font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .center) {
+                Text(issue.recovery).font(.caption).foregroundStyle(.secondary)
+
+                if ProviderAppLauncher.canLaunchApp(for: snapshot.id) {
+                    Spacer()
+                    Button {
+                        ProviderAppLauncher.launchApp(for: snapshot.id, onAfterLaunch: onAfterLaunchApp)
+                    } label: {
+                        Text("Open \(ProviderAppLauncher.appName(for: snapshot.id))")
+                            .font(.system(size: 10.5, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
             DisclosureGroup("Technical details") {
                 Text(sanitizedNotice(details))
                     .font(.caption).foregroundStyle(.secondary)
@@ -360,6 +469,16 @@ public struct ProviderSectionView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private static func isAppNotRunningUsageMessage(_ msg: String?) -> Bool {
+        guard let lower = msg?.lowercased(), !lower.isEmpty else { return true }
+        return lower.contains("language_server")
+            || lower.contains("processnotfound")
+            || lower.contains("process not found")
+            || lower.contains("not running")
+            || lower.contains("open the provider app")
+            || lower.contains("unavailable")
     }
 
     private func sanitizedNotice(_ text: String) -> String {
@@ -456,5 +575,89 @@ public struct ProviderSectionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(9)
         .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+// MARK: - Provider App Launcher
+
+public enum ProviderAppLauncher {
+    public static func resolvedAppURL(for providerID: ProviderID) -> URL? {
+        let ws = NSWorkspace.shared
+        let fm = FileManager.default
+        let bundleIDs: [String]
+        let fallbackPaths: [String]
+
+        switch providerID {
+        case .t3Code:
+            bundleIDs = ["gg.ping.t3code", "com.t3code.app", "com.ping.t3code"]
+            fallbackPaths = [
+                "/Applications/T3 Code.app",
+                "/Applications/T3 Code (Alpha).app",
+                "/Applications/T3 Code (Nightly).app",
+                ("~/Applications/T3 Code.app" as NSString).expandingTildeInPath
+            ]
+        case .antigravity:
+            bundleIDs = ["com.google.antigravity", "com.google.antigravity.app"]
+            fallbackPaths = [
+                "/Applications/Antigravity.app",
+                ("~/Applications/Antigravity.app" as NSString).expandingTildeInPath
+            ]
+        case .codex:
+            bundleIDs = ["com.openai.codex", "com.openai.chat"]
+            fallbackPaths = [
+                "/Applications/Codex.app",
+                "/Applications/ChatGPT.app",
+                "/System/Applications/Utilities/Terminal.app"
+            ]
+        case .claude:
+            bundleIDs = ["com.anthropic.claudefordesktop"]
+            fallbackPaths = [
+                "/Applications/Claude.app",
+                "/System/Applications/Utilities/Terminal.app"
+            ]
+        default:
+            bundleIDs = []
+            fallbackPaths = []
+        }
+
+        for bid in bundleIDs {
+            if let url = ws.urlForApplication(withBundleIdentifier: bid) {
+                return url
+            }
+        }
+
+        for path in fallbackPaths {
+            if fm.fileExists(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+        }
+
+        return nil
+    }
+
+    public static func canLaunchApp(for providerID: ProviderID) -> Bool {
+        resolvedAppURL(for: providerID) != nil
+    }
+
+    public static func appName(for providerID: ProviderID) -> String {
+        switch providerID {
+        case .t3Code: return "T3 Code"
+        case .antigravity: return "Antigravity"
+        case .codex: return "Codex"
+        case .claude: return "Claude"
+        default: return providerID.displayName
+        }
+    }
+
+    @MainActor
+    public static func launchApp(for providerID: ProviderID, onAfterLaunch: (() -> Void)? = nil) {
+        guard let url = resolvedAppURL(for: providerID) else { return }
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = true
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in
+            DispatchQueue.main.async {
+                onAfterLaunch?()
+            }
+        }
     }
 }

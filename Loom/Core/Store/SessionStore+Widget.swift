@@ -20,7 +20,7 @@ extension LoomWidgetSnapshot {
         let total = store.allSessions.count
 
         var summaries: [ProviderWidgetSummary] = []
-        for snapshot in store.providerSnapshots {
+        for snapshot in store.orderedSnapshots {
             let isDegradedOrUnavailable: Bool
             let healthStr: String
             if !snapshot.isEnabled {
@@ -73,8 +73,8 @@ extension LoomWidgetSnapshot {
                     status: .unavailable,
                     summary: "Monitoring disabled"
                 )
-            } else if snapshot.providerID == .claude {
-                // Claude Code local integration currently does not provide quota/usage metrics
+            } else if snapshot.providerID == .claude || snapshot.providerID == .t3Code {
+                // Claude Code and T3 Code do not provide account quota/usage metrics
                 usageSummary = ProviderUsageWidgetSummary(
                     status: .unsupported,
                     summary: "Usage unsupported"

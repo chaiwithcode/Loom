@@ -37,6 +37,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.hideFinishedAfter, .never, "Default hideFinishedAfter must be .never")
         XCTAssertFalse(settings.hideProjectPaths, "Default hideProjectPaths must be false")
         XCTAssertFalse(settings.showVersionInMenuBar, "Default showVersionInMenuBar must be false")
+        XCTAssertFalse(settings.hasDismissedGitHubStarPrompt, "Default hasDismissedGitHubStarPrompt must be false")
 
         // Notification preferences defaults
         XCTAssertTrue(settings.notificationsEnabled, "Default notificationsEnabled must be true")
@@ -145,6 +146,10 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.menuBarStatusMode, .activeSessionCount)
         XCTAssertEqual(settings.menuBarStatusMode.displayName, "Active Sessions")
         XCTAssertEqual(settings.menuBarStatusMode.id, "activeSessionCount")
+
+        settings.menuBarStatusMode = .needsAttentionCount
+        XCTAssertEqual(LoomSettings(defaults: testDefaults).menuBarStatusMode, .needsAttentionCount)
+        XCTAssertEqual(settings.menuBarStatusMode.displayName, "Needs Attention")
 
         settings.menuBarStatusMode = .lowestQuota
         XCTAssertEqual(settings.menuBarStatusMode, .lowestQuota)
@@ -368,6 +373,25 @@ final class SettingsTests: XCTestCase {
         testDefaults.set(["codex", "fake_agent"], forKey: LoomSettings.enabledProviderIDsKey)
         let reloadedMixed = LoomSettings(defaults: testDefaults)
         XCTAssertEqual(reloadedMixed.enabledProviderIDs, [.codex], "Mixed list must keep valid providers")
+    }
+
+    @MainActor
+    func testT3CodeProviderMigrationAutoEnablesForExistingUserDefaults() {
+        // Simulate an existing installation that saved [.codex, .claude, .antigravity] before .t3Code existed
+        testDefaults.set(["codex", "claude", "antigravity"], forKey: LoomSettings.enabledProviderIDsKey)
+        testDefaults.set(false, forKey: LoomSettings.didMigrateT3CodeProviderKey)
+
+        let settings = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.t3Code), "Migration must auto-enable .t3Code for existing installations")
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.codex))
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.claude))
+        XCTAssertTrue(settings.enabledProviderIDs.contains(.antigravity))
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.didMigrateT3CodeProviderKey))
+
+        // Subsequent launches should retain user modifications (e.g. user manually disables .t3Code)
+        settings.enabledProviderIDs = [.codex]
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertEqual(reloaded.enabledProviderIDs, [.codex], "After migration has run, user preference should be respected")
     }
 
     @MainActor
@@ -705,5 +729,162 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(LoomSettings.safeProjectName(for: sessionWithTildePath, hidePaths: true), "SecretTool")
         XCTAssertEqual(LoomSettings.safeProjectName(for: sessionWithCleanName, hidePaths: true), "MobileApp")
         XCTAssertEqual(LoomSettings.safeProjectName(for: sessionNilName, hidePaths: true), "BackendAPI")
+    }
+
+    @MainActor
+    func testGitHubStarPromptPersistenceAndCallbacks() throws {
+        let settings = LoomSettings(defaults: testDefaults)
+        XCTAssertFalse(settings.hasDismissedGitHubStarPrompt)
+
+        var notifiedDismissed: Bool?
+        settings.onHasDismissedGitHubStarPromptChanged = { notifiedDismissed = $0 }
+
+        settings.hasDismissedGitHubStarPrompt = true
+        XCTAssertTrue(settings.hasDismissedGitHubStarPrompt)
+        XCTAssertEqual(notifiedDismissed, true)
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.hasDismissedGitHubStarPromptKey))
+
+        // Verify restoration from defaults
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(reloaded.hasDismissedGitHubStarPrompt)
+
+        // Verify Codable round-trip
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(settings)
+        let decoded = try JSONDecoder().decode(LoomSettings.self, from: data)
+        XCTAssertTrue(decoded.hasDismissedGitHubStarPrompt)
+
+        // Verify resetToDefaults resets it back to false
+        settings.resetToDefaults()
+        XCTAssertFalse(settings.hasDismissedGitHubStarPrompt)
+    }
+
+    @MainActor
+    func testGitHubStarPromptEligibilityConditions() {
+        let settings = LoomSettings(defaults: testDefaults)
+        let now = Date()
+
+        // 1. Initial launch state: 0 days, 0 sessions -> not eligible
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 2. 6 days elapsed but 0 sessions -> not eligible
+        settings.firstLaunchDate = now.addingTimeInterval(-6 * 86400)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 3. 6 days elapsed, 2 distinct sessions -> not eligible
+        settings.recordDiscoveredSessions(["sess-1", "sess-2"])
+        XCTAssertEqual(settings.distinctObservedSessionIDs.count, 2)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 4. Duplicate sessions do not increment count (polling refresh safety)
+        settings.recordDiscoveredSessions(["sess-1", "sess-2"])
+        XCTAssertEqual(settings.distinctObservedSessionIDs.count, 2)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: now))
+
+        // 5. 6 days elapsed, 3 distinct sessions, but no providers available -> not eligible
+        settings.recordDiscoveredSessions(["sess-3"])
+        XCTAssertEqual(settings.distinctObservedSessionIDs.count, 3)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: false, now: now))
+
+        // 6. 3 sessions, providers available, but only 4 days elapsed -> not eligible
+        let fourDaysLater = settings.firstLaunchDate.addingTimeInterval(4 * 86400)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fourDaysLater))
+
+        // 7. >= 5 days elapsed, >= 3 distinct sessions, providers available -> eligible!
+        let fiveDaysLater = settings.firstLaunchDate.addingTimeInterval(5 * 86400)
+        XCTAssertTrue(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fiveDaysLater))
+
+        // 8. Dismissal permanently suppresses prompt
+        settings.dismissGitHubStarPrompt()
+        XCTAssertTrue(settings.hasDismissedGitHubStarPrompt)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fiveDaysLater))
+
+        // 9. Reloader verifies persistence of dismissal and sessions across instances
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(reloaded.hasDismissedGitHubStarPrompt)
+        XCTAssertEqual(reloaded.distinctObservedSessionIDs.count, 3)
+        XCTAssertFalse(reloaded.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: fiveDaysLater))
+    }
+
+    @MainActor
+    func testPriorDismissalStateRemainsSuppressed() {
+        // Prior dismissal key in standard UserDefaults suppresses prompts immediately
+        testDefaults.set(true, forKey: LoomSettings.hasDismissedGitHubStarPromptKey)
+        let settings = LoomSettings(defaults: testDefaults)
+        settings.firstLaunchDate = Date().addingTimeInterval(-10 * 86400)
+        settings.recordDiscoveredSessions(["s1", "s2", "s3", "s4"])
+
+        XCTAssertTrue(settings.hasDismissedGitHubStarPrompt)
+        XCTAssertFalse(settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: true, now: Date()))
+    }
+
+    @MainActor
+    func testOrderedProviderIDsDefaultsAndPersistence() {
+        let settings = LoomSettings(defaults: testDefaults)
+        XCTAssertEqual(settings.orderedProviderIDs, LoomSettings.defaultOrderedProviderIDs)
+
+        var notifiedOrder: [ProviderID]?
+        settings.onOrderedProviderIDsChanged = { notifiedOrder = $0 }
+
+        // Change order: Antigravity first
+        let newOrder: [ProviderID] = [.antigravity, .t3Code, .codex, .claude]
+        settings.orderedProviderIDs = newOrder
+        XCTAssertEqual(settings.orderedProviderIDs, newOrder)
+        XCTAssertEqual(notifiedOrder, newOrder)
+
+        // Verify persisted to UserDefaults
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertEqual(reloaded.orderedProviderIDs, newOrder)
+    }
+
+    @MainActor
+    func testMoveProviderReordering() {
+        let settings = LoomSettings(defaults: testDefaults)
+        // Default: [.t3Code, .codex, .claude, .antigravity]
+        XCTAssertEqual(settings.orderedProviderIDs, [.t3Code, .codex, .claude, .antigravity])
+
+        // Move .antigravity (index 3) to top (destination 0)
+        settings.moveProvider(fromOffsets: IndexSet(integer: 3), toOffset: 0)
+        XCTAssertEqual(settings.orderedProviderIDs, [.antigravity, .t3Code, .codex, .claude])
+
+        // Move .codex (now at index 2) down after .claude (index 3 -> destination 4)
+        settings.moveProvider(fromOffsets: IndexSet(integer: 2), toOffset: 4)
+        XCTAssertEqual(settings.orderedProviderIDs, [.antigravity, .t3Code, .claude, .codex])
+    }
+
+    @MainActor
+    func testOrderedProviderIDsSanitization() {
+        // Unknown or duplicate IDs are sanitized
+        testDefaults.set(["unknown", "antigravity", "antigravity", "claude"], forKey: LoomSettings.orderedProviderIDsKey)
+        let settings = LoomSettings(defaults: testDefaults)
+        // Antigravity and claude loaded first, then remaining known providers (.t3Code, .codex) appended
+        XCTAssertEqual(settings.orderedProviderIDs, [.antigravity, .claude, .t3Code, .codex])
+    }
+
+    @MainActor
+    func testSessionStoreEnabledSnapshotsRespectsOrderedProviderIDs() {
+        let settings = LoomSettings(defaults: testDefaults)
+        settings.orderedProviderIDs = [.antigravity, .claude, .codex, .t3Code]
+
+        let fixture = DemoFixture.resolve()
+        let providers = fixture.makeProviders()
+        let store = SessionStore(providers: providers, fixture: fixture, enabledProviderIDs: LoomSettings.defaultProviderIDs)
+        store.settings = settings
+
+        let order = store.enabledSnapshots.map(\.providerID)
+        XCTAssertEqual(order, [.antigravity, .claude, .codex, .t3Code], "enabledSnapshots must reflect settings.orderedProviderIDs order")
+        XCTAssertEqual(store.orderedSnapshots.map(\.providerID), [.antigravity, .claude, .codex, .t3Code], "orderedSnapshots must reflect settings.orderedProviderIDs order")
+
+        let widgetSnapshot = LoomWidgetSnapshot.make(from: store)
+        XCTAssertEqual(widgetSnapshot.providers.map { ProviderID($0.id) }, [.antigravity, .claude, .codex, .t3Code], "Widget snapshot must reflect orderedProviderIDs order")
+
+        // Reorder via moveProvider
+        settings.moveProvider(fromOffsets: IndexSet(integer: 3), toOffset: 0) // move .t3Code to top
+        let updatedOrder = store.enabledSnapshots.map(\.providerID)
+        XCTAssertEqual(updatedOrder, [.t3Code, .antigravity, .claude, .codex], "enabledSnapshots must dynamically update after reordering")
+        XCTAssertEqual(store.orderedSnapshots.map(\.providerID), [.t3Code, .antigravity, .claude, .codex], "orderedSnapshots must dynamically update after reordering")
+
+        let updatedWidgetSnapshot = LoomWidgetSnapshot.make(from: store)
+        XCTAssertEqual(updatedWidgetSnapshot.providers.map { ProviderID($0.id) }, [.t3Code, .antigravity, .claude, .codex], "Widget snapshot must update after reordering")
     }
 }

@@ -74,6 +74,7 @@ public struct ProviderIconView: View {
 
     private func fallbackSymbol(for id: ProviderID) -> String {
         switch id {
+        case .t3Code: return "square.stack.3d.up.fill"
         case .codex: return "terminal"
         case .claude: return "bubble.left.and.text.bubble.right"
         case .antigravity: return "wand.and.stars"

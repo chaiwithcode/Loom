@@ -63,7 +63,12 @@ public final class AntigravityProvider: AgentProvider, Sendable {
     }
 
     public func fetchUsage() async throws -> ProviderUsageSnapshot? {
-        guard await processDiscoverer.isAntigravityRunning() else {
+        let isGUIRunning = await processDiscoverer.isAntigravityRunning()
+        guard isGUIRunning else {
+            // When only CLI is running (or GUI app is closed), return nil gracefully to avoid spurious warning badge on Menu Bar
+            if processDiscoverer is DefaultAntigravityProcessDiscoverer {
+                return nil
+            }
             throw AntigravityUsageError.processNotFound
         }
         return try await usageFetcher.fetchUsage()
@@ -75,9 +80,15 @@ public final class AntigravityProvider: AgentProvider, Sendable {
 
     public func discoverSessions() async throws -> [AgentSession] {
         let startTime = Date()
+        let isDefault = gitResolver is DefaultGitRepositoryResolver && processDiscoverer is DefaultAntigravityProcessDiscoverer
+        let cliSnapshot = isDefault ? await SharedCLIDiscoveryCache.shared.snapshot() : nil
+        let standaloneCLISessions = cliSnapshot?.antigravityStatuses
+            .filter { $0.surface == .cli && $0.state != .inactive }
+            .map { SharedCLIDiscoveryCache.toAgentSession($0, providerID: .antigravity) } ?? []
 
-        // 1. Process liveness gate: if Antigravity is not running, reconcile empty sessions with termination reason
-        guard await processDiscoverer.isAntigravityRunning() else {
+        // 1. Process liveness gate: if neither Antigravity nor standalone CLI is running, reconcile empty sessions
+        let isRunning = await processDiscoverer.isAntigravityRunning() || !standaloneCLISessions.isEmpty
+        guard isRunning else {
             let duration = Date().timeIntervalSince(startTime)
             let diag = ProviderDiscoveryDiagnostics(
                 processesDetected: 0,
@@ -205,7 +216,8 @@ public final class AntigravityProvider: AgentProvider, Sendable {
             }
 
             await storage.update(diagnostics, availability: .available)
-            return await storage.reconcile(newSessions: sessions, now: Date())
+            let finalSessions = mergeWithStandaloneCLI(sessions: sessions, standalone: standaloneCLISessions)
+            return await storage.reconcile(newSessions: finalSessions, now: Date())
         }
 
         // 4. Graceful degradation: if metadata failed or was empty, fall back to running processes
@@ -335,7 +347,8 @@ public final class AntigravityProvider: AgentProvider, Sendable {
                 )
             }
 
-            return await storage.reconcile(newSessions: sessionsWithDiagnostics, now: Date())
+            let finalSessions = mergeWithStandaloneCLI(sessions: sessionsWithDiagnostics, standalone: standaloneCLISessions)
+            return await storage.reconcile(newSessions: finalSessions, now: Date())
         }
 
         // Clean idle when metadata is available and reports no active sessions
@@ -350,6 +363,24 @@ public final class AntigravityProvider: AgentProvider, Sendable {
         )
         await storage.update(diagnostics, availability: .available)
 
-        return await storage.reconcile(newSessions: [], now: Date())
+        let finalSessions = mergeWithStandaloneCLI(sessions: [], standalone: standaloneCLISessions)
+        return await storage.reconcile(newSessions: finalSessions, now: Date())
+    }
+
+    private func mergeWithStandaloneCLI(sessions: [AgentSession], standalone: [AgentSession]) -> [AgentSession] {
+        var merged = sessions
+        for cli in standalone {
+            let cliPID = cli.pid
+            let cliSessionID = cli.providerSessionID
+            let alreadyPresent = merged.contains { existing in
+                if let cp = cliPID, let ep = existing.pid, cp == ep { return true }
+                if let cs = cliSessionID, let es = existing.providerSessionID, cs == es { return true }
+                return false
+            }
+            if !alreadyPresent {
+                merged.append(cli)
+            }
+        }
+        return merged
     }
 }

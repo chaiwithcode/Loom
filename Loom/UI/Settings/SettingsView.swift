@@ -94,7 +94,7 @@ public struct SettingsView: View {
                 Group {
                     switch selectedTab {
                     case .general:
-                        GeneralSettingsTab(settings: settings)
+                        GeneralSettingsTab(settings: settings, store: store)
                     case .providers:
                         ProvidersSettingsTab(settings: settings, store: store, focusedProviderID: initialProviderID)
                     case .sessions:
@@ -102,7 +102,7 @@ public struct SettingsView: View {
                     case .notifications:
                         NotificationsSettingsTab(settings: settings)
                     case .storage:
-                        StorageSettingsTab(hidePaths: settings.hideProjectPaths)
+                        StorageSettingsTab(hidePaths: settings.hideProjectPaths, orderedProviderIDs: settings.orderedProviderIDs)
                     case .privacy:
                         PrivacySettingsTab(settings: settings)
                     case .about:
@@ -124,7 +124,7 @@ public struct SettingsView: View {
                 SettingsWindowBackdrop()
             }
         }
-        .frame(minWidth: 640, idealWidth: 660, minHeight: 460, idealHeight: 560)
+        .frame(minWidth: 640, idealWidth: 660, minHeight: 460, idealHeight: 710)
     }
 }
 
@@ -152,6 +152,11 @@ public struct SettingsFooterView: View {
 
 private struct GeneralSettingsTab: View {
     @Bindable var settings: LoomSettings
+    let store: SessionStore?
+
+    private var hasAvailableProviders: Bool {
+        store?.providerSnapshots.contains(where: { $0.availability.isAvailable }) ?? false
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -205,6 +210,23 @@ private struct GeneralSettingsTab: View {
                     }
                 }
 
+                if settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: hasAvailableProviders) {
+                    GitHubStarInvitationCard(
+                        onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                settings.dismissGitHubStarPrompt()
+                            }
+                        },
+                        onStar: {
+                            NSWorkspace.shared.open(LoomSettings.gitHubRepoURL)
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                settings.dismissGitHubStarPrompt()
+                            }
+                        }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
                 SoftwareUpdatesSettingsSection()
             }
 
@@ -234,9 +256,11 @@ private struct ProvidersSettingsTab: View {
     @Bindable var settings: LoomSettings
     let store: SessionStore?
     let focusedProviderID: ProviderID?
+    @State private var targetedProviderID: ProviderID? = nil
+    @AppStorage("com.loom.defaultToAllProviders") private var defaultToAllProviders: Bool = false
 
     private var supportedProviders: [ProviderRowItem] {
-        let supported = LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })
+        let supported = settings.orderedProviderIDs
         return supported.map { id in
             let snapshot = store?.providerSnapshots.first(where: { $0.providerID == id })
             let displayName = snapshot?.displayName ?? id.displayName
@@ -250,9 +274,20 @@ private struct ProvidersSettingsTab: View {
                 HStack {
                     Text("Default Provider")
                     Spacer(minLength: 16)
-                    Picker("Default Provider", selection: $settings.defaultProviderID) {
-                        ForEach(LoomSettings.defaultProviderIDs.sorted(by: { $0.rawValue < $1.rawValue })) { id in
-                            Text(id.displayName).tag(id)
+                    Picker("Default Provider", selection: Binding<ProviderID?>(
+                        get: { defaultToAllProviders ? nil : settings.defaultProviderID },
+                        set: { newValue in
+                            if let newValue {
+                                defaultToAllProviders = false
+                                settings.defaultProviderID = newValue
+                            } else {
+                                defaultToAllProviders = true
+                            }
+                        }
+                    )) {
+                        Text("All").tag(Optional<ProviderID>.none)
+                        ForEach(settings.orderedProviderIDs) { id in
+                            Text(id.displayName).tag(Optional<ProviderID>.some(id))
                         }
                     }
                     .labelsHidden()
@@ -262,17 +297,37 @@ private struct ProvidersSettingsTab: View {
                 }
             }
 
-            SettingsSection("Monitoring") {
-                ForEach(supportedProviders) { item in
-                    providerRow(item)
+            SettingsSection(
+                "Monitored Providers",
+                subtitle: "Drag to reorder how providers appear across Sessions, Usage, Storage, and Widgets."
+            ) {
+                VStack(spacing: 0) {
+                    ForEach(Array(supportedProviders.enumerated()), id: \.element.id) { index, item in
+                        providerRow(item, index: index, count: supportedProviders.count)
+
+                        if index < supportedProviders.count - 1 {
+                            Divider()
+                                .opacity(0.35)
+                                .padding(.leading, 52)
+                        }
+                    }
                 }
             }
         }
     }
 
-    private func providerRow(_ item: ProviderRowItem) -> some View {
+    private func providerRow(_ item: ProviderRowItem, index: Int, count: Int) -> some View {
         let isEnabled = settings.isProviderEnabled(item.id)
         return HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .frame(width: 16, height: 24)
+                .contentShape(Rectangle())
+                .help("Drag to reorder")
+
+            ProviderIconView(providerID: item.id, size: 18)
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle()
@@ -302,12 +357,64 @@ private struct ProvidersSettingsTab: View {
             .accessibilityIdentifier("toggle-monitor-\(item.id.rawValue)")
             .padding(.top, 2)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .padding(.horizontal, 6)
         .background {
-            if focusedProviderID == item.id {
-                RoundedRectangle(cornerRadius: 6)
+            if targetedProviderID == item.id {
+                RoundedRectangle(cornerRadius: 8)
                     .fill(Color.accentColor.opacity(0.12))
+            } else if focusedProviderID == item.id {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.accentColor.opacity(0.08))
+            }
+        }
+        .draggable(item.id.rawValue)
+        .dropDestination(for: String.self) { droppedIDs, _ in
+            targetedProviderID = nil
+            guard let droppedRaw = droppedIDs.first else { return false }
+            let sourceID = ProviderID(droppedRaw)
+            guard sourceID != item.id,
+                  let sourceIndex = settings.orderedProviderIDs.firstIndex(of: sourceID),
+                  let targetIndex = settings.orderedProviderIDs.firstIndex(of: item.id) else {
+                return false
+            }
+            withAnimation(.snappy(duration: 0.22)) {
+                settings.moveProvider(
+                    fromOffsets: IndexSet(integer: sourceIndex),
+                    toOffset: targetIndex > sourceIndex ? targetIndex + 1 : targetIndex
+                )
+            }
+            return true
+        } isTargeted: { isTargeted in
+            targetedProviderID = isTargeted ? item.id : (targetedProviderID == item.id ? nil : targetedProviderID)
+        }
+        .contextMenu {
+            Button("Move Up") {
+                guard index > 0 else { return }
+                withAnimation(.snappy(duration: 0.22)) {
+                    settings.moveProvider(fromOffsets: IndexSet(integer: index), toOffset: index - 1)
+                }
+            }
+            .disabled(index == 0)
+
+            Button("Move Down") {
+                guard index < count - 1 else { return }
+                withAnimation(.snappy(duration: 0.22)) {
+                    settings.moveProvider(fromOffsets: IndexSet(integer: index), toOffset: index + 2)
+                }
+            }
+            .disabled(index >= count - 1)
+        }
+        .accessibilityAction(named: "Move Up") {
+            guard index > 0 else { return }
+            withAnimation(.snappy(duration: 0.22)) {
+                settings.moveProvider(fromOffsets: IndexSet(integer: index), toOffset: index - 1)
+            }
+        }
+        .accessibilityAction(named: "Move Down") {
+            guard index < count - 1 else { return }
+            withAnimation(.snappy(duration: 0.22)) {
+                settings.moveProvider(fromOffsets: IndexSet(integer: index), toOffset: index + 2)
             }
         }
         .accessibilityIdentifier("provider-row-\(item.id.rawValue)")
@@ -482,7 +589,9 @@ private struct AboutSettingsTab: View {
 
             SettingsSection("Open Source") {
                 HStack(spacing: 16) {
-                    Link("Source Code", destination: URL(string: "https://github.com/chaiwithcode/Loom")!)
+                    Link("Source Code", destination: LoomSettings.gitHubRepoURL)
+                    Spacer(minLength: 0)
+                    Link("Star on GitHub", destination: LoomSettings.gitHubRepoURL)
                     Spacer(minLength: 0)
                     Link("Release Notes", destination: URL(string: "https://github.com/chaiwithcode/Loom/releases")!)
                     Spacer(minLength: 0)
@@ -535,20 +644,29 @@ struct SettingsForm<Content: View>: View {
 struct SettingsSection<Content: View>: View {
     @Environment(\.colorSchemeContrast) private var contrast
     private let title: String?
+    private let subtitle: String?
     private let content: Content
 
-    init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
+    init(_ title: String? = nil, subtitle: String? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.subtitle = subtitle
         self.content = content()
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let title {
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.leading, 3)
             }
             VStack(alignment: .leading, spacing: 14) { content }
                 .frame(maxWidth: .infinity, alignment: .leading)

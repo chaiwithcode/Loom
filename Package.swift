@@ -24,7 +24,7 @@ let package = Package(
             name: "LoomCore",
             dependencies: [],
             path: "Loom",
-            exclude: ["App", "UI", "Update"],
+            exclude: ["App", "UI/MenuBar", "UI/SessionDetail", "UI/Settings", "Update"],
             sources: ["Core", "Providers"]
         ),
         .executableTarget(
@@ -35,7 +35,7 @@ let package = Package(
             ],
             path: "Loom",
             exclude: ["Core", "Providers"],
-            sources: ["App", "UI", "Update"]
+            sources: ["App", "UI/MenuBar", "UI/SessionDetail", "UI/Settings", "Update"]
         ),
         .testTarget(
             name: "LoomCoreTests",
