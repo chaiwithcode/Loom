@@ -186,6 +186,25 @@ public struct MenuBarRootView: View {
                 .frame(height: viewportHeight(for: selectedTab), alignment: .top)
                 .clipped()
 
+                if let settings, settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: !store.enabledSnapshots.isEmpty) {
+                    GitHubStarInvitationCard(
+                        onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                settings.dismissGitHubStarPrompt()
+                            }
+                        },
+                        onStar: {
+                            NSWorkspace.shared.open(LoomSettings.gitHubRepoURL)
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                settings.dismissGitHubStarPrompt()
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                    .background(MenuHeightReader(part: "starCard"))
+                }
+
                 Divider()
 
                 // Footer
@@ -206,8 +225,9 @@ public struct MenuBarRootView: View {
                     contentHeights[tab] = height
                 }
             }
+            let starCard = heights["starCard"] ?? 0
             if let header = heights["header"], let footer = heights["footer"] {
-                let height = header + footer + 2 // The two dividers.
+                let height = header + footer + starCard + 2 // The two dividers.
                 if abs(chromeHeight - height) > 0.5 { chromeHeight = height }
             }
             if let filters = heights["filters"], filters > 0,
@@ -285,7 +305,7 @@ public struct MenuBarRootView: View {
     }
 
     private func providerButton(for snapshot: ProviderSnapshot) -> some View {
-        let isSelected = !isAllProvidersSelected && (resolvedSelectedProviderID == snapshot.id)
+        let isSelected = !isAllProvidersSelected && (selectedProviderID == snapshot.id)
         let sessionCount = filteredSessions(for: snapshot).count
         let needsAttention = snapshot.sessions.contains { $0.state == .waiting || $0.state == .failed }
 
@@ -339,23 +359,6 @@ public struct MenuBarRootView: View {
             agentsTabContent
         } else if tab == .usage {
             usageTabContent
-        }
-
-        if let settings, settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: !store.enabledSnapshots.isEmpty) {
-            GitHubStarInvitationCard(
-                onDismiss: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        settings.dismissGitHubStarPrompt()
-                    }
-                },
-                onStar: {
-                    NSWorkspace.shared.open(LoomSettings.gitHubRepoURL)
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        settings.dismissGitHubStarPrompt()
-                    }
-                }
-            )
-            .padding(.top, 4)
         }
     }
 
@@ -414,6 +417,7 @@ public struct MenuBarRootView: View {
                         snapshot: snapshot,
                         showsSessions: true,
                         showsUsage: false,
+                        showsDiagnostics: false,
                         expandedSessionIds: expandedSessionIds,
                         settings: settings,
                         sessions: sessions,
@@ -441,6 +445,7 @@ public struct MenuBarRootView: View {
                 snapshot: selectedSnapshot,
                 showsSessions: true,
                 showsUsage: false,
+                showsDiagnostics: true,
                 expandedSessionIds: expandedSessionIds,
                 settings: settings,
                 sessions: matchingSessions(for: selectedSnapshot),
@@ -462,9 +467,11 @@ public struct MenuBarRootView: View {
                 }
             )
         }
-        Text("Unknown means Loom cannot determine the session’s state.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        if !isAllProvidersSelected {
+            Text("Unknown means Loom cannot determine the session’s state.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder

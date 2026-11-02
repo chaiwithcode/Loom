@@ -150,6 +150,17 @@ public final class CodexProvider: AgentProvider, Sendable {
             }
         }
 
+        // Filter out bare unidentified helper/daemon processes (e.g. crashpad handlers or idle daemons without metadata)
+        correlatedSessions = correlatedSessions.filter { session in
+            let isBareUnknown = session.state == .unknown
+                && session.projectPath == nil
+                && (session.providerSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && session.discoveryEvidence.contains(where: {
+                    $0.contains("bare process without worker subprocesses or session metadata")
+                })
+            return !isBareUnknown
+        }
+
         let duration = Date().timeIntervalSince(startTime)
         let diagnostics = ProviderDiscoveryDiagnostics(
             processesDetected: processes.count,

@@ -381,6 +381,15 @@ public final class AntigravityProvider: AgentProvider, Sendable {
                 merged.append(cli)
             }
         }
+        merged = merged.filter { session in
+            let isBareUnknown = session.state == .unknown
+                && session.projectPath == nil
+                && (session.providerSessionID?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && session.discoveryEvidence.contains(where: {
+                    $0.contains("bare process without worker subprocesses or session metadata")
+                })
+            return !isBareUnknown
+        }
         return merged
     }
 }

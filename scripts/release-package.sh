@@ -14,7 +14,7 @@ if [[ -f "${ROOT_DIR}/.release.local" ]]; then
     source "${ROOT_DIR}/.release.local"
 fi
 
-VERSION="${1:-${VERSION:-2.1.0}}"
+VERSION="${1:-${VERSION:-2.2.0}}"
 SKIP_NOTARIZATION="${SKIP_NOTARIZATION:-0}"
 for arg in "$@"; do
     if [[ "${arg}" == "--skip-notarization" ]]; then

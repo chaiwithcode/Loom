@@ -155,11 +155,31 @@ public final class AntigravityCLIDetector: Sendable {
         var matchedUUIDs = Set<String>()
 
         // 2. Pair running `agy` processes with the most recently modified transcript
+        let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let recentThreshold = Date().addingTimeInterval(-300) // 5 minutes
+
         for (index, proc) in liveAgyProcs.enumerated() {
             let parentT3 = ProcessTreeScanner.findAncestor(of: proc.pid, in: processTable, matching: t3RootPIDs)
             let surface: AgentSurface = parentT3 != nil ? .t3Orchestrated : .cli
 
             let transcriptEntry = index < recentTranscripts.count ? recentTranscripts[index] : nil
+            let normalizedCwd = proc.cwd.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+
+            // Filter out background agy helper processes whose cwd == "/" or cwd == homePath if they have no matching transcript
+            if transcriptEntry == nil && (normalizedCwd == nil || normalizedCwd == "/" || normalizedCwd == homePath) {
+                continue
+            }
+
+            // Even if transcriptEntry exists, if cwd == homePath or "/", require the transcript to have been modified recently
+            if let entry = transcriptEntry {
+                if normalizedCwd == "/" {
+                    continue
+                }
+                if normalizedCwd == homePath && entry.mtime < recentThreshold {
+                    continue
+                }
+            }
+
             let uuid = transcriptEntry?.uuid ?? "agy-pid-\(proc.pid)"
 
             if let entry = transcriptEntry {
@@ -170,7 +190,15 @@ public final class AntigravityCLIDetector: Sendable {
             }
 
             let resolvedCWD = proc.cwd ?? cwdCache.withLock { $0[uuid] }
-            let projectName = resolvedCWD.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "agy"
+            let projectName: String = {
+                guard let path = resolvedCWD else { return "agy" }
+                let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+                if URL(fileURLWithPath: path).standardizedFileURL.path == homePath {
+                    return "Home (~)"
+                }
+                let rawName = URL(fileURLWithPath: path).lastPathComponent
+                return (rawName.isEmpty || rawName == "/") ? "agy" : rawName
+            }()
 
             var state: AgentRunState = .idle
             var lastUpdated = Date()
@@ -212,7 +240,15 @@ public final class AntigravityCLIDetector: Sendable {
         for entry in recentTranscripts where !matchedUUIDs.contains(entry.uuid) {
             guard Calendar.current.isDateInToday(entry.mtime) else { continue }
             let cachedCWD = cwdCache.withLock { $0[entry.uuid] }
-            let projectName = cachedCWD.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "agy-session"
+            let projectName: String = {
+                guard let path = cachedCWD else { return "agy-session" }
+                let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+                if URL(fileURLWithPath: path).standardizedFileURL.path == homePath {
+                    return "Home (~)"
+                }
+                let rawName = URL(fileURLWithPath: path).lastPathComponent
+                return (rawName.isEmpty || rawName == "/") ? "agy-session" : rawName
+            }()
 
             results.append(
                 AgentSessionStatus(

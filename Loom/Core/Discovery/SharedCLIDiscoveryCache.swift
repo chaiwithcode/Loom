@@ -98,7 +98,17 @@ public actor SharedCLIDiscoveryCache {
         let mappedState = mapState(status.state)
 
         let rawProjectName = status.projectName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let projectName = (rawProjectName.isEmpty || rawProjectName == "/") ? "\(providerID.displayName) Session" : rawProjectName
+        let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let isHomeDir = status.workspacePath.map { URL(fileURLWithPath: $0).standardizedFileURL.path == homePath } ?? false
+        let projectName: String = {
+            if isHomeDir || rawProjectName == "Home (~)" {
+                return "Home (~)"
+            }
+            if rawProjectName.isEmpty || rawProjectName == "/" {
+                return "\(providerID.displayName) Session"
+            }
+            return rawProjectName
+        }()
 
         let safeWorkspacePath: String? = {
             guard let path = status.workspacePath, !path.isEmpty, path != "/" else { return nil }

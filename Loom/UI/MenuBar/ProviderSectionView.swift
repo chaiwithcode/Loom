@@ -13,6 +13,7 @@ public struct ProviderSectionView: View {
     public let snapshot: ProviderSnapshot
     public let showsSessions: Bool
     public let showsUsage: Bool
+    public var showsDiagnostics: Bool
     public let expandedSessionIds: Set<String>
     public let settings: LoomSettings?
     public let sessions: [AgentSession]?
@@ -29,6 +30,7 @@ public struct ProviderSectionView: View {
         snapshot: ProviderSnapshot,
         showsSessions: Bool = true,
         showsUsage: Bool = true,
+        showsDiagnostics: Bool = true,
         expandedSessionIds: Set<String> = [],
         settings: LoomSettings? = nil,
         sessions: [AgentSession]? = nil,
@@ -41,6 +43,7 @@ public struct ProviderSectionView: View {
         self.snapshot = snapshot
         self.showsSessions = showsSessions
         self.showsUsage = showsUsage
+        self.showsDiagnostics = showsDiagnostics
         self.expandedSessionIds = expandedSessionIds
         self.settings = settings
         self.sessions = sessions
@@ -310,10 +313,12 @@ public struct ProviderSectionView: View {
                     .padding(.vertical, 4)
                 }
 
-                DiagnosticsDisclosureView(
-                    snapshot: snapshot,
-                    hideProjectPaths: settings?.hideProjectPaths ?? false
-                )
+                if showsDiagnostics {
+                    DiagnosticsDisclosureView(
+                        snapshot: snapshot,
+                        hideProjectPaths: settings?.hideProjectPaths ?? false
+                    )
+                }
             }
 
             if showsUsage, let usage = snapshot.usage, !usage.additionalGroups.isEmpty {

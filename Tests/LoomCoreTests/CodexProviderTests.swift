@@ -301,14 +301,7 @@ final class CodexProviderTests: XCTestCase {
         let provider = CodexProvider(processDiscoverer: discoverer, gitResolver: gitResolver)
 
         let sessions = try await provider.discoverSessions()
-        XCTAssertEqual(sessions.count, 1)
-
-        let session = sessions[0]
-        XCTAssertEqual(session.projectName, "Codex Session")
-        XCTAssertNil(session.projectPath)
-        XCTAssertNil(session.branch)
-        XCTAssertEqual(session.pid, 3001)
-        XCTAssertNil(session.summary)
+        XCTAssertTrue(sessions.isEmpty, "Bare unknown processes with nil cwd and no metadata must be filtered out")
     }
 
     // MARK: - Helper Rejection and Path Edge Cases
@@ -426,7 +419,7 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testCodexProviderPopulatesPIDAndPreventsRootCwd() async throws {
-        // When cwd is root '/', provider must not present project name or path as '/'
+        // When cwd is root '/' and process has no session metadata, it must be filtered out as a bare helper
         let rootURL = URL(fileURLWithPath: "/")
         let process = CodexProcessInfo(
             pid: 4567,
@@ -440,13 +433,7 @@ final class CodexProviderTests: XCTestCase {
         let provider = CodexProvider(processDiscoverer: discoverer, gitResolver: gitResolver)
 
         let sessions = try await provider.discoverSessions()
-        XCTAssertEqual(sessions.count, 1)
-
-        let session = sessions[0]
-        XCTAssertEqual(session.pid, 4567)
-        XCTAssertEqual(session.projectName, "Codex Session")
-        XCTAssertNil(session.projectPath, "Project path must be nil rather than root '/'")
-        XCTAssertNil(session.summary, "Raw PID summary filler should be omitted")
+        XCTAssertTrue(sessions.isEmpty, "Bare process with root cwd and no metadata must be filtered out")
     }
 
     func testCodexProviderUsesExtractedWorkspaceWhenCwdIsRoot() async throws {
