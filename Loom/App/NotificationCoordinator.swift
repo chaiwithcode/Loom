@@ -52,6 +52,10 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
 
     public static let categoryIdentifier = "LOOM_NOTIFICATION_CATEGORY"
     public static let openActionIdentifier = "LOOM_ACTION_VIEW"
+    public static let gitHubStarCategoryIdentifier = "LOOM_GITHUB_STAR_CATEGORY"
+    public static let starOnGitHubActionIdentifier = "STAR_ON_GITHUB_ACTION"
+    public static let dismissStarActionIdentifier = "DISMISS_STAR_ACTION"
+    public static let gitHubStarReminderIdentifier = "com.loom.github-star-reminder"
     public static let deepLinkNotification = Notification.Name("com.loom.notificationDeepLink")
 
     public private(set) var lastDeepLinkPayload: DeepLinkPayload?
@@ -79,6 +83,7 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
         self.transitionDetector = transitionDetector
         self.policy = NotificationPolicy()
         super.init()
+        setupCategories()
     }
 
     public func configure(settings: LoomSettings, store: SessionStore? = nil) {
@@ -116,9 +121,12 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
         // LoomApp owns provider enablement so it can update monitoring.
         // Notification policy reads enabled providers before each evaluation.
 
+        setupCategories()
+
         if let store {
             connect(to: store)
         }
+        checkAndScheduleGitHubStarReminder()
     }
 
     public func connect(to store: SessionStore) {
@@ -132,13 +140,69 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
             title: "View in Loom",
             options: [.foreground]
         )
-        let category = UNNotificationCategory(
+        let mainCategory = UNNotificationCategory(
             identifier: Self.categoryIdentifier,
             actions: [viewAction],
             intentIdentifiers: [],
             options: [.customDismissAction]
         )
-        center.setNotificationCategories([category])
+
+        let starAction = UNNotificationAction(
+            identifier: Self.starOnGitHubActionIdentifier,
+            title: "Star on GitHub",
+            options: [.foreground],
+            icon: UNNotificationActionIcon(systemImageName: "star.fill")
+        )
+        let laterAction = UNNotificationAction(
+            identifier: Self.dismissStarActionIdentifier,
+            title: "Maybe Later",
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "clock")
+        )
+        let starCategory = UNNotificationCategory(
+            identifier: Self.gitHubStarCategoryIdentifier,
+            actions: [starAction, laterAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+
+        center.setNotificationCategories([mainCategory, starCategory])
+    }
+
+    public func checkAndScheduleGitHubStarReminder() {
+        guard let settings else { return }
+        guard !settings.hasSentGitHubStarNotification else { return }
+        let hasAvailableProviders = store?.enabledSnapshots.isEmpty == false
+        guard settings.isEligibleForGitHubStarPrompt(hasAvailableProviders: hasAvailableProviders) else { return }
+
+        settings.hasSentGitHubStarNotification = true
+
+        Task { @MainActor in
+            setupCategories()
+            let status = await checkAuthorizationStatus()
+            guard status == .authorized || status == .provisional else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Support Loom on GitHub ⭐"
+            content.subtitle = "github.com/chaiwithcode/Loom"
+            content.body = "Star the repository to help other macOS developers discover Loom."
+            content.categoryIdentifier = Self.gitHubStarCategoryIdentifier
+            content.sound = nil
+            content.interruptionLevel = .passive
+            content.threadIdentifier = "com.loom.community"
+            content.userInfo = [
+                NotificationPayloadKey.targetTab: "settings",
+                NotificationPayloadKey.eventType: "github-star-reminder"
+            ]
+
+            let request = UNNotificationRequest(
+                identifier: Self.gitHubStarReminderIdentifier,
+                content: content,
+                trigger: nil
+            )
+
+            try? await center.add(request)
+        }
     }
 
     public func checkAuthorizationStatus() async -> NotificationAuthorizationStatus {
@@ -332,6 +396,7 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
     }
 
     public func processStoreUpdate() {
+        checkAndScheduleGitHubStarReminder()
         guard let store, !store.fixture.isDemo, let settings, settings.notificationsEnabled else { return }
         updatePolicyFromSettings()
 
@@ -433,6 +498,25 @@ public final class NotificationCoordinator: NSObject, UNUserNotificationCenterDe
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        let request = response.notification.request
+        let categoryID = request.content.categoryIdentifier
+        let actionID = response.actionIdentifier
+
+        if categoryID == Self.gitHubStarCategoryIdentifier || request.identifier == Self.gitHubStarReminderIdentifier {
+            Task { @MainActor in
+                if actionID == Self.starOnGitHubActionIdentifier || actionID == UNNotificationDefaultActionIdentifier {
+                    if let url = LoomSettings.gitHubRepoURL as URL? {
+                        NSWorkspace.shared.open(url)
+                    }
+                    self.settings?.markGitHubStarCompleted()
+                } else if actionID == Self.dismissStarActionIdentifier || actionID == UNNotificationDismissActionIdentifier {
+                    self.settings?.dismissGitHubStarPrompt()
+                }
+                completionHandler()
+            }
+            return
+        }
+
         let userInfo = response.notification.request.content.userInfo
         let targetTab = userInfo[NotificationPayloadKey.targetTab] as? String ?? "sessions"
         let providerRaw = userInfo[NotificationPayloadKey.providerID] as? String

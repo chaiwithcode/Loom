@@ -130,19 +130,31 @@ public final class CodexCLIDetector: Sendable {
         var results: [AgentSessionStatus] = []
 
         // 3. Match live processes to their active rollout transcript by CWD
+        let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let recentThreshold = Date().addingTimeInterval(-300) // 5 minutes
+
         for proc in liveCodexProcs {
             let parentT3 = ProcessTreeScanner.findAncestor(of: proc.pid, in: processTable, matching: t3RootPIDs)
             let surface: AgentSurface = parentT3 != nil ? .t3Orchestrated : .cli
 
+            let normalizedCwd = proc.cwd.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+
             let matchingRollout = parsedRollouts.first { candidate in
                 guard !matchedRolloutURLs.contains(candidate.url) else { return false }
                 guard let procCWD = proc.cwd, let fileCWD = candidate.parsed.cwd else { return false }
-                return Self.normalizePath(procCWD) == Self.normalizePath(fileCWD)
+                guard Self.normalizePath(procCWD) == Self.normalizePath(fileCWD) else { return false }
+
+                if normalizedCwd == "/" {
+                    return false
+                }
+                if normalizedCwd == homePath {
+                    return candidate.snapshot.modifiedAt >= recentThreshold && candidate.parsed.cwd == homePath
+                }
+                return true
             }
 
-            // Filter out background codex helper processes whose cwd == "/" if they have no matching transcript
-            let isRootOrEmptyCWD = proc.cwd == nil || proc.cwd == "/" || proc.cwd?.isEmpty == true
-            if isRootOrEmptyCWD && matchingRollout == nil {
+            // Filter out background codex helper processes whose cwd == "/" or cwd == homePath if they have no matching transcript
+            if matchingRollout == nil && (normalizedCwd == nil || normalizedCwd == "/" || normalizedCwd == homePath) {
                 continue
             }
 
@@ -162,6 +174,10 @@ public final class CodexCLIDetector: Sendable {
 
             let projectName: String = {
                 if let path = resolvedCWD {
+                    let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+                    if URL(fileURLWithPath: path).standardizedFileURL.path == homePath {
+                        return "Home (~)"
+                    }
                     let rawName = URL(fileURLWithPath: path).lastPathComponent
                     return (rawName.isEmpty || rawName == "/") ? "Codex Session" : rawName
                 }
@@ -206,6 +222,10 @@ public final class CodexCLIDetector: Sendable {
             }()
             let projectName: String = {
                 if let path = cwd {
+                    let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+                    if URL(fileURLWithPath: path).standardizedFileURL.path == homePath {
+                        return "Home (~)"
+                    }
                     let rawName = URL(fileURLWithPath: path).lastPathComponent
                     return (rawName.isEmpty || rawName == "/") ? "Codex Session" : rawName
                 }

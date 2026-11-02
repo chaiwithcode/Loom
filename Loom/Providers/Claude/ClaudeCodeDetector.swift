@@ -133,14 +133,32 @@ public final class ClaudeCodeDetector: Sendable {
         var results: [AgentSessionStatus] = []
 
         // 3. Bind live `claude` processes to their active transcript
+        let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let recentThreshold = Date().addingTimeInterval(-300) // 5 minutes
+
         for proc in liveClaudeProcs {
             let parentT3 = ProcessTreeScanner.findAncestor(of: proc.pid, in: processTable, matching: t3RootPIDs)
             let surface: AgentSurface = parentT3 != nil ? .t3Orchestrated : .cli
 
+            let normalizedCwd = proc.cwd.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+
             let matchingFile = parsedFiles.first { candidate in
                 guard !matchedURLs.contains(candidate.url) else { return false }
                 guard let procCWD = proc.cwd, let fileCWD = candidate.parsed.cwd else { return false }
-                return Self.normalizePath(procCWD) == Self.normalizePath(fileCWD)
+                guard Self.normalizePath(procCWD) == Self.normalizePath(fileCWD) else { return false }
+
+                if normalizedCwd == "/" {
+                    return false
+                }
+                if normalizedCwd == homePath {
+                    return candidate.snapshot.modifiedAt >= recentThreshold && candidate.parsed.cwd == homePath
+                }
+                return true
+            }
+
+            // Filter out background claude helper processes whose cwd == "/" or cwd == homePath if they have no matching transcript
+            if matchingFile == nil && (normalizedCwd == nil || normalizedCwd == "/" || normalizedCwd == homePath) {
+                continue
             }
 
             if let match = matchingFile {
@@ -148,7 +166,15 @@ public final class ClaudeCodeDetector: Sendable {
             }
 
             let resolvedCWD = proc.cwd ?? matchingFile?.parsed.cwd
-            let projectName = resolvedCWD.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "claude"
+            let projectName: String = {
+                guard let path = resolvedCWD else { return "claude" }
+                let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+                if URL(fileURLWithPath: path).standardizedFileURL.path == homePath {
+                    return "Home (~)"
+                }
+                let rawName = URL(fileURLWithPath: path).lastPathComponent
+                return (rawName.isEmpty || rawName == "/") ? "claude" : rawName
+            }()
             let hasActiveChild = processTable.values.contains { $0.ppid == proc.pid }
 
             let state = inferClaudeState(
@@ -181,7 +207,15 @@ public final class ClaudeCodeDetector: Sendable {
         for item in parsedFiles where !matchedURLs.contains(item.url) {
             guard Calendar.current.isDateInToday(item.snapshot.modifiedAt) else { continue }
             let cwd = item.parsed.cwd
-            let projectName = cwd.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "claude"
+            let projectName: String = {
+                guard let path = cwd else { return "claude" }
+                let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+                if URL(fileURLWithPath: path).standardizedFileURL.path == homePath {
+                    return "Home (~)"
+                }
+                let rawName = URL(fileURLWithPath: path).lastPathComponent
+                return (rawName.isEmpty || rawName == "/") ? "claude" : rawName
+            }()
             let sessionID = item.parsed.sessionID ?? item.url.deletingPathExtension().lastPathComponent
 
             results.append(

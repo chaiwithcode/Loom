@@ -178,6 +178,8 @@ public final class LoomSettings {
     public nonisolated static let defaultMenuBarStatusMode: MenuBarStatusMode = .iconOnly
     public nonisolated static let hasDismissedGitHubStarPromptKey = "com.loom.hasDismissedGitHubStarPrompt"
     public nonisolated static let defaultHasDismissedGitHubStarPrompt: Bool = false
+    public nonisolated static let hasSentGitHubStarNotificationKey = "com.loom.hasSentGitHubStarNotification"
+    public nonisolated static let defaultHasSentGitHubStarNotification: Bool = false
     public nonisolated static let firstLaunchDateKey = "com.loom.firstLaunchDate"
     public nonisolated static let distinctObservedSessionIDsKey = "com.loom.distinctObservedSessionIDs"
     public nonisolated static let gitHubRepoURL = URL(string: "https://github.com/chaiwithcode/Loom")!
@@ -329,6 +331,12 @@ public final class LoomSettings {
             if hasDismissedGitHubStarPrompt != oldValue {
                 onHasDismissedGitHubStarPromptChanged?(hasDismissedGitHubStarPrompt)
             }
+        }
+    }
+
+    public var hasSentGitHubStarNotification: Bool {
+        didSet {
+            defaults.set(hasSentGitHubStarNotification, forKey: Self.hasSentGitHubStarNotificationKey)
         }
     }
 
@@ -573,6 +581,13 @@ public final class LoomSettings {
             self.hasDismissedGitHubStarPrompt = Self.defaultHasDismissedGitHubStarPrompt
         }
 
+        // hasSentGitHubStarNotification: validate boolean type, default false
+        if let num = defaults.object(forKey: Self.hasSentGitHubStarNotificationKey) as? NSNumber {
+            self.hasSentGitHubStarNotification = num.boolValue
+        } else {
+            self.hasSentGitHubStarNotification = Self.defaultHasSentGitHubStarNotification
+        }
+
         // firstLaunchDate: retrieve stored date or record current date
         if let storedDate = defaults.object(forKey: Self.firstLaunchDateKey) as? Date {
             self.firstLaunchDate = storedDate
@@ -694,6 +709,7 @@ public final class LoomSettings {
         minimumWorkingDuration = Self.defaultMinimumWorkingDuration
         menuBarStatusMode = Self.defaultMenuBarStatusMode
         hasDismissedGitHubStarPrompt = Self.defaultHasDismissedGitHubStarPrompt
+        hasSentGitHubStarNotification = Self.defaultHasSentGitHubStarNotification
     }
 
     public func moveProvider(fromOffsets source: IndexSet, toOffset destination: Int) {
@@ -721,6 +737,10 @@ public final class LoomSettings {
         }
     }
 
+    public var shouldShowGitHubStarInvitation: Bool {
+        isEligibleForGitHubStarPrompt()
+    }
+
     public func isEligibleForGitHubStarPrompt(hasAvailableProviders: Bool = true, now: Date = Date()) -> Bool {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--force-github-star-card") ||
@@ -737,6 +757,10 @@ public final class LoomSettings {
     }
 
     public func dismissGitHubStarPrompt() {
+        hasDismissedGitHubStarPrompt = true
+    }
+
+    public func markGitHubStarCompleted() {
         hasDismissedGitHubStarPrompt = true
     }
 

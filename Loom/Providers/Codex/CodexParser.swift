@@ -78,6 +78,13 @@ public struct CodexParser: Sendable {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
+        let lower = trimmed.lowercased()
+        if lower.contains("crashpad_handler") ||
+           lower.contains("framework.framework") ||
+           lower.contains("helpers/") {
+            return false
+        }
+
         // 1. Match genuine node / deno / bun script execution
         if matchesNodeOrDenoOrBunScript(trimmed) {
             return true

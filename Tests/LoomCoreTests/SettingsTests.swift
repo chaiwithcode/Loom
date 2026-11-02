@@ -887,4 +887,25 @@ final class SettingsTests: XCTestCase {
         let updatedWidgetSnapshot = LoomWidgetSnapshot.make(from: store)
         XCTAssertEqual(updatedWidgetSnapshot.providers.map { ProviderID($0.id) }, [.t3Code, .antigravity, .claude, .codex], "Widget snapshot must update after reordering")
     }
+
+    @MainActor
+    func testGitHubStarNotificationPersistenceAndOneTimeGating() throws {
+        let settings = LoomSettings(defaults: testDefaults)
+        XCTAssertFalse(settings.hasSentGitHubStarNotification, "Default hasSentGitHubStarNotification must be false")
+
+        // Persist true
+        settings.hasSentGitHubStarNotification = true
+        XCTAssertTrue(settings.hasSentGitHubStarNotification)
+        XCTAssertTrue(testDefaults.bool(forKey: LoomSettings.hasSentGitHubStarNotificationKey))
+
+        // Verify restoration from defaults
+        let reloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertTrue(reloaded.hasSentGitHubStarNotification)
+
+        // Reset to defaults resets back to false
+        settings.resetToDefaults()
+        XCTAssertFalse(settings.hasSentGitHubStarNotification)
+        let resetReloaded = LoomSettings(defaults: testDefaults)
+        XCTAssertFalse(resetReloaded.hasSentGitHubStarNotification)
+    }
 }
